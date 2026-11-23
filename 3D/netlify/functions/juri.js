@@ -6,16 +6,9 @@ exports.handler = async (event) => {
     "Content-Type": "application/json",
   };
 
-  if (event.httpMethod === "OPTIONS") {
-    return { statusCode: 200, headers, body: "" };
-  }
-
+  if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers, body: "" };
   if (event.httpMethod !== "POST") {
-    return {
-      statusCode: 405,
-      headers,
-      body: JSON.stringify({ error: "Method Not Allowed" }),
-    };
+    return { statusCode: 405, headers, body: JSON.stringify({ error: "Method Not Allowed" }) };
   }
 
   try {
@@ -26,24 +19,16 @@ exports.handler = async (event) => {
 
     const geminiApiKey = process.env.GEMINI_API_KEY?.trim();
     const azureSpeechKey = process.env.AZURE_SPEECH_KEY?.trim();
-    const azureSpeechRegion = process.env.AZURE_SPEECH_REGION
-      ?.trim()
-      .toLowerCase()
-      .replace(/\s+/g, "");
+    const azureSpeechRegion = process.env.AZURE_SPEECH_REGION?.trim().toLowerCase().replace(/\s+/g, "");
 
     let rawReply = speakOnlyText;
 
-    // 1. หากไม่ใช่โหมดอ่านการ์ดโดยตรง ให้ส่งไปถาม Gemini
     if (!rawReply) {
       if (!message) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ error: "Message is required" }),
-        };
+        return { statusCode: 400, headers, body: JSON.stringify({ error: "Message is required" }) };
       }
       if (!geminiApiKey) {
-        throw new Error("Missing GEMINI_API_KEY");
+        throw new Error("Missing GEMINI_API_KEY in Netlify Functions");
       }
 
       const systemInstruction = `You are JURI AI, the voice assistant for Suhaimee Jehhae's 3D Engineering & Cybersecurity portfolio (ซูฮัยมี เจะแฮ / เบิ้ม, MES Engineer & Cybersecurity specialist). Speak like a smart, warm, calm young tech guy. Reply strictly in 1 to 3 concise natural spoken sentences in the same language as the user (Thai or English). Never use markdown, symbols, or bullet points.`;
@@ -56,50 +41,45 @@ exports.handler = async (event) => {
         { role: "user", parts: [{ text: message }] },
       ];
 
-      const geminiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            system_instruction: { parts: [{ text: systemInstruction }] },
-            contents,
-            generationConfig: {
-              temperature: 0.7,
-              maxOutputTokens: 280,
-            },
-          }),
-        }
-      );
+      const models = ["gemini-2.5-flash", "gemini-2.0-flash"];
+      let lastGeminiError = "Gemini API error";
 
-      const geminiData = await geminiRes.json();
-      if (!geminiRes.ok) {
-        throw new Error(geminiData.error?.message || "Gemini API error");
+      for (const model of models) {
+        const geminiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              system_instruction: { parts: [{ text: systemInstruction }] },
+              contents,
+              generationConfig: { temperature: 0.7, maxOutputTokens: 280 },
+            }),
+          }
+        );
+
+        const geminiData = await geminiRes.json();
+        if (geminiRes.ok) {
+          rawReply = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          if (rawReply) break;
+        } else {
+          lastGeminiError = `[${model}] ${geminiData.error?.message || geminiRes.status}`;
+          console.error("Gemini attempt failed:", lastGeminiError);
+        }
       }
 
-      rawReply =
-        geminiData.candidates?.[0]?.content?.parts?.[0]?.text ||
-        "ขออภัยครับ ตอนนี้ระบบประมวลผลไม่ทัน ลองถามใหม่อีกครั้งนะครับ";
+      if (!rawReply) {
+        throw new Error(lastGeminiError);
+      }
     }
 
-    // ล้างสัญลักษณ์พิเศษออกเพื่อให้อ่านเสียงลื่นไหล
-    const cleanText = rawReply
-      .replace(/[*#_`~>•-]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-
-    // 2. สังเคราะห์เสียงผู้ชาย นุ่ม วัยรุ่น ฉลาด ด้วย Microsoft Azure Speech
+    const cleanText = rawReply.replace(/[*#_`~>•-]/g, " ").replace(/\s+/g, " ").trim();
     let audioBase64 = null;
-    let ttsStatus = "missing_azure_config";
 
     if (azureSpeechKey && azureSpeechRegion && cleanText) {
       const hasThai = /[\u0E00-\u0E7F]/.test(cleanText);
       const lang = hasThai ? "th-TH" : "en-US";
-      const voiceName = hasThai
-        ? "th-TH-NiwatNeural"
-        : "en-US-AndrewMultilingualNeural";
-
-      // ปรับโทนให้เด็กลง นุ่มขึ้น และจังหวะพูดกระชับดูฉลาด
+      const voiceName = hasThai ? "th-TH-NiwatNeural" : "en-US-AndrewMultilingualNeural";
       const pitch = hasThai ? "+6%" : "+3%";
       const rate = hasThai ? "+5%" : "+4%";
 
@@ -129,10 +109,8 @@ exports.handler = async (event) => {
       if (ttsRes.ok) {
         const audioBuffer = await ttsRes.arrayBuffer();
         audioBase64 = Buffer.from(audioBuffer).toString("base64");
-        ttsStatus = "ok";
       } else {
         const errText = await ttsRes.text();
-        ttsStatus = `azure_error_${ttsRes.status}`;
         console.error("Azure TTS Error:", ttsRes.status, errText);
       }
     }
@@ -144,11 +122,10 @@ exports.handler = async (event) => {
         reply: rawReply,
         audioBase64,
         mimeType: "audio/mpeg",
-        ttsStatus,
       }),
     };
   } catch (error) {
-    console.error("Function Error:", error);
+    console.error("Function Error:", error.message);
     return {
       statusCode: 500,
       headers,
