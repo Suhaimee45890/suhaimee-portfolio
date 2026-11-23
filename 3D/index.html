@@ -3151,9 +3151,9 @@
     setOrbState('idle', '');
   }
 
-  function playAzureAudio(audioBase64) {
+  function playAzureAudio(audioBase64, ttsError) {
     if (!audioBase64) {
-      setOrbState('idle', 'AUDIO UNAVAILABLE', 2200);
+      setOrbState('idle', ttsError || 'AUDIO UNAVAILABLE', 3500);
       return;
     }
     isUnlockingAudio = false;
@@ -3164,6 +3164,7 @@
       setOrbState('idle', 'TAP TO PLAY', 2200);
     });
   }
+   
 
   juriAudio.onended = () => {
     if (isUnlockingAudio) return;
@@ -3204,7 +3205,7 @@
         );
       }
 
-      playAzureAudio(data.audioBase64);
+     playAzureAudio(data.audioBase64, data.ttsError);
     } catch (err) {
       console.error('JURI Voice Error:', err);
       setOrbState('idle', 'CONNECTION ERROR', 2500);
@@ -3234,7 +3235,7 @@
       if (data.audioBase64) {
         try { sessionStorage.setItem(cacheKey, data.audioBase64); } catch (_) {}
       }
-      playAzureAudio(data.audioBase64);
+     playAzureAudio(data.audioBase64, data.ttsError);
     } catch (err) {
       console.error('Card Brief Error:', err);
       setOrbState('idle', 'VOICE ERROR', 2200);
