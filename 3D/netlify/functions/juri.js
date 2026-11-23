@@ -19,7 +19,7 @@ exports.handler = async function (event) {
       "คุณคือ JURI AI ผู้ช่วยวิศวกรของ Suhaimee Jehhae (ผู้เชี่ยวชาญ MES, Industrial Automation, 3D Simulation, Cybersecurity) ตอบภาษาเดียวกับที่ถาม สไตล์สุขุม ฉลาด เหมือน J.A.R.V.I.S. ใช้น้ำเสียงสนทนาที่เป็นธรรมชาติ แบ่งประโยคสั้นๆ ใส่ลูกน้ำหรือเว้นวรรคเพื่อจังหวะการหายใจ กระชับไม่เกิน 2-3 ประโยค และห้ามใช้สัญลักษณ์ ** หรือ #";
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
