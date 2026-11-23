@@ -2126,12 +2126,15 @@
       const btnWire = document.getElementById('btn-hero-wireframe');
       const btnOverdrive = document.getElementById('btn-hero-overdrive');
 
-      btnExplode?.addEventListener('click', (e) => {
+        
+        btnExplode?.addEventListener('click', (e) => {
         e.stopPropagation();
         heroScene.exploded = !heroScene.exploded;
         btnExplode.classList.toggle('is-engaged', heroScene.exploded);
         sfx.toggleRelay(heroScene.exploded);
         updateGyroModeReadout();
+        if (window.JURI) window.JURI.explode(heroScene.exploded);
+      });
       });
 
       btnWire?.addEventListener('click', (e) => {
@@ -3086,18 +3089,60 @@
 
 <script>
 (function () {
+  // =========================================================================
+  // 1. คลังบทพูดมาตรฐานของ JURI (รองรับเพิ่มผลงานใหม่ 07, 08... อัตโนมัติ)
+  // =========================================================================
+  const JURI_SCRIPTS = {
+    welcome:
+      'สวัสดีครับ ผม Juri ระบบวิเคราะห์กลไกประจำคลังผลงานของ Suhaimi พร้อมทำงานครับ — คุณสามารถหมุนสำรวจชุดไจโรสโคปด้านขวา หรือเลือกดูโครงสร้างภายในของระบบทั้งหมดด้านล่างได้เลยครับ',
+    explode:
+      'กำลังแยกชั้นวงแหวนกิมบอลตามแนวแกน Z เพื่อแสดงระยะห่างระหว่างโครงสร้างภายนอกกับแกนเซนเซอร์กลางครับ',
+    assemble:
+      'กำลังประกอบโครงสร้างวงแหวนกิมบอลกลับเข้าสู่แกนสมดุลเดิมครับ',
+    projects: {
+      '01': 'ระบบที่ 01 เครื่องยนต์เทอร์โบแฟนอัตราส่วนบายพาสสูงครับ — อากาศส่วนใหญ่จะไหลผ่านช่องบายพาสด้านนอกเพื่อสร้างแรงขับหลัก ทำให้ประหยัดเชื้อเพลิงและเงียบกว่าเครื่องยนต์เจ็ททั่วไปครับ',
+      '02': 'ระบบที่ 02 กลไกส่งแก๊สโดยตรงครับ — แรงดันแก๊สจากลำกล้องจะวิ่งย้อนผ่านท่อขนาดเล็กเข้าดันชุดโครงลูกเลื่อนครบวงจร 8 ขั้นตอน ลดน้ำหนักชิ้นส่วนด้านหน้าให้สมดุลครับ',
+      '03': 'ระบบที่ 03 สถาปัตยกรรมรถยนต์ไฟฟ้าขยายระยะทางครับ — เครื่องยนต์ทำหน้าที่ปั่นไฟเข้าแบตเตอรี่แรงดันสูงอย่างเดียว ส่วนการขับเคลื่อนล้อใช้มอเตอร์ไฟฟ้า 100 เปอร์เซ็นต์ครับ',
+      '04': 'ระบบที่ 04 แขนกลอุตสาหกรรม 6 แกนครับ — คำนวณตำแหน่งปลายแขนแบบ Inverse Kinematics ให้เคลื่อนที่แม่นยำระดับบวกลบ 0.02 มิลลิเมตรครับ',
+      '05': 'ระบบที่ 05 แบบจำลองการทำงานร่วมกันของหัวใจและปอดครับ — แสดงจังหวะการสูบฉีดเลือดสัมพันธ์กับการแลกเปลี่ยนออกซิเจนแบบเรียลไทม์ครับ',
+      '06': 'ระบบที่ 06 ถังกรองน้ำแรงดันสูง 4 ชั้นสารกรองครับ — เรียงชั้นสารกรองตามความถ่วงจำเพาะ พร้อมวาล์วสลับโหมดล้างย้อนกลับเพื่อฟื้นฟูชั้นกรองได้ทันทีครับ',
+    },
+  };
+
+  // ดึงรายการผลงานทั้งหมดจาก JSON ด้านบนอัตโนมัติ (เพิ่ม 07, 08 ใน JSON แล้ว JURI รู้จักทันที)
+  let portfolioWorks = [];
+  try {
+    const rawJson = document.getElementById('suhaime-portfolio-data')?.textContent || '{}';
+    const parsed = JSON.parse(rawJson);
+    if (Array.isArray(parsed.works)) portfolioWorks = parsed.works;
+  } catch (_) {}
+
+  // =========================================================================
+  // 2. ตัวจัดการเสียงและสถานะ (เสถียรทั้งคอมและมือถือ iOS / Android)
+  // =========================================================================
   const wrap = document.getElementById('juri-orb-wrap');
   const fab = document.getElementById('juri-fab');
   const statusEl = document.getElementById('juri-orb-status');
 
-  // ตัวเล่นเสียง MP3 เดียวสำหรับทั้งคอมและมือถือ (ไม่ใช้ speechSynthesis ของเครื่อง)
+  const ENDPOINT = '/.netlify/functions/juri';
+  const SILENT_WAV =
+    'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+
   const juriAudio = new Audio();
   juriAudio.preload = 'auto';
+  juriAudio.playsInline = true;
+
+  // ใช้แคชใน RAM (แก้ปัญหาหน่วยความจำเต็มบนมือถือเวลาเล่นหลายไฟล์ MP3)
+  const audioCache = new Map();
+  const MAX_CACHE_ITEMS = 25;
+  const conversationHistory = [];
 
   let currentState = 'idle'; // idle | listening | thinking | speaking
   let isUnlockingAudio = false;
   let statusHideTimer = null;
-  let conversationHistory = [];
+  let currentAbortController = null;
+  let activeRequestId = 0;
+  let pendingAudioBase64 = null;
   let recognition = null;
 
   function setOrbState(nextState, label = '', autoHideMs = 0) {
@@ -3125,30 +3170,56 @@
     }
   }
 
-  // ปลดล็อกเสียงบนมือถือ (iOS / Android) ทันทีในจังหวะที่ผู้ใช้กดปุ่ม
+  // ปลดล็อกเสียงบนมือถือทันทีในจังหวะที่นิ้วแตะปุ่ม
   function unlockMobileAudio() {
     if (juriAudio.dataset.unlocked === '1') return;
     isUnlockingAudio = true;
-    juriAudio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
-    juriAudio.play()
-      .then(() => {
-        juriAudio.pause();
-        juriAudio.currentTime = 0;
-        juriAudio.dataset.unlocked = '1';
-      })
-      .catch(() => {})
-      .finally(() => {
-        setTimeout(() => { isUnlockingAudio = false; }, 60);
-      });
+    juriAudio.muted = true;
+    juriAudio.src = SILENT_WAV;
+    const playPromise = juriAudio.play();
+    if (playPromise && typeof playPromise.then === 'function') {
+      playPromise
+        .then(() => {
+          juriAudio.pause();
+          juriAudio.currentTime = 0;
+          juriAudio.muted = false;
+          juriAudio.dataset.unlocked = '1';
+        })
+        .catch(() => {
+          juriAudio.muted = false;
+        })
+        .finally(() => {
+          setTimeout(() => { isUnlockingAudio = false; }, 60);
+        });
+    } else {
+      juriAudio.muted = false;
+      isUnlockingAudio = false;
+    }
   }
 
   function stopAllAudioAndMic() {
+    if (currentAbortController) {
+      currentAbortController.abort();
+      currentAbortController = null;
+    }
     if (recognition) {
       try { recognition.abort(); } catch (_) {}
+      recognition = null;
     }
+    pendingAudioBase64 = null;
+    isUnlockingAudio = false;
     juriAudio.pause();
     juriAudio.currentTime = 0;
     setOrbState('idle', '');
+  }
+
+  function saveToCache(key, base64) {
+    if (!key || !base64) return;
+    if (audioCache.size >= MAX_CACHE_ITEMS) {
+      const oldest = audioCache.keys().next().value;
+      audioCache.delete(oldest);
+    }
+    audioCache.set(key, base64);
   }
 
   function playAzureAudio(audioBase64, ttsError) {
@@ -3156,15 +3227,21 @@
       setOrbState('idle', ttsError || 'AUDIO UNAVAILABLE', 3500);
       return;
     }
+    pendingAudioBase64 = null;
     isUnlockingAudio = false;
+    juriAudio.muted = false;
     juriAudio.pause();
     juriAudio.src = 'data:audio/mpeg;base64,' + audioBase64;
     setOrbState('speaking', '● SPEAKING');
-    juriAudio.play().catch(() => {
-      setOrbState('idle', 'TAP TO PLAY', 2200);
-    });
+
+    const playPromise = juriAudio.play();
+    if (playPromise && typeof playPromise.catch === 'function') {
+      playPromise.catch(() => {
+        pendingAudioBase64 = audioBase64;
+        setOrbState('idle', 'TAP TO PLAY', 4500);
+      });
+    }
   }
-   
 
   juriAudio.onended = () => {
     if (isUnlockingAudio) return;
@@ -3173,30 +3250,92 @@
 
   juriAudio.onerror = () => {
     if (isUnlockingAudio) return;
-    setOrbState('idle', '');
+    setOrbState('idle', 'AUDIO ERROR', 2200);
   };
 
-  // เรียกหลังบ้านเพื่อคุยกับ JURI (ไม่มีการแสดงข้อความถาม-ตอบ)
+  // เรียก API พร้อมระบบยกเลิกคำขอเก่าอัตโนมัติเมื่อกดรัว
+  async function callJuriApi(payload) {
+    if (currentAbortController) currentAbortController.abort();
+    const controller = new AbortController();
+    currentAbortController = controller;
+    const reqId = ++activeRequestId;
+    const timer = setTimeout(() => controller.abort(), 14000);
+
+    try {
+      const res = await fetch(ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (reqId !== activeRequestId) return null;
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      return data;
+    } finally {
+      clearTimeout(timer);
+      if (currentAbortController === controller) {
+        currentAbortController = null;
+      }
+    }
+  }
+
+  // =========================================================================
+  // 3. โหมดอ่านบทพูดสำเร็จรูป (Welcome / Explode / การ์ด 01-06 และตัวใหม่)
+  // =========================================================================
+  async function speakScriptBrief(cacheKey, briefText) {
+    if (!briefText) return;
+    stopAllAudioAndMic();
+    unlockMobileAudio();
+
+    if (cacheKey && audioCache.has(cacheKey)) {
+      playAzureAudio(audioCache.get(cacheKey));
+      return;
+    }
+
+    setOrbState('thinking', 'ANALYZING...');
+    try {
+      const data = await callJuriApi({ speakOnlyText: briefText });
+      if (!data) return;
+      if (data.audioBase64 && cacheKey) {
+        saveToCache(cacheKey, data.audioBase64);
+      }
+      playAzureAudio(data.audioBase64, data.ttsError);
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+      console.error('JURI Brief Error:', err);
+      setOrbState('idle', err.message || 'VOICE ERROR', 2600);
+    }
+  }
+
+  // =========================================================================
+  // 4. โหมดถาม-ตอบอัจฉริยะแบบ J.A.R.V.I.S. (ส่งรายการผลงานล่าสุดให้ AI ด้วย)
+  // =========================================================================
   async function askJuriByVoice(transcript) {
-    const cleanPrompt = transcript.trim();
+    const cleanPrompt = (transcript || '').trim();
     if (!cleanPrompt) {
       setOrbState('idle', '');
       return;
     }
 
-    setOrbState('thinking', 'THINKING...');
+    stopAllAudioAndMic();
+    unlockMobileAudio();
+    setOrbState('thinking', 'PROCESSING...');
+
+    const catalog = portfolioWorks.map((w) => ({
+      code: w.index || '',
+      title: w.title || '',
+      category: w.category || '',
+      specs: w.summary || '',
+    }));
 
     try {
-      const res = await fetch('/.netlify/functions/juri', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: cleanPrompt,
-          history: conversationHistory.slice(-4),
-        }),
+      const data = await callJuriApi({
+        message: cleanPrompt,
+        history: conversationHistory.slice(-6),
+        catalog,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Server error');
+      if (!data) return;
 
       if (data.reply) {
         conversationHistory.push(
@@ -3205,57 +3344,34 @@
         );
       }
 
-     playAzureAudio(data.audioBase64, data.ttsError);
+      playAzureAudio(data.audioBase64, data.ttsError);
     } catch (err) {
+      if (err.name === 'AbortError') return;
       console.error('JURI Voice Error:', err);
-      setOrbState('idle', 'CONNECTION ERROR', 2500);
+      setOrbState('idle', err.message || 'CONNECTION ERROR', 2600);
     }
   }
 
-  // โหมดอ่านข้อมูลการ์ด (ใช้ 0 Gemini Token + แคชเสียง Azure ไว้ในเบราว์เซอร์)
-  async function speakCardBrief(cardId, briefText) {
-    unlockMobileAudio();
-    const cacheKey = 'juri_azure_card_' + cardId;
-    const cachedAudio = sessionStorage.getItem(cacheKey);
-    if (cachedAudio) {
-      playAzureAudio(cachedAudio);
-      return;
-    }
-
-    setOrbState('thinking', 'LOADING VOICE...');
-    try {
-      const res = await fetch('/.netlify/functions/juri', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ speakOnlyText: briefText }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'TTS error');
-
-      if (data.audioBase64) {
-        try { sessionStorage.setItem(cacheKey, data.audioBase64); } catch (_) {}
-      }
-     playAzureAudio(data.audioBase64, data.ttsError);
-    } catch (err) {
-      console.error('Card Brief Error:', err);
-      setOrbState('idle', 'VOICE ERROR', 2200);
-    }
-  }
-
-  // ตั้งค่าไมโครโฟน (กดปุ่มวงกลมเพื่อคุยทันที)
+  // =========================================================================
+  // 5. ปุ่มไมโครโฟนมุมขวาล่าง (รองรับช่องพิมพ์สำรองหากมือถือบล็อกไมค์)
+  // =========================================================================
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-  fab.addEventListener('click', () => {
-    unlockMobileAudio();
-
-    // หากกำลังฟัง คิด หรือพูดอยู่ ให้กดเพื่อหยุดทันที
+  function handleOrbClick() {
     if (currentState !== 'idle') {
       stopAllAudioAndMic();
       return;
     }
+    if (pendingAudioBase64) {
+      playAzureAudio(pendingAudioBase64);
+      return;
+    }
+
+    unlockMobileAudio();
 
     if (!SpeechRecognition) {
-      setOrbState('idle', 'MIC NOT SUPPORTED', 2600);
+      const typed = window.prompt('พิมพ์คำถามถึง JURI (เช่น ถามระบบ 01-06 หรือหลักฟิสิกส์):');
+      if (typed) askJuriByVoice(typed);
       return;
     }
 
@@ -3278,11 +3394,13 @@
     };
 
     recognition.onerror = (event) => {
-      if (event.error === 'not-allowed') {
-        setOrbState('idle', 'ALLOW MICROPHONE', 2600);
+      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+        const typed = window.prompt('ไมโครโฟนถูกปิดไว้ พิมพ์คำถามถึง JURI แทนได้เลยครับ:');
+        if (typed) askJuriByVoice(typed);
+        else setOrbState('idle', 'ALLOW MICROPHONE', 2600);
       } else if (event.error === 'no-speech') {
         setOrbState('idle', 'NO SPEECH', 1800);
-      } else {
+      } else if (event.error !== 'aborted') {
         setOrbState('idle', '');
       }
     };
@@ -3298,16 +3416,38 @@
     } catch (_) {
       setOrbState('idle', '');
     }
-  });
+  }
 
-  // เพิ่มปุ่ม ✦ JURI บนการ์ดผลงาน (เชื่อมเสียง Azure เดียวกัน + คงอยู่หลังการกรองหมวดหมู่)
+  fab.addEventListener('click', handleOrbClick);
+
+  // กดป้าย "00 — PORTFOLIO" ด้านบนเพื่อฟังเสียงทักทาย Welcome ได้ทันที
+  const heroBadge = document.getElementById('hero-badge');
+  if (heroBadge && heroBadge.parentElement) {
+    heroBadge.parentElement.style.cursor = 'pointer';
+    heroBadge.parentElement.title = 'กดเพื่อฟังเสียงแนะนำตัวจาก JURI';
+    heroBadge.parentElement.addEventListener('click', () => {
+      speakScriptBrief('script_welcome', JURI_SCRIPTS.welcome);
+    });
+  }
+
+  // =========================================================================
+  // 6. ฝังปุ่ม ✦ JURI บนการ์ดอัตโนมัติ (รองรับทั้ง 01-06 และโปรเจกต์ใหม่ในอนาคต)
+  // =========================================================================
   function injectCardJuriButtons() {
     document.querySelectorAll('#works-mount .work-card').forEach((card) => {
       if (card.querySelector('.card-juri-btn')) return;
-      const cardId = card.dataset.workId || Math.random().toString(36).slice(2);
-      const title = card.querySelector('.card-title')?.innerText?.trim() || 'ผลงานวิศวกรรม';
-      const category = card.querySelector('.card-meta-cat')?.innerText?.trim() || '';
-      const desc = card.querySelector('.card-summary')?.innerText?.trim() || '';
+
+      const workId = card.dataset.workId || '';
+      const workObj = portfolioWorks.find((w) => w.id === workId);
+      const idx = workObj?.index || card.querySelector('.card-meta-idx')?.innerText?.trim() || '';
+      const title = workObj?.title || card.querySelector('.card-title')?.innerText?.trim() || 'ผลงานวิศวกรรม';
+      const summary = workObj?.summary || card.querySelector('.card-summary')?.innerText?.trim() || '';
+
+      // เลือกบทพูด: ใช้บทพูดใน JSON (หากใส่ juriBrief) > สคริปต์จาร์วิส 01-06 > สร้างอัตโนมัติสำหรับตัวใหม่
+      const briefText =
+        (workObj && workObj.juriBrief) ||
+        JURI_SCRIPTS.projects[idx] ||
+        `ระบบที่ ${idx} ${title} ครับ — ${summary}`;
 
       const badge = Array.from(card.querySelectorAll('span')).find((el) =>
         /^(LIVE|PROTOTYPE|CONCEPT)$/i.test(el.textContent.trim())
@@ -3317,12 +3457,11 @@
       juriBtn.type = 'button';
       juriBtn.className = 'btn-juri-pill card-juri-btn';
       juriBtn.innerHTML = '✦ JURI';
-      juriBtn.title = 'ฟัง JURI อธิบายผลงานนี้';
+      juriBtn.title = 'ฟัง JURI อธิบายระบบนี้';
       juriBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         e.preventDefault();
-        const briefText = `โปรเจกต์ ${title} ในหมวด ${category} ครับ ระบบนี้คือ ${desc}`;
-        speakCardBrief(cardId, briefText);
+        speakScriptBrief('card_' + (workId || idx), briefText);
       });
 
       if (badge && badge.parentElement) {
@@ -3345,7 +3484,24 @@
   }
   injectCardJuriButtons();
   setTimeout(injectCardJuriButtons, 600);
+
+  // เปิดคำสั่งให้ส่วนอื่นของหน้าเว็บเรียกใช้งานได้
+  window.JURI = {
+    welcome: () => speakScriptBrief('script_welcome', JURI_SCRIPTS.welcome),
+    explode: (isExploded) =>
+      speakScriptBrief(
+        isExploded ? 'script_explode' : 'script_assemble',
+        isExploded ? JURI_SCRIPTS.explode : JURI_SCRIPTS.assemble
+      ),
+    ask: askJuriByVoice,
+    toggleMic: handleOrbClick,
+    stop: stopAllAudioAndMic,
+  };
 })();
 </script>
+</body>
+</html>
+
+  
 </body>
 </html>
