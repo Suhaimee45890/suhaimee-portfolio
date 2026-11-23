@@ -1,67 +1,140 @@
-exports.handler = async function (event) {
-  if (event.httpMethod !== "POST") {
-    return { statusCode: 405, body: "Method Not Allowed" };
+exports.handler = async (event) => {
+  const headers = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Content-Type": "application/json",
+  };
+
+  if (event.httpMethod === "OPTIONS") {
+    return { statusCode: 200, headers, body: "" };
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
+  if (event.httpMethod !== "POST") {
     return {
-      statusCode: 500,
-      body: JSON.stringify({ error: "ไม่พบ GEMINI_API_KEY ในระบบ Netlify" }),
+      statusCode: 405,
+      headers,
+      body: JSON.stringify({ error: "Method Not Allowed" }),
     };
   }
 
   try {
-    const { prompt } = JSON.parse(event.body || "{}");
+    const { message, history = [] } = JSON.parse(event.body || "{}");
+    if (!message) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ error: "Message is required" }),
+      };
+    }
 
-    // Prompt สั้นที่สุดเพื่อประหยัด Input Token
-   const systemInstruction =
-      "คุณคือ JURI AI ผู้ช่วยวิศวกรของ Suhaimee Jehhae (ผู้เชี่ยวชาญ MES, Industrial Automation, 3D Simulation, Cybersecurity) ตอบภาษาเดียวกับที่ถาม สไตล์สุขุม ฉลาด เหมือน J.A.R.V.I.S. ใช้น้ำเสียงสนทนาที่เป็นธรรมชาติ แบ่งประโยคสั้นๆ ใส่ลูกน้ำหรือเว้นวรรคเพื่อจังหวะการหายใจ กระชับไม่เกิน 2-3 ประโยค และห้ามใช้สัญลักษณ์ ** หรือ #";
+    const geminiApiKey = process.env.GEMINI_API_KEY;
+    const azureSpeechKey = process.env.AZURE_SPEECH_KEY;
+    const azureSpeechRegion = process.env.AZURE_SPEECH_REGION || "southeastasia";
 
-    // รายชื่อโมเดลเรียงตามลำดับความสำคัญ (ถ้าตัวแรกคิวเต็ม จะสลับไปตัวถัดไปให้อัตโนมัติ)
-   const models = ["gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.8-flash"];
-    let data = null;
-    let lastError = "Gemini API Error";
+    if (!geminiApiKey) {
+      throw new Error("Missing GEMINI_API_KEY in environment variables");
+    }
 
-    for (const model of models) {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+    // 1. สร้างคำตอบข้อความจาก Gemini
+    const systemInstruction = `You are JURI AI, the intelligent 3D portfolio assistant for Suhaimee Jehhae (ซูฮัยมี เจะแฮ / เบิ้ม), an MES Engineer & Cybersecurity specialist. Answer concisely, clearly, and politely in the same language as the user (Thai or English). Avoid markdown symbols like *, #, or bullet points so the text reads smoothly when spoken aloud.`;
+
+    const contents = [
+      ...history.map((item) => ({
+        role: item.role === "user" ? "user" : "model",
+        parts: [{ text: item.text }],
+      })),
+      { role: "user", parts: [{ text: message }] },
+    ];
+
+    const geminiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: systemInstruction }] },
+          contents,
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 350,
+          },
+        }),
+      }
+    );
+
+    const geminiData = await geminiRes.json();
+    if (!geminiRes.ok) {
+      throw new Error(geminiData.error?.message || "Gemini API error");
+    }
+
+    const rawReply =
+      geminiData.candidates?.[0]?.content?.parts?.[0]?.text ||
+      "ขออภัยครับ ระบบไม่สามารถประมวลผลคำตอบได้ในขณะนี้";
+
+    // ล้างสัญลักษณ์ Markdown ออกเพื่อให้เสียงอ่านเป็นธรรมชาติ
+    const cleanTextForSpeech = rawReply
+      .replace(/[*#_`~>-]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    // 2. สังเคราะห์เสียงพูดด้วย Microsoft Azure Speech
+    let audioBase64 = null;
+
+    if (azureSpeechKey && cleanTextForSpeech) {
+      const hasThai = /[\u0E00-\u0E7F]/.test(cleanTextForSpeech);
+      const lang = hasThai ? "th-TH" : "en-US";
+      const voiceName = hasThai
+        ? "th-TH-NiwatNeural"
+        : "en-US-AndrewMultilingualNeural";
+
+      const escapedText = cleanTextForSpeech
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&apos;");
+
+      const ssml = `<speak version='1.0' xml:lang='${lang}'><voice name='${voiceName}'>${escapedText}</voice></speak>`;
+
+      const ttsRes = await fetch(
+        `https://${azureSpeechRegion}.tts.speech.microsoft.com/cognitiveservices/v1`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            systemInstruction: { parts: [{ text: systemInstruction }] },
-            contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: {
-              temperature: 0.6,
-              maxOutputTokens: 160,
-            },
-          }),
+          headers: {
+            "Ocp-Apim-Subscription-Key": azureSpeechKey,
+            "Content-Type": "application/ssml+xml",
+            "X-Microsoft-OutputFormat": "audio-24khz-48kbitrate-mono-mp3",
+            "User-Agent": "JuriAIPortfolio",
+          },
+          body: ssml,
         }
       );
 
-      data = await response.json();
-      if (response.ok) break; // ถ้าสำเร็จให้หยุดวนลูปและใช้คำตอบนี้ทันที
-      lastError = data.error?.message || lastError;
+      if (ttsRes.ok) {
+        const audioBuffer = await ttsRes.arrayBuffer();
+        audioBase64 = Buffer.from(audioBuffer).toString("base64");
+      } else {
+        const errText = await ttsRes.text();
+        console.error("Azure TTS Error:", ttsRes.status, errText);
+      }
     }
-
-    if (!data?.candidates?.[0]?.content?.parts?.[0]?.text) {
-      throw new Error(lastError);
-    }
-
-    const replyText =
-      data.candidates?.[0]?.content?.parts?.[0]?.text ||
-      "ขออภัย ระบบประมวลผลขัดข้องชั่วคราวครับ";
 
     return {
       statusCode: 200,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reply: replyText }),
+      headers,
+      body: JSON.stringify({
+        reply: rawReply,
+        audioBase64,
+        mimeType: "audio/mp3",
+      }),
     };
-  } catch (err) {
+  } catch (error) {
+    console.error("Function Error:", error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: err.message }),
+      headers,
+      body: JSON.stringify({ error: error.message }),
     };
   }
 };
