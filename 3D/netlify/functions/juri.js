@@ -131,12 +131,24 @@ ${dynamicCatalogText}
         { role: "user", parts: [{ text: message }] },
       ];
 
-      const models = [
-  (process.env.GEMINI_MODEL || "").trim(),
-  "gemini-2.5-flash-lite",
-  "gemini-3-flash-preview",
-  "gemini-flash-latest",
-].filter(Boolean);
+      const models = Array.from(
+        new Set(
+          [
+            (process.env.GEMINI_MODEL || "").trim(),
+            "gemini-2.5-flash-lite",
+            "gemini-2.5-flash",
+            "gemini-3.1-flash-lite-preview",
+            "gemini-3-flash-preview",
+            "gemini-flash-latest",
+          ].filter(Boolean)
+        )
+      ); } else {
+            lastGeminiError = `GEMINI ${geminiRes.status}`;
+            console.error("Gemini Error:", model, geminiRes.status, geminiData.error?.message);
+            if (geminiRes.status === 503 || geminiRes.status === 429) {
+              await new Promise((r) => setTimeout(r, 400));
+            }
+          }
       let lastGeminiError = "Gemini API error";
 
       for (const model of models) {
