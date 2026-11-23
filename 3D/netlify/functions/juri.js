@@ -30,7 +30,7 @@ exports.handler = async (event) => {
 
     const geminiApiKey = process.env.GEMINI_API_KEY;
     const azureSpeechKey = process.env.AZURE_SPEECH_KEY;
-    const azureSpeechRegion = process.env.AZURE_SPEECH_REGION || "southeastasia";
+    const azureSpeechRegion = process.env.AZURE_SPEECH_REGION;
 
     if (!geminiApiKey) {
       throw new Error("Missing GEMINI_API_KEY in environment variables");
@@ -81,7 +81,7 @@ exports.handler = async (event) => {
     // 2. สังเคราะห์เสียงพูดด้วย Microsoft Azure Speech
     let audioBase64 = null;
 
-    if (azureSpeechKey && cleanTextForSpeech) {
+    if (azureSpeechKey && azureSpeechRegion && cleanTextForSpeech) {
       const hasThai = /[\u0E00-\u0E7F]/.test(cleanTextForSpeech);
       const lang = hasThai ? "th-TH" : "en-US";
       const voiceName = hasThai
@@ -98,11 +98,11 @@ exports.handler = async (event) => {
       const ssml = `<speak version='1.0' xml:lang='${lang}'><voice name='${voiceName}'>${escapedText}</voice></speak>`;
 
       const ttsRes = await fetch(
-        `https://${azureSpeechRegion}.tts.speech.microsoft.com/cognitiveservices/v1`,
+        `https://${azureSpeechRegion.trim()}.tts.speech.microsoft.com/cognitiveservices/v1`,
         {
           method: "POST",
           headers: {
-            "Ocp-Apim-Subscription-Key": azureSpeechKey,
+            "Ocp-Apim-Subscription-Key": azureSpeechKey.trim(),
             "Content-Type": "application/ssml+xml",
             "X-Microsoft-OutputFormat": "audio-24khz-48kbitrate-mono-mp3",
             "User-Agent": "JuriAIPortfolio",
