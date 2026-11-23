@@ -2829,246 +2829,521 @@
     });
   </script>
 
-<!-- หน้าต่าง JURI AI Command Terminal -->
-<div id="juri-terminal" class="juri-hidden">
-  <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #27272a;background:rgba(230,72,30,0.08);">
-    <div style="display:flex;align-items:center;gap:8px;">
-      <span style="width:8px;height:8px;border-radius:50%;background:#e6481e;box-shadow:0 0 8px #e6481e;"></span>
-      <span style="font-family:monospace;font-size:11px;font-weight:700;letter-spacing:0.08em;">JURI AI // TACTICAL CORE</span>
-      <div class="juri-bars"><span></span><span></span><span></span><span></span></div>
-    </div>
-    <div style="display:flex;gap:10px;">
-      <button id="juri-mute-btn" type="button" title="เปิด/ปิดเสียงพูด" style="background:none;border:none;color:#a1a1aa;cursor:pointer;font-size:13px;">🔊</button>
-      <button id="juri-close-btn" type="button" title="ปิดหน้าต่าง" style="background:none;border:none;color:#a1a1aa;cursor:pointer;font-size:14px;">✕</button>
-    </div>
-  </div>
+<!-- =========================================================================
+     COMPACT RESPONSIVE CARDS + FLOATING CIRCULAR JURI AI VOICE ORB
+     ========================================================================= -->
+<style>
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
 
-  <div id="juri-output" style="padding:14px;min-height:90px;max-height:190px;overflow-y:auto;font-size:13px;line-height:1.6;color:#e4e4e7;">
-    ระบบจูรีพร้อมใช้งานครับ กดปุ่ม JURI บนการ์ดผลงานเพื่อฟังคำอธิบาย หรือกดไมค์เพื่อถามข้อมูลได้เลยครับ
-  </div>
+  /* ปรับขนาดการ์ดให้เล็กลง กระชับ สมส่วนทั้งในคอมและมือถือ */
+  #works-mount.works-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
 
-  <div style="display:flex;gap:6px;padding:10px;border-top:1px solid #27272a;background:#0c0c0e;">
-    <button id="juri-mic-btn" type="button" title="กดเพื่อพูดถาม" style="padding:0 10px;border-radius:8px;border:1px solid #3f3f46;background:#18181b;color:#fff;cursor:pointer;">🎤</button>
-    <input id="juri-input" type="text" placeholder="พิมพ์หรือกดไมค์ถาม JURI..." style="flex:1;background:#18181b;border:1px solid #27272a;border-radius:8px;padding:7px 10px;color:#fff;font-size:12px;outline:none;" />
-    <button id="juri-send-btn" type="button" style="padding:0 12px;border-radius:8px;border:none;background:#e6481e;color:#fff;font-family:monospace;font-size:11px;font-weight:700;cursor:pointer;">SEND</button>
-  </div>
+  @media (min-width: 640px) {
+    #works-mount.works-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    #works-mount.works-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    #works-mount.works-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+    }
+  }
+
+  #works-mount.works-grid .work-card {
+    border-radius: 14px;
+  }
+
+  #works-mount.works-grid .work-card .cad-stage {
+    aspect-ratio: 16 / 9;
+  }
+
+  @media (max-width: 639px) {
+    #works-mount.works-grid .work-card .cad-stage {
+      aspect-ratio: 16 / 8.5;
+      max-height: 165px;
+    }
+  }
+
+  #works-mount.works-grid .work-card > div:last-child {
+    padding: 13px 14px;
+    gap: 10px;
+  }
+
+  #works-mount.works-grid .work-card .card-title {
+    font-size: 0.94rem;
+    line-height: 1.32;
+  }
+
+  #works-mount.works-grid .work-card .card-summary {
+    font-size: 0.74rem;
+    line-height: 1.48;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  #works-mount.works-grid .work-card .card-footer-line {
+    padding-top: 10px;
+  }
+
+  #works-mount.works-grid .work-card .card-tag {
+    font-size: 9px;
+    padding: 2px 6px;
+  }
+
+  #works-mount.works-grid .work-card .crosshair-btn {
+    font-size: 10px;
+    padding: 4px 7px;
+  }
+
+  /* ปุ่มวงกลมลอยมุมขวาล่าง JURI AI Voice Orb */
+  #juri-orb-wrap {
+    position: fixed;
+    right: 18px;
+    bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    pointer-events: none;
+  }
+
+  @media (min-width: 768px) {
+    #juri-orb-wrap {
+      right: 26px;
+      bottom: 26px;
+    }
+  }
+
+  #juri-orb-status {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(15, 16, 20, 0.92);
+    border: 1px solid rgba(230, 72, 30, 0.5);
+    color: #f4f4f5;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 0.22s ease, transform 0.22s ease;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  #juri-orb-wrap.show-status #juri-orb-status {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  #juri-fab {
+    pointer-events: auto;
+    position: relative;
+    width: 58px;
+    height: 58px;
+    border-radius: 9999px;
+    border: 1.5px solid rgba(230, 72, 30, 0.65);
+    background: radial-gradient(circle at 30% 25%, #242834 0%, #12141a 70%, #0b0c10 100%);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55), 0 0 18px rgba(230, 72, 30, 0.25);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    outline: none;
+    transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+                box-shadow 0.25s ease,
+                border-color 0.25s ease;
+  }
+
+  @media (min-width: 768px) {
+    #juri-fab {
+      width: 64px;
+      height: 64px;
+    }
+  }
+
+  #juri-fab:hover {
+    transform: scale(1.07);
+    border-color: #e6481e;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.65), 0 0 26px rgba(230, 72, 30, 0.45);
+  }
+
+  #juri-fab:active {
+    transform: scale(0.94);
+  }
+
+  /* วงแหวนแอนิเมชันรอบปุ่ม */
+  #juri-fab .orb-ring {
+    position: absolute;
+    inset: -5px;
+    border-radius: 9999px;
+    border: 1.5px solid transparent;
+    pointer-events: none;
+  }
+
+  #juri-fab-logo {
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.25s ease, filter 0.25s ease;
+  }
+
+  @media (min-width: 768px) {
+    #juri-fab-logo {
+      width: 38px;
+      height: 38px;
+    }
+  }
+
+  /* สถานะ: กำลังฟังไมโครโฟน */
+  #juri-fab.state-listening {
+    border-color: #ff5d32;
+    background: radial-gradient(circle at 35% 30%, #461b12 0%, #1c100f 75%, #0f0a0a 100%);
+    box-shadow: 0 0 0 4px rgba(230, 72, 30, 0.22), 0 0 30px rgba(230, 72, 30, 0.7);
+  }
+
+  #juri-fab.state-listening .orb-ring {
+    border-color: rgba(230, 72, 30, 0.85);
+    animation: juriRadar 1.25s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  }
+
+  /* สถานะ: กำลังประมวลผล */
+  #juri-fab.state-thinking .orb-ring {
+    border-top-color: #e6481e;
+    border-right-color: rgba(230, 72, 30, 0.4);
+    animation: juriSpin 0.85s linear infinite;
+  }
+
+  /* สถานะ: กำลังพูด */
+  #juri-fab.state-speaking {
+    border-color: #ff7a4d;
+    box-shadow: 0 0 0 5px rgba(230, 72, 30, 0.2), 0 0 28px rgba(230, 72, 30, 0.65);
+    animation: juriSpeakPulse 0.9s ease-in-out infinite;
+  }
+
+  #juri-fab.state-speaking .orb-ring {
+    border-color: rgba(255, 122, 77, 0.7);
+    animation: juriRadar 1.4s ease-out infinite;
+  }
+
+  @keyframes juriRadar {
+    0% { transform: scale(0.98); opacity: 0.9; }
+    100% { transform: scale(1.42); opacity: 0; }
+  }
+
+  @keyframes juriSpin {
+    to { transform: rotate(360deg); }
+  }
+
+  @keyframes juriSpeakPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.06); }
+  }
+</style>
+
+<!-- ปุ่มวงกลม JURI AI ลอยมุมขวาล่าง -->
+<div id="juri-orb-wrap">
+  <div id="juri-orb-status">LISTENING</div>
+  <button id="juri-fab" type="button" aria-label="Talk to JURI AI" title="กดเพื่อคุยกับ JURI AI">
+    <span class="orb-ring"></span>
+
+    <!-- เปลี่ยนโลโก้ตรงนี้ได้ในอนาคต: ลบ <svg> ด้านในแล้วใส่ <img src="logo.png" alt="JURI" style="width:100%;height:100%;object-fit:contain;border-radius:50%;" /> -->
+    <span id="juri-fab-logo">
+      <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+        <polygon points="24,4 41,14 41,34 24,44 7,34 7,14" stroke="#E6481E" stroke-width="2" fill="rgba(230,72,30,0.08)"/>
+        <circle cx="24" cy="24" r="11" stroke="#F2F2EE" stroke-opacity="0.35" stroke-width="1.2" stroke-dasharray="4 3"/>
+        <path d="M27.5 15V26.5C27.5 29.8 25.1 32 21.8 32C19.5 32 17.8 30.8 17 29.2" stroke="#F2F2EE" stroke-width="2.6" stroke-linecap="round"/>
+        <circle cx="27.5" cy="15" r="2.4" fill="#E6481E"/>
+        <circle cx="17" cy="29.2" r="2" fill="#FF7A4D"/>
+      </svg>
+    </span>
+  </button>
 </div>
 
 <script>
-(function() {
-  const terminal = document.getElementById('juri-terminal');
-  const outputEl = document.getElementById('juri-output');
-  const inputEl = document.getElementById('juri-input');
-  const micBtn = document.getElementById('juri-mic-btn');
-  const sendBtn = document.getElementById('juri-send-btn');
-  const closeBtn = document.getElementById('juri-close-btn');
-  const muteBtn = document.getElementById('juri-mute-btn');
-  let isMuted = false;
+(function () {
+  const wrap = document.getElementById('juri-orb-wrap');
+  const fab = document.getElementById('juri-fab');
+  const statusEl = document.getElementById('juri-orb-status');
 
-  // 1. สร้างปุ่ม ● JURI AI บนแถบ Header ด้านบนสุด
-  const headerRight = document.querySelector('header nav, header .flex.items-center.gap-2, header .flex.items-center.gap-3');
-  if (headerRight && !document.getElementById('header-juri-btn')) {
-    const btn = document.createElement('button');
-    btn.id = 'header-juri-btn';
-    btn.type = 'button';
-    btn.className = 'btn-juri-pill';
-    btn.style.padding = '5px 12px';
-    btn.style.fontSize = '11px';
-    btn.innerHTML = '● JURI AI';
-    btn.onclick = () => {
-      terminal.classList.toggle('juri-hidden');
-      if (!terminal.classList.contains('juri-hidden')) {
-        const greeting = 'ระบบจูรีออนไลน์ครับ มีข้อมูลส่วนไหนให้ผมช่วยวิเคราะห์ไหมครับ';
-        typeWriter(greeting);
-        speakText(greeting);
-      } else {
-        window.speechSynthesis.cancel();
+  // ตัวเล่นเสียง MP3 เดียวสำหรับทั้งคอมและมือถือ (ไม่ใช้ speechSynthesis ของเครื่อง)
+  const juriAudio = new Audio();
+  juriAudio.preload = 'auto';
+
+  let currentState = 'idle'; // idle | listening | thinking | speaking
+  let isUnlockingAudio = false;
+  let statusHideTimer = null;
+  let conversationHistory = [];
+  let recognition = null;
+
+  function setOrbState(nextState, label = '', autoHideMs = 0) {
+    currentState = nextState;
+    fab.classList.remove('state-listening', 'state-thinking', 'state-speaking');
+    if (nextState !== 'idle') {
+      fab.classList.add('state-' + nextState);
+    }
+
+    if (statusHideTimer) {
+      clearTimeout(statusHideTimer);
+      statusHideTimer = null;
+    }
+
+    if (label) {
+      statusEl.textContent = label;
+      wrap.classList.add('show-status');
+      if (autoHideMs > 0) {
+        statusHideTimer = setTimeout(() => {
+          wrap.classList.remove('show-status');
+        }, autoHideMs);
       }
-    };
-    headerRight.prepend(btn);
+    } else {
+      wrap.classList.remove('show-status');
+    }
   }
 
-  // 2. เพิ่มปุ่ม ✦ JURI ข้างป้าย LIVE / CONCEPT (โหมด 0 Token อ่านข้อมูลการ์ดโดยตรง)
-  function injectCardJuriButtons() {
-    document.querySelectorAll('.work-card, article').forEach(card => {
-      if (card.querySelector('.card-juri-btn')) return;
-      const title = card.querySelector('h3, h2')?.innerText?.trim() || 'ผลงานวิศวกรรม';
-      const category = card.querySelector('.font-mono-tech, .uppercase')?.innerText?.trim() || '';
-      const desc = card.querySelector('p')?.innerText?.trim() || '';
+  // ปลดล็อกเสียงบนมือถือ (iOS / Android) ทันทีในจังหวะที่ผู้ใช้กดปุ่ม
+  function unlockMobileAudio() {
+    if (juriAudio.dataset.unlocked === '1') return;
+    isUnlockingAudio = true;
+    juriAudio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+    juriAudio.play()
+      .then(() => {
+        juriAudio.pause();
+        juriAudio.currentTime = 0;
+        juriAudio.dataset.unlocked = '1';
+      })
+      .catch(() => {})
+      .finally(() => {
+        setTimeout(() => { isUnlockingAudio = false; }, 60);
+      });
+  }
 
-      const badge = Array.from(card.querySelectorAll('span, div')).find(el =>
-        /LIVE|PROTOTYPE|CONCEPT/i.test(el.textContent) && el.children.length === 0
+  function stopAllAudioAndMic() {
+    if (recognition) {
+      try { recognition.abort(); } catch (_) {}
+    }
+    juriAudio.pause();
+    juriAudio.currentTime = 0;
+    setOrbState('idle', '');
+  }
+
+  function playAzureAudio(audioBase64) {
+    if (!audioBase64) {
+      setOrbState('idle', 'AUDIO UNAVAILABLE', 2200);
+      return;
+    }
+    isUnlockingAudio = false;
+    juriAudio.pause();
+    juriAudio.src = 'data:audio/mpeg;base64,' + audioBase64;
+    setOrbState('speaking', '● SPEAKING');
+    juriAudio.play().catch(() => {
+      setOrbState('idle', 'TAP TO PLAY', 2200);
+    });
+  }
+
+  juriAudio.onended = () => {
+    if (isUnlockingAudio) return;
+    setOrbState('idle', '');
+  };
+
+  juriAudio.onerror = () => {
+    if (isUnlockingAudio) return;
+    setOrbState('idle', '');
+  };
+
+  // เรียกหลังบ้านเพื่อคุยกับ JURI (ไม่มีการแสดงข้อความถาม-ตอบ)
+  async function askJuriByVoice(transcript) {
+    const cleanPrompt = transcript.trim();
+    if (!cleanPrompt) {
+      setOrbState('idle', '');
+      return;
+    }
+
+    setOrbState('thinking', 'THINKING...');
+
+    try {
+      const res = await fetch('/.netlify/functions/juri', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: cleanPrompt,
+          history: conversationHistory.slice(-4),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Server error');
+
+      if (data.reply) {
+        conversationHistory.push(
+          { role: 'user', text: cleanPrompt },
+          { role: 'model', text: data.reply }
+        );
+      }
+
+      playAzureAudio(data.audioBase64);
+    } catch (err) {
+      console.error('JURI Voice Error:', err);
+      setOrbState('idle', 'CONNECTION ERROR', 2500);
+    }
+  }
+
+  // โหมดอ่านข้อมูลการ์ด (ใช้ 0 Gemini Token + แคชเสียง Azure ไว้ในเบราว์เซอร์)
+  async function speakCardBrief(cardId, briefText) {
+    unlockMobileAudio();
+    const cacheKey = 'juri_azure_card_' + cardId;
+    const cachedAudio = sessionStorage.getItem(cacheKey);
+    if (cachedAudio) {
+      playAzureAudio(cachedAudio);
+      return;
+    }
+
+    setOrbState('thinking', 'LOADING VOICE...');
+    try {
+      const res = await fetch('/.netlify/functions/juri', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ speakOnlyText: briefText }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'TTS error');
+
+      if (data.audioBase64) {
+        try { sessionStorage.setItem(cacheKey, data.audioBase64); } catch (_) {}
+      }
+      playAzureAudio(data.audioBase64);
+    } catch (err) {
+      console.error('Card Brief Error:', err);
+      setOrbState('idle', 'VOICE ERROR', 2200);
+    }
+  }
+
+  // ตั้งค่าไมโครโฟน (กดปุ่มวงกลมเพื่อคุยทันที)
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  fab.addEventListener('click', () => {
+    unlockMobileAudio();
+
+    // หากกำลังฟัง คิด หรือพูดอยู่ ให้กดเพื่อหยุดทันที
+    if (currentState !== 'idle') {
+      stopAllAudioAndMic();
+      return;
+    }
+
+    if (!SpeechRecognition) {
+      setOrbState('idle', 'MIC NOT SUPPORTED', 2600);
+      return;
+    }
+
+    recognition = new SpeechRecognition();
+    recognition.lang = 'th-TH';
+    recognition.interimResults = false;
+    recognition.continuous = false;
+
+    recognition.onstart = () => {
+      setOrbState('listening', '● LISTENING...');
+    };
+
+    recognition.onresult = (event) => {
+      const transcript = event.results?.[0]?.[0]?.transcript || '';
+      if (transcript.trim()) {
+        askJuriByVoice(transcript);
+      } else {
+        setOrbState('idle', '');
+      }
+    };
+
+    recognition.onerror = (event) => {
+      if (event.error === 'not-allowed') {
+        setOrbState('idle', 'ALLOW MICROPHONE', 2600);
+      } else if (event.error === 'no-speech') {
+        setOrbState('idle', 'NO SPEECH', 1800);
+      } else {
+        setOrbState('idle', '');
+      }
+    };
+
+    recognition.onend = () => {
+      if (currentState === 'listening') {
+        setOrbState('idle', '');
+      }
+    };
+
+    try {
+      recognition.start();
+    } catch (_) {
+      setOrbState('idle', '');
+    }
+  });
+
+  // เพิ่มปุ่ม ✦ JURI บนการ์ดผลงาน (เชื่อมเสียง Azure เดียวกัน + คงอยู่หลังการกรองหมวดหมู่)
+  function injectCardJuriButtons() {
+    document.querySelectorAll('#works-mount .work-card').forEach((card) => {
+      if (card.querySelector('.card-juri-btn')) return;
+      const cardId = card.dataset.workId || Math.random().toString(36).slice(2);
+      const title = card.querySelector('.card-title')?.innerText?.trim() || 'ผลงานวิศวกรรม';
+      const category = card.querySelector('.card-meta-cat')?.innerText?.trim() || '';
+      const desc = card.querySelector('.card-summary')?.innerText?.trim() || '';
+
+      const badge = Array.from(card.querySelectorAll('span')).find((el) =>
+        /^(LIVE|PROTOTYPE|CONCEPT)$/i.test(el.textContent.trim())
       );
 
       const juriBtn = document.createElement('button');
       juriBtn.type = 'button';
       juriBtn.className = 'btn-juri-pill card-juri-btn';
       juriBtn.innerHTML = '✦ JURI';
-      juriBtn.title = 'ให้ JURI อธิบายผลงานนี้';
-      juriBtn.onclick = (e) => {
+      juriBtn.title = 'ฟัง JURI อธิบายผลงานนี้';
+      juriBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         e.preventDefault();
-        terminal.classList.remove('juri-hidden');
-
-        // สร้างบทพูดอัตโนมัติจากข้อมูลการ์ด (ใช้ 0 Token)
-        const briefText = `กำลังแสดงข้อมูลโปรเจกต์ ${title} หมวดหมู่ ${category} ครับ รายละเอียดระบบคือ ${desc}`;
-        typeWriter(briefText);
-        speakText(briefText);
-      };
+        const briefText = `โปรเจกต์ ${title} ในหมวด ${category} ครับ ระบบนี้คือ ${desc}`;
+        speakCardBrief(cardId, briefText);
+      });
 
       if (badge && badge.parentElement) {
-        badge.parentElement.style.display = 'flex';
-        badge.parentElement.style.alignItems = 'center';
-        badge.parentElement.style.gap = '6px';
-        badge.parentElement.appendChild(juriBtn);
+        const wrapper = document.createElement('div');
+        wrapper.style.display = 'inline-flex';
+        wrapper.style.alignItems = 'center';
+        wrapper.style.gap = '6px';
+        badge.parentElement.insertBefore(wrapper, badge);
+        wrapper.appendChild(badge);
+        wrapper.appendChild(juriBtn);
       }
     });
   }
 
+  const worksMount = document.getElementById('works-mount');
+  if (worksMount) {
+    new MutationObserver(() => injectCardJuriButtons()).observe(worksMount, {
+      childList: true,
+    });
+  }
   injectCardJuriButtons();
-  setTimeout(injectCardJuriButtons, 800);
-
-  // 3. ระบบเสียงพูด (Web Speech Synthesis)
-  // โหลดรายการเสียงทั้งหมดของเบราว์เซอร์ไว้ล่วงหน้า
-  let cachedVoices = [];
-  function loadBestVoices() {
-    cachedVoices = window.speechSynthesis.getVoices();
-  }
-  loadBestVoices();
-  if ('speechSynthesis' in window) {
-    window.speechSynthesis.onvoiceschanged = loadBestVoices;
-  }
-
-  // ระบบเสียงพูดแบบเลือกเสียง Neural ที่เป็นธรรมชาติที่สุด + เว้นจังหวะหายใจ
-  function speakText(text) {
-    if (isMuted || !('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
-
-    const voices = cachedVoices.length ? cachedVoices : window.speechSynthesis.getVoices();
-    const isThai = /[\u0E00-\u0E7F]/.test(text);
-
-    // คัดเลือกเสียงระดับ Natural / Online / Google ก่อนเป็นอันดับแรก
-    let selectedVoice = null;
-    if (isThai) {
-      selectedVoice =
-        voices.find(v => v.lang.includes('th') && /Natural|Online|Google|Premwadee|Niwat/i.test(v.name)) ||
-        voices.find(v => v.lang.includes('th'));
-    } else {
-      selectedVoice =
-        voices.find(v => v.lang.includes('en') && /Natural|Online|Google UK English Male|Daniel|Ryan/i.test(v.name)) ||
-        voices.find(v => v.lang.includes('en'));
-    }
-
-    // แบ่งประโยคตามเครื่องหมายวรรคตอนเพื่อให้มีจังหวะหยุดหายใจเหมือนคนพูดจริง
-    const chunks = text.match(/[^.!?。\n]+[.!?。\n]*/g) || [text];
-    terminal.classList.add('juri-speaking');
-
-    chunks.forEach((chunk, idx) => {
-      const cleanChunk = chunk.trim();
-      if (!cleanChunk) return;
-
-      const utter = new SpeechSynthesisUtterance(cleanChunk);
-      if (selectedVoice) utter.voice = selectedVoice;
-      utter.lang = isThai ? 'th-TH' : 'en-US';
-      utter.rate = isThai ? 1.02 : 0.98;  // ความเร็วพอดีคำ ไม่รัวเกินไป
-      utter.pitch = 0.96;                 // โทนเสียงทุ้มนุ่ม สุขุมขึ้นเล็กน้อย
-
-      if (idx === chunks.length - 1) {
-        utter.onend = () => terminal.classList.remove('juri-speaking');
-        utter.onerror = () => terminal.classList.remove('juri-speaking');
-      }
-      window.speechSynthesis.speak(utter);
-    });
-  }
-
-  function typeWriter(text) {
-    outputEl.textContent = '';
-    let i = 0;
-    const timer = setInterval(() => {
-      outputEl.textContent += text.charAt(i);
-      outputEl.scrollTop = outputEl.scrollHeight;
-      i++;
-      if (i >= text.length) clearInterval(timer);
-    }, 20);
-  }
-
-  // 4. ถาม Gemini API พร้อมระบบ Cache (ถามซ้ำไม่เสีย Token)
-  async function askJuri(promptText) {
-    const cleanPrompt = promptText.trim();
-    if (!cleanPrompt) return;
-
-    const cacheKey = 'juri_cache_' + cleanPrompt.toLowerCase();
-    const cachedReply = sessionStorage.getItem(cacheKey);
-    if (cachedReply) {
-      typeWriter(cachedReply);
-      speakText(cachedReply);
-      return;
-    }
-
-    outputEl.textContent = 'กำลังประมวลผลคำตอบ...';
-    try {
-      const res = await fetch('/.netlify/functions/juri', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: cleanPrompt })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'เชื่อมต่อระบบหลังบ้านไม่สำเร็จ');
-
-      sessionStorage.setItem(cacheKey, data.reply);
-      typeWriter(data.reply);
-      speakText(data.reply);
-    } catch (err) {
-      outputEl.textContent = 'ข้อผิดพลาด: ' + err.message;
-    }
-  }
-
-  // 5. ระบบรับเสียงจากไมโครโฟน (กดเพื่อพูด)
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (SpeechRecognition) {
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'th-TH';
-    recognition.interimResults = false;
-
-    micBtn.onclick = () => {
-      window.speechSynthesis.cancel();
-      recognition.start();
-      micBtn.style.background = '#e6481e';
-      outputEl.textContent = 'กำลังฟังเสียงของคุณ... พูดคำถามได้เลยครับ';
-    };
-
-    recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      inputEl.value = transcript;
-      askJuri(transcript);
-    };
-
-    recognition.onend = () => { micBtn.style.background = '#18181b'; };
-    recognition.onerror = () => {
-      micBtn.style.background = '#18181b';
-      outputEl.textContent = 'ไม่สามารถเข้าถึงไมโครโฟนได้ กรุณาพิมพ์คำถามแทนครับ';
-    };
-  } else {
-    micBtn.style.display = 'none';
-  }
-
-  sendBtn.onclick = () => {
-    const q = inputEl.value;
-    inputEl.value = '';
-    askJuri(q);
-  };
-  inputEl.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') sendBtn.click();
-  });
-  closeBtn.onclick = () => {
-    terminal.classList.add('juri-hidden');
-    window.speechSynthesis.cancel();
-  };
-  muteBtn.onclick = () => {
-    isMuted = !isMuted;
-    muteBtn.textContent = isMuted ? '🔇' : '🔊';
-    if (isMuted) window.speechSynthesis.cancel();
-  };
+  setTimeout(injectCardJuriButtons, 600);
 })();
 </script>
 </body>
