@@ -131,7 +131,12 @@ ${dynamicCatalogText}
         { role: "user", parts: [{ text: message }] },
       ];
 
-      const models = ["gemini-2.5-flash", "gemini-2.0-flash"];
+      const models = [
+  (process.env.GEMINI_MODEL || "").trim(),
+  "gemini-2.5-flash-lite",
+  "gemini-3-flash-preview",
+  "gemini-flash-latest",
+].filter(Boolean);
       let lastGeminiError = "Gemini API error";
 
       for (const model of models) {
