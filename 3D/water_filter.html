@@ -1,0 +1,2804 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>แบบจำลอง 3 มิติ ถังกรองน้ำแรงดัน 4 ชั้นสารกรอง (120x40 ซม.)</title>
+
+  <!-- Google Fonts: Prompt & Sarabun สำหรับภาษาไทยคมชัดระดับงานวิศวกรรม -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Sarabun:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Prompt', 'Sarabun', 'sans-serif'],
+            body: ['Sarabun', 'Prompt', 'sans-serif']
+          },
+          colors: {
+            hudBg: 'rgba(10, 18, 30, 0.80)',
+            hudBorder: 'rgba(56, 189, 248, 0.28)',
+            accentCyan: '#38BDF8',
+            warnAmber: '#F59E0B',
+            critRed: '#EF4444'
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- Import Map สำหรับ Three.js ES Modules (v0.160.0) -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <style>
+    /* ตั้งค่าพื้นหลัง Radial Studio Gradient และระบบ Scrollbar / Range Slider */
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 45%, #15202E 0%, #070B12 85%);
+      color: #E2E8F0;
+      font-family: 'Prompt', 'Sarabun', sans-serif;
+      user-select: none;
+    }
+
+    #canvas-container {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      outline: none;
+    }
+
+    /* Glassmorphism HUD Panel */
+    .glass-panel {
+      background: rgba(10, 18, 30, 0.80);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(56, 189, 248, 0.28);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+
+    /* Custom Range Slider */
+    input[type="range"].hud-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(30, 58, 95, 0.8);
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"].hud-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #38BDF8;
+      border: 2px solid #E0F2FE;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.7);
+      transition: transform 0.15s ease;
+    }
+
+    input[type="range"].hud-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.18);
+    }
+
+    input[type="range"].hud-slider::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #38BDF8;
+      border: 2px solid #E0F2FE;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.7);
+    }
+
+    /* Floating 3D Callout Labels */
+    .label-3d {
+      position: absolute;
+      pointer-events: auto;
+      cursor: pointer;
+      transform: translate(-50%, -50%);
+      transition: opacity 0.25s ease, transform 0.15s ease;
+      z-index: 15;
+    }
+
+    .label-3d:hover {
+      z-index: 25;
+      transform: translate(-50%, -50%) scale(1.05);
+    }
+
+    /* Custom Thin Scrollbar */
+    .custom-scroll::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.4);
+      border-radius: 999px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: rgba(56, 189, 248, 0.4);
+      border-radius: 999px;
+    }
+
+    /* Pulse Animations */
+    @keyframes pulseBorderRed {
+      0%, 100% { border-color: rgba(239, 68, 68, 0.9); box-shadow: 0 0 20px rgba(239, 68, 68, 0.35); }
+      50% { border-color: rgba(239, 68, 68, 0.35); box-shadow: 0 0 6px rgba(239, 68, 68, 0.15); }
+    }
+    .alert-pulse-critical {
+      animation: pulseBorderRed 1.4s infinite ease-in-out;
+    }
+
+    @keyframes pulseBorderAmber {
+      0%, 100% { border-color: rgba(245, 158, 11, 0.9); box-shadow: 0 0 18px rgba(245, 158, 11, 0.3); }
+      50% { border-color: rgba(245, 158, 11, 0.35); box-shadow: 0 0 6px rgba(245, 158, 11, 0.12); }
+    }
+    .alert-pulse-warning {
+      animation: pulseBorderAmber 1.6s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body>
+  <!-- พื้นที่แสดงผล 3 มิติ (Three.js WebGL Canvas) -->
+  <div id="canvas-container"></div>
+
+  <!-- เลเยอร์ป้ายกำกับลอยตามวัตถุ 3 มิติ (Floating Callouts) -->
+  <div id="labels-layer" class="fixed inset-0 pointer-events-none z-10 overflow-hidden"></div>
+
+  <!-- หน้าจอโหลดเริ่มต้น -->
+  <div id="loading-overlay" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#070B12] transition-opacity duration-500">
+    <div class="w-14 h-14 rounded-2xl border-2 border-sky-400/30 border-t-sky-400 animate-spin mb-4"></div>
+    <h1 class="text-lg font-semibold text-sky-300 tracking-wide">กำลังสร้างแบบจำลอง 3 มิติ ถังกรองน้ำแรงดัน...</h1>
+    <p class="text-xs text-slate-400 mt-1">Procedural Geometry • PBR Materials • 3,600 Real-time Particles</p>
+  </div>
+
+  <!-- ====================================================================== -->
+  <!-- HUD LAYER: จัดวางรอบขอบหน้าจอ ไม่บังวัตถุ 3 มิติตรงกลาง                  -->
+  <!-- ====================================================================== -->
+  <div id="hud-root" class="fixed inset-0 z-20 pointer-events-none flex flex-col justify-between p-2.5 sm:p-4">
+
+    <!-- ================= TOP BAR ================= -->
+    <div class="flex items-start justify-between gap-2 w-full">
+
+      <!-- TOP-LEFT: Header + Live Telemetry Grid -->
+      <div class="pointer-events-auto flex flex-col gap-2 w-[260px] sm:w-[310px] max-w-[66vw]">
+        <!-- Title Badge -->
+        <div class="glass-panel rounded-2xl px-3.5 py-2.5 flex items-center justify-between gap-2">
+          <div class="min-w-0">
+            <div class="flex items-center gap-1.5">
+              <span class="inline-block w-2 h-2 rounded-full bg-sky-400 shadow-[0_0_8px_#38BDF8]"></span>
+              <span class="text-[10px] font-semibold uppercase tracking-wider text-sky-400">Multi-Media Vessel 120×40 cm</span>
+            </div>
+            <h1 class="text-xs sm:text-sm font-semibold text-slate-100 truncate">ถังกรองน้ำแรงดัน 4 ชั้นสารกรอง</h1>
+          </div>
+          <div class="flex items-center gap-1 shrink-0">
+            <!-- ปุ่มเปิด/ปิดเสียงสังเคราะห์ -->
+            <button id="btn-audio-toggle" title="เปิด/ปิดเสียงจำลองการไหลของน้ำ" class="p-2 rounded-xl bg-slate-800/80 hover:bg-sky-500/20 border border-slate-700/80 text-slate-300 hover:text-sky-300 transition">
+              <svg id="icon-audio-off" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+              </svg>
+              <svg id="icon-audio-on" class="w-4 h-4 hidden text-sky-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+              </svg>
+            </button>
+            <!-- ปุ่มย่อ/ขยาย Telemetry สำหรับมือถือ -->
+            <button id="btn-toggle-telemetry" title="ย่อ/ขยายแผง Telemetry" class="p-2 rounded-xl bg-slate-800/80 hover:bg-sky-500/20 border border-slate-700/80 text-slate-300 hover:text-sky-300 transition">
+              <svg id="icon-telemetry-chevron" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Live Telemetry Grid (6 Channels) -->
+        <div id="telemetry-panel" class="glass-panel rounded-2xl p-2.5 transition-all duration-300">
+          <div class="flex items-center justify-between mb-2 px-0.5">
+            <span class="text-[11px] font-medium text-sky-300">ค่าตรวจวัดระบบกรองน้ำ (Live Telemetry)</span>
+            <span id="telemetry-status-pill" class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-medium">ปกติ</span>
+          </div>
+          <div id="telemetry-grid" class="grid grid-cols-2 gap-1.5"></div>
+        </div>
+      </div>
+
+      <!-- TOP-CENTER: Operating Cycle Stepper & Anomaly Alert Banner -->
+      <div class="hidden lg:flex flex-col items-center gap-2 max-w-[440px] pointer-events-auto">
+        <!-- แถบขั้นตอนการกรอง 5 ระยะ (Operating Cycle / Guided Tour) -->
+        <div class="glass-panel rounded-2xl px-3.5 py-2.5 w-full">
+          <div class="flex items-center justify-between gap-2 mb-1.5">
+            <div class="flex items-center gap-1.5">
+              <span class="text-[10px] font-semibold uppercase tracking-wider text-sky-400">ขั้นตอนการกรอง 5 ระยะ</span>
+              <span id="cycle-mode-badge" class="text-[10px] px-1.5 py-0.5 rounded-md bg-sky-500/20 text-sky-300">Downflow</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <button id="btn-phase-prev" class="px-1.5 py-0.5 rounded-lg bg-slate-800/80 hover:bg-sky-500/25 text-slate-300 text-xs transition" title="ขั้นก่อนหน้า">◀</button>
+              <button id="btn-phase-tour" class="px-2 py-0.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/35 border border-sky-400/40 text-sky-300 text-[10px] font-medium transition">▶ ไล่ดูอัตโนมัติ</button>
+              <button id="btn-phase-next" class="px-1.5 py-0.5 rounded-lg bg-slate-800/80 hover:bg-sky-500/25 text-slate-300 text-xs transition" title="ขั้นถัดไป">▶</button>
+            </div>
+          </div>
+          <!-- Progress Segments -->
+          <div id="phase-dots" class="grid grid-cols-5 gap-1 mb-1.5"></div>
+          <div id="phase-title" class="text-xs font-semibold text-white truncate">1. รับน้ำดิบและกระจายแรงดัน (Freeboard Zone)</div>
+          <p id="phase-desc" class="text-[11px] text-slate-300/90 leading-snug line-clamp-2 font-body mt-0.5"></p>
+        </div>
+
+        <!-- Anomaly Alert Banner (ซ่อนเมื่อปกติ แสดงเมื่อเกิดภาวะผิดปกติ) -->
+        <div id="hud-alert-banner" class="hidden glass-panel rounded-2xl px-3.5 py-2.5 w-full border">
+          <div class="flex items-start gap-2.5">
+            <div id="hud-alert-icon" class="mt-0.5 shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">!</div>
+            <div class="min-w-0">
+              <div id="hud-alert-title" class="text-xs font-semibold"></div>
+              <p id="hud-alert-message" class="text-[11px] text-slate-200/90 leading-snug mt-0.5 font-body"></p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TOP-RIGHT: Camera Presets + Utility Buttons -->
+      <div class="pointer-events-auto flex flex-col items-end gap-2">
+        <div class="glass-panel rounded-2xl p-2.5 w-[178px] sm:w-[208px]">
+          <div class="flex items-center justify-between mb-1.5 px-0.5">
+            <span class="text-[11px] font-medium text-sky-300">มุมกล้องเจาะจุดสำคัญ</span>
+            <button id="btn-toggle-cam-list" class="sm:hidden text-slate-400 hover:text-sky-300 text-xs px-1">▾</button>
+          </div>
+          <div id="camera-presets-list" class="flex flex-col gap-1"></div>
+          <div class="mt-2 pt-2 border-t border-slate-700/60 flex items-center gap-1">
+            <button id="btn-reset-orbit" class="flex-1 py-1.5 px-2 rounded-xl bg-slate-800/80 hover:bg-sky-500/20 border border-slate-700/80 text-[11px] text-slate-200 hover:text-sky-300 transition flex items-center justify-center gap-1">
+              <span>↺</span><span>รีเซ็ตมุมมอง</span>
+            </button>
+            <button id="btn-toggle-labels" title="เปิด/ปิดป้ายกำกับลอย 3 มิติ" class="py-1.5 px-2 rounded-xl bg-slate-800/80 hover:bg-sky-500/20 border border-slate-700/80 text-[11px] text-slate-200 hover:text-sky-300 transition">
+              🏷️
+            </button>
+          </div>
+        </div>
+
+        <!-- Mobile Alert Banner (แสดงบนจอเล็กแทนจุดกลางบน) -->
+        <div id="hud-alert-banner-mobile" class="lg:hidden hidden glass-panel rounded-2xl px-3 py-2 w-[210px] border">
+          <div id="hud-alert-title-mobile" class="text-[11px] font-semibold"></div>
+          <p id="hud-alert-message-mobile" class="text-[10px] text-slate-200/90 leading-snug mt-0.5 font-body"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= MIDDLE-RIGHT: COMPONENT INSPECTOR CARD ================= -->
+    <div id="inspector-card" class="hidden pointer-events-auto fixed right-2.5 sm:right-4 top-1/2 -translate-y-1/2 z-30 glass-panel rounded-2xl p-3.5 w-[285px] sm:w-[325px] max-h-[60vh] overflow-y-auto custom-scroll transition-all">
+      <div class="flex items-start justify-between gap-2 pb-2 border-b border-slate-700/70">
+        <div>
+          <div class="flex items-center gap-1.5 mb-1">
+            <span id="insp-stage-code" class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-sky-500/20 text-sky-300 border border-sky-400/30">STG-00</span>
+            <span class="text-[10px] text-slate-400">รายละเอียดชิ้นส่วนวิศวกรรม</span>
+          </div>
+          <h2 id="insp-name-th" class="text-sm font-semibold text-white leading-snug">ชื่อชิ้นส่วน</h2>
+        </div>
+        <button id="btn-close-inspector" class="p-1.5 rounded-lg bg-slate-800/80 hover:bg-rose-500/25 text-slate-400 hover:text-rose-300 transition" title="ปิดหน้าต่าง">✕</button>
+      </div>
+
+      <p id="insp-summary" class="text-xs text-slate-200/95 leading-relaxed mt-2.5 font-body"></p>
+
+      <div class="mt-3">
+        <div class="text-[10px] font-semibold uppercase tracking-wider text-sky-400 mb-1.5">ข้อมูลจำเพาะทางวิศวกรรม</div>
+        <ul id="insp-metrics" class="space-y-1.5"></ul>
+      </div>
+
+      <div class="mt-3.5 pt-2.5 border-t border-slate-700/70 grid grid-cols-2 gap-1.5">
+        <button id="btn-focus-part" class="py-2 px-2.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/35 border border-sky-400/40 text-sky-200 text-[11px] font-medium transition">
+          🔍 ซูมโฟกัสชิ้นส่วนนี้
+        </button>
+        <button id="btn-isolate-part" class="py-2 px-2.5 rounded-xl bg-slate-800/80 hover:bg-amber-500/25 border border-slate-700 text-slate-200 text-[11px] font-medium transition">
+          ✨ ไฮไลต์แยกชิ้นส่วน
+        </button>
+      </div>
+    </div>
+
+    <!-- ================= BOTTOM CONTROL BAR ================= -->
+    <div class="pointer-events-auto w-full flex flex-col items-center gap-1.5">
+      <!-- Hint Pill -->
+      <div class="hidden sm:flex items-center gap-3 text-[11px] text-slate-400 bg-slate-900/60 backdrop-blur px-3 py-1 rounded-full border border-slate-800/80">
+        <span>🖱️ ลากเพื่อหมุน • เลื่อนลูกกลิ้งเพื่อซูม</span>
+        <span class="text-slate-600">|</span>
+        <span class="text-sky-300/90">👆 คลิกที่ชั้นสารกรองหรือชิ้นส่วน 3 มิติเพื่อดูรายละเอียดวิศวกรรม</span>
+      </div>
+
+      <!-- Main Bottom Dock -->
+      <div class="glass-panel rounded-2xl p-2.5 sm:px-4 sm:py-3 w-full max-w-[1160px]">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-center">
+
+          <!-- 1. โหมดการมองเห็น (Inspection Views) -->
+          <div class="lg:col-span-4">
+            <div class="text-[10px] font-semibold text-sky-300/90 uppercase tracking-wider mb-1.5">โหมดการมองเห็น</div>
+            <div id="view-mode-buttons" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-1.5"></div>
+          </div>
+
+          <!-- 2. จำลองสถานการณ์ (Anomaly Simulations) -->
+          <div class="lg:col-span-3">
+            <div class="text-[10px] font-semibold text-sky-300/90 uppercase tracking-wider mb-1.5">จำลองสถานการณ์</div>
+            <div id="anomaly-buttons" class="grid grid-cols-3 lg:grid-cols-1 gap-1.5"></div>
+          </div>
+
+          <!-- 3. แผงควบคุมการไหล (Physics Sliders & Backwash Toggle) -->
+          <div class="lg:col-span-5">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-[10px] font-semibold text-sky-300/90 uppercase tracking-wider">แผงควบคุมการไหล</span>
+              <button id="btn-backwash-toggle" class="px-2.5 py-1 rounded-xl text-[11px] font-medium bg-slate-800/90 hover:bg-cyan-500/20 border border-slate-600/80 text-slate-200 transition flex items-center gap-1.5">
+                <span id="backwash-dot" class="w-2 h-2 rounded-full bg-slate-500"></span>
+                <span>โหมดล้างย้อน (Backwash)</span>
+              </button>
+            </div>
+            <div id="physics-sliders-container" class="grid grid-cols-1 sm:grid-cols-3 gap-2.5"></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================== -->
+  <!-- MAIN APPLICATION SCRIPT (Three.js ES Modules + Simulation Engine)       -->
+  <!-- ====================================================================== -->
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+    import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+    import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+    import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+    // =========================================================================
+    // 1. MASTER JSON CONFIGURATION (ครบทั้ง 9 หมวดหลักตามต้นฉบับวิศวกรรม)
+    // =========================================================================
+    const CONFIG = {
+      project_meta: {
+        project_id: "multi_media_water_filter_tank_120x40",
+        title_th: "แบบจำลอง 3 มิติ ถังกรองน้ำแรงดัน 4 ชั้นสารกรอง (ขนาด 120x40 ซม.)",
+        title_en: "Multi-Media Pressure Water Filter Tank 3D Simulation (120x40 cm)",
+        version: "1.0.0",
+        coordinate_system: {
+          handedness: "right_handed",
+          up_axis: "+Y",
+          front_axis: "+Z",
+          units: "meters",
+          ground_plane_y: 0.0,
+          overall_bounds_m: { width_x: 0.50, height_y: 1.52, depth_z: 0.44 },
+          vessel_nominal_spec: { height_m: 1.20, diameter_m: 0.40, total_media_volume_liters: 115 }
+        },
+        operating_cycle: {
+          cycle_type: "continuous_downflow_filtration",
+          cycle_duration_seconds: 12.0,
+          learning_phases: [
+            {
+              phase_id: "phase_1_inlet_freeboard",
+              progress_start: 0.0,
+              progress_end: 0.20,
+              target_assembly: "freeboard_water_chamber",
+              camera_preset: "cam_top_inlet_freeboard",
+              name_th: "1. รับน้ำดิบและกระจายแรงดัน (Freeboard Zone)",
+              description_th: "น้ำดิบที่มีสนิมเหล็ก กลิ่น สี และตะกอน ไหลเข้าสู่ช่องว่างด้านบนถังเพื่อลดความเร็วและกระจายตัวสม่ำเสมอทั่วหน้าตัดสารกรอง"
+            },
+            {
+              phase_id: "phase_2_manganese_oxidation",
+              progress_start: 0.20,
+              progress_end: 0.40,
+              target_assembly: "media_layer_manganese",
+              camera_preset: "cam_manganese_carbon",
+              name_th: "2. ดักจับสนิมเหล็กและแมงกานีส (Manganese Layer)",
+              description_th: "น้ำไหลผ่านชั้นสารกรองแมงกานีส 25 ลิตร เพื่อทำปฏิกิริยาออกซิเดชันเปลี่ยนธาตุเหล็กและแมงกานีสที่ละลายน้ำให้ตกตะกอนและถูกดักจับไว้"
+            },
+            {
+              phase_id: "phase_3_carbon_adsorption",
+              progress_start: 0.40,
+              progress_end: 0.65,
+              target_assembly: "media_layer_carbon",
+              camera_preset: "cam_manganese_carbon",
+              name_th: "3. ดูดซับกลิ่น สี และคลอรีน (Activated Carbon Layer)",
+              description_th: "น้ำผ่านชั้นถ่านกัมมันต์ 40 ลิตร ซึ่งมีรูพรุนระดับไมครอนจำนวนมาก ทำหน้าที่ดูดซับกลิ่นไม่พึงประสงค์ สี สารอินทรีย์ และคลอรีนตกค้าง"
+            },
+            {
+              phase_id: "phase_4_sand_filtration",
+              progress_start: 0.65,
+              progress_end: 0.82,
+              target_assembly: "media_layer_silica_sand",
+              camera_preset: "cam_sand_gravel_handhole",
+              name_th: "4. กรองฝุ่นตะกอนละเอียด (Silica Sand Layer)",
+              description_th: "ชั้นทรายกรองละเอียด 25 ลิตร ดักจับตะกอนแขวนลอยขนาดเล็กและเศษผงละเอียดที่หลุดรอดจากชั้นบน ช่วยลดค่าความขุ่น (NTU) อย่างชัดเจน"
+            },
+            {
+              phase_id: "phase_5_gravel_underdrain",
+              progress_start: 0.82,
+              progress_end: 1.0,
+              target_assembly: "underdrain_strainer_hub",
+              camera_preset: "cam_underdrain_outlet",
+              name_th: "5. กรองหยาบรองพื้นและจ่ายน้ำสะอาด (Gravel & Underdrain)",
+              description_th: "ชั้นกรวด 25 ลิตร ทำหน้าที่กรองขั้นสุดท้าย พยุงไม่ให้ทรายไหลลงหัวสเตรนเนอร์ และส่งน้ำสะอาดออกทางหน้าแปลนด้านล่างถัง"
+            }
+          ]
+        }
+      },
+      rendering_and_lighting: {
+        renderer: {
+          antialias: true,
+          pixel_ratio_max: 2.0,
+          tone_mapping: "ACESFilmicToneMapping",
+          tone_mapping_exposure: 1.12,
+          output_color_space: "SRGBColorSpace",
+          local_clipping_enabled: true,
+          shadows: { enabled: true, type: "PCFSoftShadowMap", map_size: 2048, bias: -0.0004 }
+        },
+        local_clipping_plane: {
+          enabled_by_default: true,
+          plane_normal: [0.0, 0.0, -1.0],
+          plane_constant: 0.0
+        },
+        post_processing: {
+          unreal_bloom_pass: { enabled: true, strength: 0.35, radius: 0.45, threshold: 0.82 }
+        },
+        environment: {
+          fog: { enabled: true, color: "#0A1018", near: 4.5, far: 14.0 },
+          studio_floor: {
+            enabled: true, y_position: 0.0, radius: 6.0, color: "#0E1621", roughness: 0.72, metalness: 0.15,
+            grid_helper: { enabled: true, size: 4.0, divisions: 20, color_center_line: "#1E3A5F", color_grid: "#132338" }
+          }
+        },
+        lighting_rig: {
+          ambient_hemisphere: { sky_color: "#B8DCFF", ground_color: "#1B2430", intensity: 0.65 },
+          key_light: { color: "#FFFFFF", intensity: 2.4, position: [2.2, 3.2, 2.5], target: [0.0, 0.78, 0.0], cast_shadow: true, shadow_camera_bounds: 1.6 },
+          fill_light: { color: "#8CC8FF", intensity: 0.95, position: [-2.4, 1.8, 1.6], target: [0.0, 0.78, 0.0] },
+          rim_light: { color: "#38BDF8", intensity: 1.45, position: [-0.8, 2.5, -2.4], target: [0.0, 0.85, 0.0] },
+          dynamic_internal_lights: [
+            { id: "freeboard_aqua_glow", color: "#7DD3FC", intensity: 1.35, distance: 1.1, decay: 2.0, position: [0.0, 1.24, 0.05] },
+            { id: "underdrain_clean_glow", color: "#38BDF8", intensity: 0.9, distance: 0.8, decay: 2.0, position: [0.0, 0.29, 0.06] }
+          ]
+        }
+      },
+      pbr_materials_library: {
+        vessel_blue_epoxy_steel: { type: "MeshPhysicalMaterial", color: "#1166B8", metalness: 0.35, roughness: 0.28, clearcoat: 0.75, clearcoat_roughness: 0.16, emissive: "#000000", emissive_intensity: 0.0, side: "DoubleSide" },
+        vessel_interior_lining: { type: "MeshStandardMaterial", color: "#0A3A6B", metalness: 0.15, roughness: 0.55, emissive: "#04182E", emissive_intensity: 0.15, side: "BackSide" },
+        flange_bolted_steel: { type: "MeshStandardMaterial", color: "#1B5E9E", metalness: 0.65, roughness: 0.38, emissive: "#000000", emissive_intensity: 0.0 },
+        stainless_steel_hardware: { type: "MeshStandardMaterial", color: "#CFD8DC", metalness: 0.92, roughness: 0.22, emissive: "#000000", emissive_intensity: 0.0 },
+        rubber_gasket_dark: { type: "MeshStandardMaterial", color: "#1E242B", metalness: 0.05, roughness: 0.88, emissive: "#000000", emissive_intensity: 0.0 },
+        freeboard_water_volume: { type: "MeshPhysicalMaterial", color: "#B3E5FC", metalness: 0.0, roughness: 0.08, clearcoat: 0.9, transmission: 0.55, ior: 1.333, opacity: 0.56, transparent: true, emissive: "#38BDF8", emissive_intensity: 0.22 },
+        media_manganese_granules: { type: "MeshStandardMaterial", color: "#6E422C", metalness: 0.18, roughness: 0.86, emissive: "#241108", emissive_intensity: 0.08, procedural_bump_scale: 0.018, grain_density: "medium_coarse" },
+        media_activated_carbon: { type: "MeshStandardMaterial", color: "#1E2226", metalness: 0.12, roughness: 0.92, emissive: "#080A0C", emissive_intensity: 0.05, procedural_bump_scale: 0.022, grain_density: "angular_porous" },
+        media_silica_sand: { type: "MeshStandardMaterial", color: "#C7A678", metalness: 0.04, roughness: 0.89, emissive: "#1F180D", emissive_intensity: 0.04, procedural_bump_scale: 0.009, grain_density: "fine_uniform" },
+        media_support_gravel: { type: "MeshStandardMaterial", color: "#A39B8B", metalness: 0.06, roughness: 0.82, emissive: "#141210", emissive_intensity: 0.03, procedural_bump_scale: 0.035, grain_density: "coarse_pebbles_multicolor" },
+        underdrain_pvc_strainer: { type: "MeshStandardMaterial", color: "#CBD5E1", metalness: 0.15, roughness: 0.36, emissive: "#0EA5E9", emissive_intensity: 0.12 },
+        cutaway_section_cap: { type: "MeshStandardMaterial", color: "#E11D48", metalness: 0.2, roughness: 0.42, emissive: "#9F1239", emissive_intensity: 0.45, side: "DoubleSide" },
+        xray_hologram_shell: { type: "MeshPhysicalMaterial", color: "#38BDF8", metalness: 0.1, roughness: 0.15, clearcoat: 0.6, opacity: 0.22, transparent: true, depth_write: false, emissive: "#0284C7", emissive_intensity: 0.65, side: "DoubleSide" }
+      },
+      mechanical_assemblies: [
+        {
+          id: "vessel_pressure_shell",
+          name_th: "ตัวถังกรองแรงดันเหล็กเคลือบอีพ็อกซี่ (120x40 ซม.)",
+          stage_code: "STG-00",
+          motion_group: "static_chassis",
+          cutaway_clippable: true,
+          position: [0.0, 0.84, 0.0],
+          rotation: [0.0, 0.0, 0.0],
+          exploded_offset: [0.0, 0.0, -0.35],
+          material_ref: "vessel_blue_epoxy_steel",
+          procedural_geometry: { type: "LatheGeometry_HollowVessel", outer_radius_m: 0.20, inner_radius_m: 0.192, wall_thickness_m: 0.008, cylinder_height_m: 1.00, top_dome_height_m: 0.10, bottom_dome_height_m: 0.10, total_height_m: 1.20, y_min_m: 0.24, y_max_m: 1.44, radial_segments: 64 },
+          education_info: {
+            summary: "ถังรับแรงดันเหล็กกล้าเคลือบสีอีพ็อกซี่กันสนิมทั้งภายนอกและภายใน รองรับแรงดันน้ำขณะกรองและขณะล้างย้อน (Backwash) ออกแบบหัว-ท้ายทรงโค้ง (Ellipsoidal Head) เพื่อกระจายแรงเค้นอย่างสม่ำเสมอ",
+            key_metrics: ["ขนาดมาตรฐาน: สูง 120 ซม. x เส้นผ่านศูนย์กลาง 40 ซม.", "ความจุสารกรองรวม: 115 ลิตร (4 ชั้น)", "แรงดันใช้งานสูงสุด: 6.0 Bar"]
+          }
+        },
+        {
+          id: "support_legs_tripod",
+          name_th: "ชุดขาตั้งเหล็ก 3 ขา พร้อมแผ่นเพลทยึดพื้น",
+          stage_code: "STG-00",
+          motion_group: "static_chassis",
+          cutaway_clippable: false,
+          position: [0.0, 0.15, 0.0],
+          rotation: [0.0, 0.0, 0.0],
+          exploded_offset: [0.0, -0.22, 0.0],
+          material_ref: "vessel_blue_epoxy_steel",
+          procedural_geometry: { type: "Group_TripodLegs", leg_count: 3, azimuth_angles_deg: [35, 145, 270], leg_height_m: 0.30, top_attach_radius_m: 0.155, bottom_stance_radius_m: 0.195, leg_profile_top_m: [0.055, 0.032], leg_profile_bottom_m: [0.038, 0.024], footplate_size_m: [0.075, 0.012, 0.075], y_min_m: 0.0, y_max_m: 0.30 },
+          education_info: {
+            summary: "โครงสร้างขาตั้งเหล็กทรงเรียว 3 ขา เชื่อมติดใต้ก้นถังแบบสมมาตร ช่วยรับน้ำหนักรวมของถัง สารกรอง และน้ำเต็มระบบ พร้อมยกก้นถังให้สูงจากพื้นเพื่อติดตั้งท่อหน้าแปลนจ่ายน้ำด้านล่าง",
+            key_metrics: ["ความสูงยกฐานก้นถัง: 24 ซม. จากระดับพื้น", "รองรับน้ำหนักขณะใช้งานเต็มถัง: ~245 กิโลกรัม", "ฐานแผ่นเพลทเจาะรูพุกยึดพื้นคอนกรีต"]
+          }
+        },
+        {
+          id: "top_loading_manhole",
+          name_th: "ฝาหน้าแปลนเติมสารกรองด้านบน (Top Manhole)",
+          stage_code: "STG-01",
+          motion_group: "static_fitting",
+          cutaway_clippable: false,
+          position: [-0.075, 1.445, 0.0],
+          rotation: [0.0, 0.0, 0.26],
+          exploded_offset: [-0.14, 0.25, 0.0],
+          material_ref: "flange_bolted_steel",
+          procedural_geometry: { type: "Group_BoltedFlangeCover", neck_radius_m: 0.052, neck_height_m: 0.065, flange_outer_radius_m: 0.078, flange_thickness_m: 0.016, cover_plate_thickness_m: 0.014, bolt_count: 8, bolt_circle_radius_m: 0.065, bolt_material_ref: "stainless_steel_hardware", gasket_material_ref: "rubber_gasket_dark" },
+          education_info: {
+            summary: "ช่องเซอร์วิสแบบหน้าแปลนยึดน็อตด้านบนถัง ใช้สำหรับเทเติมสารกรองใหม่ทีละชั้นและตรวจสอบระดับผิวหน้าสารกรอง พร้อมปะเก็นยางกันรั่วทนแรงดัน",
+            key_metrics: ["ขนาดปากท่อเติมสารกรอง: 4 นิ้ว (DN100)", "จำนวนสลักเกลียวยึดฝา: 8 ตัว (สเตนเลส 304)", "มุมเอียงติดตั้ง: 15 องศาเพื่อความสะดวกในการเทสารกรอง"]
+          }
+        },
+        {
+          id: "top_inlet_vent_nozzle",
+          name_th: "ท่อน้ำดิบเข้าและจุดระบายอากาศด้านบน",
+          stage_code: "STG-01",
+          motion_group: "static_fitting",
+          cutaway_clippable: false,
+          position: [0.06, 1.455, 0.0],
+          rotation: [0.0, 0.0, 0.0],
+          exploded_offset: [0.12, 0.26, 0.0],
+          material_ref: "flange_bolted_steel",
+          procedural_geometry: { type: "CylinderGeometry_Nozzle", outer_radius_m: 0.015, inner_radius_m: 0.011, height_m: 0.07, collar_radius_m: 0.022, collar_height_m: 0.012, radial_segments: 24 },
+          education_info: {
+            summary: "ท่อเชื่อมต่อน้ำดิบด้านบนและจุดติดตั้งวาล์วไล่ลมอัตโนมัติ (Air Release Valve) เพื่อป้องกันอากาศขังด้านบนถังซึ่งจะลดประสิทธิภาพการกรองและทำให้เกิดแรงกระแทกน้ำ",
+            key_metrics: ["ขนาดข้อต่อเกลียว: 1 นิ้ว (DN25)", "อัตราการไหลออกแบบ: 1.5 - 2.5 ลบ.ม./ชม.", "หน้าที่เสริม: ระบายอากาศเมื่อเริ่มเดินระบบ"]
+          }
+        },
+        {
+          id: "freeboard_water_chamber",
+          name_th: "ช่องน้ำดิบและพื้นที่ขยายตัวล้างย้อน (Freeboard Zone)",
+          stage_code: "STG-01",
+          motion_group: "fluid_breathing",
+          cutaway_clippable: true,
+          position: [0.0, 1.2575, 0.0],
+          rotation: [0.0, 0.0, 0.0],
+          exploded_offset: [0.0, 0.24, 0.0],
+          material_ref: "freeboard_water_volume",
+          procedural_geometry: { type: "LatheGeometry_DomeCylinderFill", radius_m: 0.190, cylinder_height_m: 0.25, top_dome_height_m: 0.085, y_min_m: 1.09, y_max_m: 1.425, radial_segments: 48 },
+          education_info: {
+            summary: "พื้นที่ว่างเหนือชั้นสารกรองด้านบนสุด ทำหน้าที่กักเก็บน้ำดิบเพื่อปรับแรงดันให้กระจายทั่วหน้าตัด และเป็นพื้นที่เผื่อการฟุ้งขยายตัวของสารกรอง (Bed Expansion 25-35%) ขณะทำการล้างย้อน",
+            key_metrics: ["ความสูงช่องว่าง Freeboard: 33.5 ซม.", "สัดส่วนพื้นที่ขยายตัว: ~28% ของความสูงถัง", "ป้องกันสารกรองหลุดลอยออกทางท่อน้ำทิ้งขณะล้างย้อน"]
+          }
+        },
+        {
+          id: "media_layer_manganese",
+          name_th: "สารกรองแมงกานีส (1 กระสอบ / 25 ลิตร)",
+          stage_code: "STG-02",
+          motion_group: "media_bed_vibration",
+          cutaway_clippable: true,
+          position: [0.0, 1.00, 0.0],
+          rotation: [0.0, 0.0, 0.0],
+          exploded_offset: [0.0, 0.14, 0.0],
+          material_ref: "media_manganese_granules",
+          procedural_geometry: { type: "CylinderGeometry_GranularBed", radius_top_m: 0.190, radius_bottom_m: 0.190, height_m: 0.18, y_min_m: 0.91, y_max_m: 1.09, radial_segments: 48, surface_instanced_grains: 650, grain_radius_range_m: [0.004, 0.007] },
+          education_info: {
+            summary: "ชั้นสารกรองบนสุดลักษณะเม็ดสีน้ำตาลแดง มีสารเคลือบแมงกานีสไดออกไซด์ช่วยออกซิไดซ์และดักจับสนิมเหล็ก (Fe) และแมงกานีส (Mn) ที่ละลายปนเปื้อนในน้ำบาดาลหรือน้ำประปา",
+            key_metrics: ["ปริมาณบรรจุ: 1 กระสอบ / 25 ลิตร (หนา ~18 ซม.)", "หน้าที่หลัก: ช่วยดักจับสนิมเหล็กและคราบแดงในน้ำ", "การฟื้นฟูสภาพ: ล้างฟื้นฟูด้วยด่างทับทิม (KMnO4) ตามรอบ"]
+          }
+        },
+        {
+          id: "media_layer_carbon",
+          name_th: "สารกรองคาร์บอนกัมมันต์ (1 กระสอบ / 40 ลิตร)",
+          stage_code: "STG-03",
+          motion_group: "media_bed_vibration",
+          cutaway_clippable: true,
+          position: [0.0, 0.77, 0.0],
+          rotation: [0.0, 0.0, 0.0],
+          exploded_offset: [0.0, 0.02, 0.0],
+          material_ref: "media_activated_carbon",
+          procedural_geometry: { type: "CylinderGeometry_GranularBed", radius_top_m: 0.190, radius_bottom_m: 0.190, height_m: 0.28, y_min_m: 0.63, y_max_m: 0.91, radial_segments: 48, surface_instanced_grains: 900, grain_radius_range_m: [0.005, 0.009] },
+          education_info: {
+            summary: "ชั้นสารกรองที่หนาที่สุดในถัง ทำจากถ่านกัมมันต์กะลามะพร้าวเกรดอุตสาหกรรม มีพื้นที่ผิวรูพรุนสูงมากสำหรับดูดซับกลิ่นเหม็น สีขุ่นเหลือง คลอรีนอิสระ และสารอินทรีย์ระเหยง่าย",
+            key_metrics: ["ปริมาณบรรจุ: 1 กระสอบ / 40 ลิตร (หนา ~28 ซม.)", "หน้าที่หลัก: ช่วยดักจับกลิ่น สี และคลอรีนตกค้าง", "ค่าการดูดซับไอโอดีน (Iodine Number): 900 - 1,000 mg/g"]
+          }
+        },
+        {
+          id: "media_layer_silica_sand",
+          name_th: "ชั้นทรายกรองละเอียด (1 กระสอบ / 25 ลิตร)",
+          stage_code: "STG-04",
+          motion_group: "media_bed_vibration",
+          cutaway_clippable: true,
+          position: [0.0, 0.54, 0.0],
+          rotation: [0.0, 0.0, 0.0],
+          exploded_offset: [0.0, -0.09, 0.0],
+          material_ref: "media_silica_sand",
+          procedural_geometry: { type: "CylinderGeometry_GranularBed", radius_top_m: 0.190, radius_bottom_m: 0.190, height_m: 0.18, y_min_m: 0.45, y_max_m: 0.63, radial_segments: 48, surface_instanced_grains: 800, grain_radius_range_m: [0.0025, 0.0045] },
+          education_info: {
+            summary: "ทรายซิลิกาคัดขนาดเม็ดสม่ำเสมอ ทนต่อการสึกกร่อน ใช้หลักการกรองเชิงกลแบบชั้นลึก (Depth Filtration) เพื่อดักจับฝุ่นตะกอนละเอียดและสารแขวนลอยที่หลุดผ่านชั้นบนลงมา",
+            key_metrics: ["ปริมาณบรรจุ: 1 กระสอบ / 25 ลิตร (หนา ~18 ซม.)", "หน้าที่หลัก: ช่วยดักจับฝุ่นตะกอนและสารแขวนลอย", "ความละเอียดการกรองเชิงกล: ~20 - 40 ไมครอน"]
+          }
+        },
+        {
+          id: "media_layer_gravel",
+          name_th: "ชั้นกรวดรองพื้นและกรองหยาบ (1 กระสอบ / 25 ลิตร)",
+          stage_code: "STG-05",
+          motion_group: "static_media_base",
+          cutaway_clippable: true,
+          position: [0.0, 0.351, 0.0],
+          rotation: [0.0, 0.0, 0.0],
+          exploded_offset: [0.0, -0.19, 0.0],
+          material_ref: "media_support_gravel",
+          procedural_geometry: { type: "LatheGeometry_BottomDomeGravelBed", radius_m: 0.190, upper_cylinder_height_m: 0.11, bottom_dome_height_m: 0.088, y_min_m: 0.252, y_max_m: 0.45, radial_segments: 48, surface_instanced_pebbles: 420, pebble_radius_range_m: [0.009, 0.016] },
+          education_info: {
+            summary: "ชั้นกรวดแม่น้ำคัดขนาดวางอยู่ก้นถังคลุมหัวสเตรนเนอร์ ช่วยกรองสิ่งปนเปื้อนขั้นสุดท้าย ป้องกันเม็ดทรายไหลลงไปอุดตันช่องจ่ายน้ำ และช่วยกระจายแรงดันน้ำขณะล้างย้อนจากด้านล่าง",
+            key_metrics: ["ปริมาณบรรจุ: 1 กระสอบ / 25 ลิตร (หนา ~20 ซม. รวมโค้งก้นถัง)", "หน้าที่หลัก: กรองสิ่งปนเปื้อนและพยุงชั้นสารกรองทั้งหมด", "ขนาดเม็ดกรวดมาตรฐาน: เบอร์ 2 - 4 (6 - 12 มม.)"]
+          }
+        },
+        {
+          id: "side_discharge_handhole",
+          name_th: "หน้าแปลนถ่ายสารกรองด้านข้าง (Side Handhole)",
+          stage_code: "STG-05",
+          motion_group: "static_fitting",
+          cutaway_clippable: false,
+          position: [-0.228, 0.39, 0.0],
+          rotation: [0.0, 0.0, 1.5708],
+          exploded_offset: [-0.28, 0.0, 0.0],
+          material_ref: "flange_bolted_steel",
+          procedural_geometry: { type: "Group_BoltedFlangeCover", neck_radius_m: 0.052, neck_height_m: 0.068, flange_outer_radius_m: 0.076, flange_thickness_m: 0.016, cover_plate_thickness_m: 0.014, bolt_count: 8, bolt_circle_radius_m: 0.063, bolt_material_ref: "stainless_steel_hardware", gasket_material_ref: "rubber_gasket_dark" },
+          education_info: {
+            summary: "ช่องหน้าแปลนเซอร์วิสด้านข้างบริเวณระดับชั้นกรวดล่าง ใช้สำหรับเปิดถ่ายสารกรองเก่าทั้งหมดออกจากถังเมื่อครบอายุการใช้งาน โดยไม่ต้องคว่ำถังขนาดใหญ่",
+            key_metrics: ["ตำแหน่งติดตั้ง: สูง 39 ซม. จากพื้น (ระดับชั้นกรวด)", "ขนาดปากท่อถ่ายสารกรอง: 4 นิ้ว (DN100)", "รอบการเปลี่ยนสารกรองแนะนำ: ทุก 1 - 2 ปีตามคุณภาพน้ำดิบ"]
+          }
+        },
+        {
+          id: "underdrain_strainer_hub",
+          name_th: "ชุดหัวสเตรนเนอร์รวบรวมน้ำสะอาดภายใน (Underdrain Hub)",
+          stage_code: "STG-05",
+          motion_group: "static_internal",
+          cutaway_clippable: false,
+          position: [0.0, 0.285, 0.0],
+          rotation: [0.0, 0.0, 0.0],
+          exploded_offset: [0.0, -0.26, 0.0],
+          material_ref: "underdrain_pvc_strainer",
+          procedural_geometry: { type: "Group_RadialStrainerCollector", central_hub_radius_m: 0.042, central_hub_height_m: 0.055, lateral_count: 6, lateral_length_m: 0.115, lateral_radius_m: 0.012, slot_width_mm: 0.4, y_min_m: 0.255, y_max_m: 0.315 },
+          education_info: {
+            summary: "ชุดท่อกิ่งและหัวกรองแบบมีร่องละเอียด (Slotted Strainer) ฝังอยู่ใต้ชั้นกรวด ทำหน้าที่รวบรวมน้ำที่ผ่านการกรองครบทั้ง 4 ชั้นส่งออกท่อด้านล่าง โดยกักเม็ดกรวดและทรายไว้ไม่ให้หลุดไปกับน้ำ",
+            key_metrics: ["จำนวนกิ่งสเตรนเนอร์กระจายรอบทิศ: 6 กิ่ง", "ขนาดร่องกรอง (Slot Size): 0.4 มม.", "วัสดุ: UPVC / ABS เกรดทนแรงดันและการกัดกร่อน"]
+          }
+        },
+        {
+          id: "bottom_outlet_flange",
+          name_th: "หน้าแปลนท่อจ่ายน้ำสะอาดด้านล่าง (Bottom Outlet)",
+          stage_code: "STG-05",
+          motion_group: "static_fitting",
+          cutaway_clippable: false,
+          position: [0.0, 0.20, 0.0],
+          rotation: [0.0, 0.0, 0.0],
+          exploded_offset: [0.0, -0.34, 0.0],
+          material_ref: "flange_bolted_steel",
+          procedural_geometry: { type: "Group_PipeFlangeOutlet", pipe_outer_radius_m: 0.028, pipe_inner_radius_m: 0.022, pipe_height_m: 0.08, flange_outer_radius_m: 0.058, flange_thickness_m: 0.014, bolt_count: 6, bolt_circle_radius_m: 0.046, y_min_m: 0.16, y_max_m: 0.24 },
+          education_info: {
+            summary: "ท่อหน้าแปลนจ่ายน้ำสะอาดใต้ก้นถัง เชื่อมต่อตรงจากชุดหัวสเตรนเนอร์เพื่อส่งน้ำสู่ถังเก็บน้ำดี และทำหน้าที่เป็นทางน้ำเข้าย้อนกลับเมื่อสลับวาล์วเข้าสู่โหมดล้างย้อน (Backwash)",
+            key_metrics: ["ขนาดหน้าแปลนท่อออก: 2 นิ้ว (DN50)", "ความขุ่นน้ำขาออกเป้าหมาย: < 1.0 NTU", "รองรับระบบท่อ 5 วาล์ว หรือหัวควบคุมอัตโนมัติ"]
+          }
+        }
+      ],
+      particles_and_flow_dynamics: {
+        total_particle_count: 3600,
+        base_particle_size_m: 0.016,
+        streams: [
+          { id: "raw_water_inlet_freeboard", name_th: "กระแสน้ำดิบไหลเข้าช่องบนถัง", particle_count: 700, spawn_bounds_m: { x: [-0.02, 0.09], y: [1.41, 1.47], z: [-0.04, 0.04] }, target_bounds_m: { x: [-0.175, 0.175], y: [1.09, 1.38], z: [-0.175, 0.0] }, direction_vector: [0.0, -1.0, 0.0], base_speed_mps: 0.28, turbulence_curl: 0.35, color_start: "#B45309", color_end: "#D97706" },
+          { id: "manganese_iron_removal_stream", name_th: "การซึมผ่านชั้นแมงกานีส (ดักจับสนิมเหล็ก)", particle_count: 800, spawn_bounds_m: { x: [-0.175, 0.175], y: [1.08, 1.09], z: [-0.175, 0.0] }, target_bounds_m: { x: [-0.175, 0.175], y: [0.91, 0.92], z: [-0.175, 0.0] }, direction_vector: [0.0, -1.0, 0.0], base_speed_mps: 0.14, turbulence_curl: 0.18, color_start: "#D97706", color_end: "#94A3B8" },
+          { id: "carbon_adsorption_stream", name_th: "การไหลผ่านชั้นคาร์บอน (ดูดซับกลิ่นและสี)", particle_count: 900, spawn_bounds_m: { x: [-0.175, 0.175], y: [0.90, 0.91], z: [-0.175, 0.0] }, target_bounds_m: { x: [-0.175, 0.175], y: [0.63, 0.64], z: [-0.175, 0.0] }, direction_vector: [0.0, -1.0, 0.0], base_speed_mps: 0.13, turbulence_curl: 0.15, color_start: "#94A3B8", color_end: "#38BDF8" },
+          { id: "sand_gravel_polishing_stream", name_th: "การกรองละเอียดผ่านชั้นทราย-กรวดสู่น้ำสะอาด", particle_count: 900, spawn_bounds_m: { x: [-0.175, 0.175], y: [0.62, 0.63], z: [-0.175, 0.0] }, target_bounds_m: { x: [-0.025, 0.025], y: [0.16, 0.28], z: [-0.025, 0.0] }, direction_vector: [0.0, -1.0, 0.0], base_speed_mps: 0.16, turbulence_curl: 0.10, color_start: "#38BDF8", color_end: "#E0F7FA" },
+          { id: "microbubbles_and_backwash_lift", name_th: "ฟองอากาศจุลภาคและแรงดันย้อนกลับในช่องว่าง", particle_count: 300, spawn_bounds_m: { x: [-0.16, 0.16], y: [0.28, 1.08], z: [-0.16, 0.0] }, target_bounds_m: { x: [-0.16, 0.16], y: [1.12, 1.40], z: [-0.16, 0.0] }, direction_vector: [0.0, 1.0, 0.0], base_speed_mps: 0.11, turbulence_curl: 0.42, color_start: "#BAE6FD", color_end: "#FFFFFF" }
+        ]
+      },
+      physics_and_telemetry_engine: {
+        control_inputs: [
+          { id: "inlet_valve_throttle", label_th: "อัตราการไหลน้ำเข้า", unit: "%", min: 0.0, max: 100.0, default: 65.0, step: 1.0 },
+          { id: "raw_water_impurity_load", label_th: "ความเข้มข้นสนิม/ตะกอน", unit: "%", min: 10.0, max: 100.0, default: 45.0, step: 5.0 },
+          { id: "time_scale_slowmo", label_th: "ความเร็วจำลอง", unit: "x", min: 0.1, max: 2.0, default: 1.0, step: 0.1 }
+        ],
+        telemetry_channels: [
+          { id: "flow_rate_lpm", label_th: "อัตราการไหลสุทธิ", unit: "L/min", default_value: 28.5, min_value: 0.0, max_value: 45.0, warning_threshold: 40.0, warning_direction: "above" },
+          { id: "inlet_pressure_bar", label_th: "แรงดันน้ำขาเข้า", unit: "Bar", default_value: 2.4, min_value: 0.0, max_value: 6.0, warning_threshold: 4.8, warning_direction: "above" },
+          { id: "differential_pressure_bar", label_th: "แรงดันตกคร่อม (ΔP)", unit: "Bar", default_value: 0.28, min_value: 0.0, max_value: 2.5, warning_threshold: 1.0, warning_direction: "above" },
+          { id: "outlet_turbidity_ntu", label_th: "ความขุ่นน้ำขาออก", unit: "NTU", default_value: 0.45, min_value: 0.0, max_value: 15.0, warning_threshold: 2.0, warning_direction: "above" },
+          { id: "iron_removal_efficiency_pct", label_th: "ประสิทธิภาพดักสนิม", unit: "%", default_value: 96.8, min_value: 0.0, max_value: 100.0, warning_threshold: 82.0, warning_direction: "below" },
+          { id: "bed_saturation_pct", label_th: "การสะสมตะกอนสารกรอง", unit: "%", default_value: 24.0, min_value: 0.0, max_value: 100.0, warning_threshold: 80.0, warning_direction: "above" }
+        ]
+      },
+      interactive_modes: {
+        inspection_views: [
+          { id: "cutaway_180", label_th: "ผ่าครึ่ง 180°", clipping_enabled: true, xray_enabled: false, explode_factor: 0.0 },
+          { id: "full_exterior", label_th: "ภายนอกเต็มใบ", clipping_enabled: false, xray_enabled: false, explode_factor: 0.0 },
+          { id: "xray_hologram", label_th: "เอ็กซเรย์โฮโลแกรม", clipping_enabled: false, xray_enabled: true, explode_factor: 0.0 },
+          { id: "exploded_view", label_th: "แยกชิ้นส่วน", clipping_enabled: true, xray_enabled: false, explode_factor: 1.0 }
+        ],
+        camera_presets: [
+          { id: "cam_overview_cutaway", label_th: "ภาพรวมทั้งระบบ", position: [0.95, 1.05, 1.65], target: [0.0, 0.78, 0.0], fov: 42 },
+          { id: "cam_top_inlet_freeboard", label_th: "ฝาเติมและช่องน้ำดิบ", position: [0.48, 1.48, 0.85], target: [-0.02, 1.26, 0.0], fov: 38 },
+          { id: "cam_manganese_carbon", label_th: "ชั้นแมงกานีสและคาร์บอน", position: [0.32, 0.92, 0.88], target: [0.0, 0.86, 0.0], fov: 36 },
+          { id: "cam_sand_gravel_handhole", label_th: "ชั้นทราย-กรวดและช่องถ่าย", position: [-0.58, 0.56, 0.86], target: [-0.05, 0.45, 0.0], fov: 36 },
+          { id: "cam_underdrain_outlet", label_th: "หัวสเตรนเนอร์และท่อน้ำออก", position: [0.42, 0.34, 0.78], target: [0.0, 0.26, 0.0], fov: 38 }
+        ]
+      },
+      anomaly_simulations: [
+        {
+          id: "normal_filtration",
+          label_th: "การทำงานปกติ",
+          severity: "normal",
+          telemetry_overrides: { flow_rate_multiplier: 1.0, inlet_pressure_offset_bar: 0.0, differential_pressure_offset_bar: 0.0, outlet_turbidity_ntu: 0.45, iron_removal_efficiency_pct: 96.8, bed_saturation_pct: 24.0 },
+          visual_effects: { particle_speed_multiplier: 1.0, particle_color_override: null, media_bed_tint: null, shell_pulse_warning: false },
+          lighting_effects: { freeboard_light_color: "#7DD3FC", underdrain_light_color: "#38BDF8", strobe_enabled: false },
+          hud_alert: { visible: false, level: "info", title_th: "ระบบกรองน้ำทำงานปกติ", message_th: "คุณภาพน้ำขาออกผ่านเกณฑ์มาตรฐาน (< 1.0 NTU) และแรงดันตกคร่อมอยู่ในช่วงปลอดภัย" }
+        },
+        {
+          id: "media_clogging_high_dp",
+          label_th: "สารกรองอุดตัน (ΔP สูง)",
+          severity: "critical",
+          telemetry_overrides: { flow_rate_multiplier: 0.32, inlet_pressure_offset_bar: 2.7, differential_pressure_offset_bar: 1.48, outlet_turbidity_ntu: 1.65, iron_removal_efficiency_pct: 88.5, bed_saturation_pct: 94.0 },
+          visual_effects: {
+            particle_speed_multiplier: 0.25,
+            particle_color_override: { stream_id: "raw_water_inlet_freeboard", color_start: "#991B1B", color_end: "#DC2626" },
+            media_bed_tint: { target_ids: ["media_layer_manganese", "media_layer_silica_sand"], emissive_color: "#9A3412", emissive_intensity: 0.55 },
+            shell_pulse_warning: true
+          },
+          lighting_effects: { freeboard_light_color: "#EF4444", underdrain_light_color: "#F59E0B", strobe_enabled: true, strobe_frequency_hz: 2.0 },
+          hud_alert: { visible: true, level: "critical", title_th: "เตือนภัย: สารกรองอุดตันและแรงดันตกคร่อมสูง (High ΔP)", message_th: "แรงดันตกคร่อมเกิน 1.0 Bar และอัตราการไหลลดลง 68% กรุณาสลับเข้าสู่โหมดล้างย้อน (Backwash) เพื่อชะล้างตะกอนสะสม" }
+        },
+        {
+          id: "channeling_breakthrough",
+          label_th: "น้ำไหลลัดวงจร (Channeling)",
+          severity: "warning",
+          telemetry_overrides: { flow_rate_multiplier: 1.25, inlet_pressure_offset_bar: -0.35, differential_pressure_offset_bar: -0.18, outlet_turbidity_ntu: 7.8, iron_removal_efficiency_pct: 54.2, bed_saturation_pct: 78.0 },
+          visual_effects: {
+            particle_speed_multiplier: 1.85,
+            particle_color_override: { stream_id: "sand_gravel_polishing_stream", color_start: "#D97706", color_end: "#B45309" },
+            channeling_jet_path: { enabled: true, x_offset_m: 0.135, y_start_m: 1.09, y_end_m: 0.28, color: "#F97316" },
+            shell_pulse_warning: false
+          },
+          lighting_effects: { freeboard_light_color: "#F59E0B", underdrain_light_color: "#EA580C", strobe_enabled: true, strobe_frequency_hz: 1.2 },
+          hud_alert: { visible: true, level: "warning", title_th: "แจ้งเตือน: พบภาวะน้ำไหลลัดวงจร (Media Channeling)", message_th: "ความขุ่นน้ำขาออกพุ่งสูงเกิน 2.0 NTU และประสิทธิภาพดักจับสนิมเหล็กต่ำกว่า 60% ควรเปิดฝาหน้าแปลนตรวจสอบหรือเปลี่ยนสารกรอง" }
+        }
+      ]
+    };
+
+    // =========================================================================
+    // 2. SIMULATION STATE (สถานะทั้งหมดของแอป)
+    // =========================================================================
+    const state = {
+      viewMode: 'cutaway_180',
+      anomalyId: 'normal_filtration',
+      explodeTarget: 0.0,
+      explodeCurrent: 0.0,
+      clippingEnabled: true,
+      xrayEnabled: false,
+      showLabels: false,
+      selectedPartId: null,
+      isolatedPartId: null,
+      activePhaseIndex: 0,
+      autoTourActive: false,
+      autoTourTimer: 0,
+      audioEnabled: false,
+      controls: {
+        inlet_valve_throttle: 65.0,
+        raw_water_impurity_load: 45.0,
+        time_scale_slowmo: 1.0,
+        backwash_cycle_toggle: 0.0
+      },
+      telemetryHistory: {},
+      telemetryCurrent: {},
+      bedSaturationDynamic: 24.0
+    };
+
+    // Initialize Telemetry history buffers สำหรับวาดกราฟ Sparkline
+    CONFIG.physics_and_telemetry_engine.telemetry_channels.forEach(ch => {
+      state.telemetryCurrent[ch.id] = ch.default_value;
+      state.telemetryHistory[ch.id] = Array(20).fill(ch.default_value);
+    });
+
+    // =========================================================================
+    // 3. PROCEDURAL WEB AUDIO ENGINE (เสียงสังเคราะห์ไม่ใช้ไฟล์ภายนอก)
+    // =========================================================================
+    class SoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.masterGain = null;
+        this.waterFilter = null;
+        this.waterGain = null;
+        this.running = false;
+      }
+
+      init() {
+        if (this.ctx) return;
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        this.ctx = new AudioCtx();
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.gain.value = 0.25;
+        this.masterGain.connect(this.ctx.destination);
+
+        // สร้าง Pink/White Noise Buffer สำหรับเสียงน้ำไหลในถังกรอง
+        const bufferSize = this.ctx.sampleRate * 2;
+        const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = noiseBuffer.getChannelData(0);
+        let b0 = 0, b1 = 0, b2 = 0;
+        for (let i = 0; i < bufferSize; i++) {
+          const white = Math.random() * 2 - 1;
+          b0 = 0.997 * b0 + white * 0.029;
+          b1 = 0.985 * b1 + white * 0.032;
+          b2 = 0.950 * b2 + white * 0.048;
+          data[i] = (b0 + b1 + b2 + white * 0.12) * 0.6;
+        }
+
+        const noiseSource = this.ctx.createBufferSource();
+        noiseSource.buffer = noiseBuffer;
+        noiseSource.loop = true;
+
+        this.waterFilter = this.ctx.createBiquadFilter();
+        this.waterFilter.type = 'bandpass';
+        this.waterFilter.frequency.value = 420;
+        this.waterFilter.Q.value = 1.2;
+
+        this.waterGain = this.ctx.createGain();
+        this.waterGain.gain.value = 0.0;
+
+        noiseSource.connect(this.waterFilter);
+        this.waterFilter.connect(this.waterGain);
+        this.waterGain.connect(this.masterGain);
+        noiseSource.start();
+        this.running = true;
+      }
+
+      setEnabled(enabled) {
+        if (enabled) {
+          this.init();
+          if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+          this.playClick(620);
+        } else if (this.waterGain && this.ctx) {
+          this.waterGain.gain.setTargetAtTime(0.0, this.ctx.currentTime, 0.12);
+        }
+      }
+
+      update(flowNormalized, isBackwash, isCritical) {
+        if (!state.audioEnabled || !this.running || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const targetFreq = isBackwash ? 680 + flowNormalized * 350 : 280 + flowNormalized * 380;
+        const targetGain = Math.min(0.45, 0.04 + flowNormalized * (isBackwash ? 0.34 : 0.20));
+        this.waterFilter.frequency.setTargetAtTime(targetFreq, now, 0.15);
+        this.waterGain.gain.setTargetAtTime(targetGain, now, 0.15);
+
+        if (isCritical && Math.random() < 0.015) {
+          this.playBeep(880, 0.06, 0.05);
+        }
+      }
+
+      playClick(freq = 520) {
+        if (!state.audioEnabled || !this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(freq * 1.35, this.ctx.currentTime + 0.06);
+        g.gain.setValueAtTime(0.12, this.ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.07);
+        osc.connect(g);
+        g.connect(this.masterGain);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.08);
+      }
+
+      playBeep(freq = 780, duration = 0.08, vol = 0.07) {
+        if (!state.audioEnabled || !this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.value = freq;
+        g.gain.setValueAtTime(vol, this.ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+        osc.connect(g);
+        g.connect(this.masterGain);
+        osc.start();
+        osc.stop(this.ctx.currentTime + duration + 0.01);
+      }
+    }
+
+    const soundEngine = new SoundEngine();
+
+    // =========================================================================
+    // 4. PROCEDURAL TEXTURES GENERATOR (สร้างพื้นผิวเม็ดสารกรองและอนุภาคด้วย Canvas)
+    // =========================================================================
+    function createGranularTextures(type) {
+      const size = 512;
+      const colorCanvas = document.createElement('canvas');
+      colorCanvas.width = colorCanvas.height = size;
+      const cCtx = colorCanvas.getContext('2d');
+
+      const bumpCanvas = document.createElement('canvas');
+      bumpCanvas.width = bumpCanvas.height = size;
+      const bCtx = bumpCanvas.getContext('2d');
+
+      // ตั้งค่าจานสีและขนาดเม็ดตามชนิดสารกรองจริงจากรูปอ้างอิง
+      const palettes = {
+        manganese: {
+          bg: '#3B2115',
+          colors: ['#6E422C', '#824E35', '#523020', '#965D41', '#452619', '#75462E'],
+          count: 4200, minR: 2.8, maxR: 6.2, angular: false
+        },
+        carbon: {
+          bg: '#0E1013',
+          colors: ['#1E2226', '#2B3036', '#15181C', '#373D45', '#0B0D10', '#24292E'],
+          count: 3400, minR: 3.5, maxR: 8.5, angular: true
+        },
+        sand: {
+          bg: '#8C704B',
+          colors: ['#C7A678', '#DEC298', '#B08F61', '#E8D2AE', '#9C7D53', '#D4B589'],
+          count: 9500, minR: 1.4, maxR: 3.2, angular: false
+        },
+        gravel: {
+          bg: '#4A463F',
+          colors: ['#D6CFC2', '#A39B8B', '#7C7466', '#E8E3D8', '#5E584E', '#B8A990', '#8E7B64', '#C7BFA9'],
+          count: 1100, minR: 7.5, maxR: 16.5, angular: false
+        }
+      };
+
+      const p = palettes[type] || palettes.sand;
+      cCtx.fillStyle = p.bg;
+      cCtx.fillRect(0, 0, size, size);
+      bCtx.fillStyle = '#202020';
+      bCtx.fillRect(0, 0, size, size);
+
+      // Deterministic pseudo-random generator เพื่อให้ลายเม็ดสวยสม่ำเสมอ
+      let seed = type.length * 1337 + 42;
+      const rand = () => {
+        seed = (seed * 16807) % 2147483647;
+        return (seed - 1) / 2147483646;
+      };
+
+      for (let i = 0; i < p.count; i++) {
+        const x = rand() * size;
+        const y = rand() * size;
+        const r = p.minR + rand() * (p.maxR - p.minR);
+        const col = p.colors[Math.floor(rand() * p.colors.length)];
+        const bVal = Math.floor(110 + rand() * 145);
+
+        // วาดเม็ดสารกรองแบบ wrap-around ขอบภาพให้ต่อลายไร้รอยต่อ
+        const offsets = [[0, 0]];
+        if (x < r) offsets.push([size, 0]);
+        if (x > size - r) offsets.push([-size, 0]);
+        if (y < r) offsets.push([0, size]);
+        if (y > size - r) offsets.push([0, -size]);
+
+        offsets.forEach(([ox, oy]) => {
+          const px = x + ox;
+          const py = y + oy;
+
+          if (p.angular) {
+            // เม็ดคาร์บอนกัมมันต์ทรงเหลี่ยมคม
+            const sides = 4 + Math.floor(rand() * 3);
+            const rot = rand() * Math.PI * 2;
+            cCtx.beginPath();
+            bCtx.beginPath();
+            for (let s = 0; s < sides; s++) {
+              const ang = rot + (s / sides) * Math.PI * 2;
+              const rr = r * (0.65 + rand() * 0.45);
+              const vx = px + Math.cos(ang) * rr;
+              const vy = py + Math.sin(ang) * rr;
+              if (s === 0) { cCtx.moveTo(vx, vy); bCtx.moveTo(vx, vy); }
+              else { cCtx.lineTo(vx, vy); bCtx.lineTo(vx, vy); }
+            }
+            cCtx.closePath();
+            bCtx.closePath();
+            cCtx.fillStyle = col;
+            cCtx.fill();
+            cCtx.strokeStyle = 'rgba(0,0,0,0.45)';
+            cCtx.lineWidth = 0.8;
+            cCtx.stroke();
+
+            bCtx.fillStyle = `rgb(${bVal},${bVal},${bVal})`;
+            bCtx.fill();
+          } else {
+            // เม็ดทรงมน (แมงกานีส / ทราย / กรวดแม่น้ำ)
+            const rx = r * (0.75 + rand() * 0.45);
+            const ry = r * (0.65 + rand() * 0.45);
+            const rot = rand() * Math.PI;
+
+            cCtx.save();
+            cCtx.translate(px, py);
+            cCtx.rotate(rot);
+            cCtx.beginPath();
+            cCtx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+            cCtx.fillStyle = col;
+            cCtx.fill();
+            // เพิ่มไฮไลต์เงาให้เม็ดกรวดและแมงกานีสดูมีมิติ
+            cCtx.fillStyle = 'rgba(255,255,255,0.16)';
+            cCtx.beginPath();
+            cCtx.ellipse(-rx * 0.22, -ry * 0.22, rx * 0.42, ry * 0.35, 0, 0, Math.PI * 2);
+            cCtx.fill();
+            cCtx.strokeStyle = 'rgba(0,0,0,0.38)';
+            cCtx.lineWidth = type === 'gravel' ? 1.5 : 0.7;
+            cCtx.stroke();
+            cCtx.restore();
+
+            bCtx.save();
+            bCtx.translate(px, py);
+            bCtx.rotate(rot);
+            bCtx.beginPath();
+            bCtx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+            bCtx.fillStyle = `rgb(${bVal},${bVal},${bVal})`;
+            bCtx.fill();
+            bCtx.restore();
+          }
+        });
+      }
+
+      const map = new THREE.CanvasTexture(colorCanvas);
+      map.colorSpace = THREE.SRGBColorSpace;
+      map.wrapS = map.wrapT = THREE.RepeatWrapping;
+      map.repeat.set(2, 1.5);
+
+      const bumpMap = new THREE.CanvasTexture(bumpCanvas);
+      bumpMap.wrapS = bumpMap.wrapT = THREE.RepeatWrapping;
+      bumpMap.repeat.set(2, 1.5);
+
+      return { map, bumpMap };
+    }
+
+    function createParticleGlowTexture() {
+      const size = 64;
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const grad = ctx.createRadialGradient(size / 2, size / 2, 2, size / 2, size / 2, size / 2);
+      grad.addColorStop(0.0, 'rgba(255, 255, 255, 1.0)');
+      grad.addColorStop(0.35, 'rgba(255, 255, 255, 0.85)');
+      grad.addColorStop(0.7, 'rgba(255, 255, 255, 0.22)');
+      grad.addColorStop(1.0, 'rgba(255, 255, 255, 0.0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, size, size);
+      return new THREE.CanvasTexture(canvas);
+    }
+
+    // =========================================================================
+    // 5. THREE.JS SCENE, RENDERER, CLIPPING PLANE & POST-PROCESSING
+    // =========================================================================
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.Fog(
+      CONFIG.rendering_and_lighting.environment.fog.color,
+      CONFIG.rendering_and_lighting.environment.fog.near,
+      CONFIG.rendering_and_lighting.environment.fog.far
+    );
+
+    const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.05, 30);
+    const initialCam = CONFIG.interactive_modes.camera_presets[0];
+    camera.position.set(...initialCam.position);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, CONFIG.rendering_and_lighting.renderer.pixel_ratio_max));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = CONFIG.rendering_and_lighting.renderer.tone_mapping_exposure;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.localClippingEnabled = true;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+
+    // Post-Processing: UnrealBloomPass + OutputPass
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    const bloomCfg = CONFIG.rendering_and_lighting.post_processing.unreal_bloom_pass;
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      bloomCfg.strength,
+      bloomCfg.radius,
+      bloomCfg.threshold
+    );
+    composer.addPass(bloomPass);
+    composer.addPass(new OutputPass());
+
+    // OrbitControls พร้อม Damping นุ่มนวล
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(...initialCam.target);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.065;
+    controls.minDistance = 0.48;
+    controls.maxDistance = 4.2;
+    controls.maxPolarAngle = Math.PI * 0.52;
+    controls.update();
+
+    // Local Clipping Plane สำหรับผ่าครึ่ง 180 องศา (เก็บฝั่ง z <= 0, ตัดฝั่งหน้า z > 0)
+    const clipPlane = new THREE.Plane(
+      new THREE.Vector3(...CONFIG.rendering_and_lighting.local_clipping_plane.plane_normal),
+      CONFIG.rendering_and_lighting.local_clipping_plane.plane_constant
+    );
+    const activeClipPlanes = [clipPlane];
+
+    // =========================================================================
+    // 6. STUDIO FLOOR & 3-POINT LIGHTING + DYNAMIC INTERNAL LIGHTS
+    // =========================================================================
+    const floorCfg = CONFIG.rendering_and_lighting.environment.studio_floor;
+    const floorGeo = new THREE.CircleGeometry(floorCfg.radius, 64);
+    const floorMat = new THREE.MeshStandardMaterial({
+      color: floorCfg.color,
+      roughness: floorCfg.roughness,
+      metalness: floorCfg.metalness
+    });
+    const studioFloor = new THREE.Mesh(floorGeo, floorMat);
+    studioFloor.rotation.x = -Math.PI / 2;
+    studioFloor.position.y = floorCfg.y_position;
+    studioFloor.receiveShadow = true;
+    scene.add(studioFloor);
+
+    const gridCfg = floorCfg.grid_helper;
+    const gridHelper = new THREE.GridHelper(gridCfg.size, gridCfg.divisions, gridCfg.color_center_line, gridCfg.color_grid);
+    gridHelper.position.y = 0.001;
+    gridHelper.material.transparent = true;
+    gridHelper.material.opacity = 0.55;
+    scene.add(gridHelper);
+
+    // วงแหวนฐานเรืองแสงเบาๆ ใต้ถังเพื่อเพิ่มความโดดเด่นแบบ Studio Showcase
+    const baseRingGeo = new THREE.RingGeometry(0.24, 0.255, 64);
+    const baseRingMat = new THREE.MeshBasicMaterial({ color: 0x38BDF8, transparent: true, opacity: 0.35, side: THREE.DoubleSide });
+    const baseRing = new THREE.Mesh(baseRingGeo, baseRingMat);
+    baseRing.rotation.x = -Math.PI / 2;
+    baseRing.position.y = 0.002;
+    scene.add(baseRing);
+
+    // Lighting Rig
+    const lr = CONFIG.rendering_and_lighting.lighting_rig;
+    const hemiLight = new THREE.HemisphereLight(lr.ambient_hemisphere.sky_color, lr.ambient_hemisphere.ground_color, lr.ambient_hemisphere.intensity);
+    scene.add(hemiLight);
+
+    const keyLight = new THREE.DirectionalLight(lr.key_light.color, lr.key_light.intensity);
+    keyLight.position.set(...lr.key_light.position);
+    keyLight.target.position.set(...lr.key_light.target);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.set(2048, 2048);
+    keyLight.shadow.bias = -0.0004;
+    const sb = lr.key_light.shadow_camera_bounds;
+    keyLight.shadow.camera.left = -sb;
+    keyLight.shadow.camera.right = sb;
+    keyLight.shadow.camera.top = sb;
+    keyLight.shadow.camera.bottom = -sb;
+    keyLight.shadow.camera.near = 0.5;
+    keyLight.shadow.camera.far = 10;
+    scene.add(keyLight);
+    scene.add(keyLight.target);
+
+    const fillLight = new THREE.DirectionalLight(lr.fill_light.color, lr.fill_light.intensity);
+    fillLight.position.set(...lr.fill_light.position);
+    fillLight.target.position.set(...lr.fill_light.target);
+    scene.add(fillLight);
+    scene.add(fillLight.target);
+
+    const rimLight = new THREE.DirectionalLight(lr.rim_light.color, lr.rim_light.intensity);
+    rimLight.position.set(...lr.rim_light.position);
+    rimLight.target.position.set(...lr.rim_light.target);
+    scene.add(rimLight);
+    scene.add(rimLight.target);
+
+    // Dynamic Internal PointLights
+    const dynamicLights = {};
+    lr.dynamic_internal_lights.forEach(lcfg => {
+      const pl = new THREE.PointLight(lcfg.color, lcfg.intensity, lcfg.distance, lcfg.decay);
+      pl.position.set(...lcfg.position);
+      pl.userData.baseIntensity = lcfg.intensity;
+      scene.add(pl);
+      dynamicLights[lcfg.id] = pl;
+    });
+
+    // =========================================================================
+    // 7. PBR MATERIALS LIBRARY (สร้างวัสดุทั้งหมดจาก JSON + Procedural Textures)
+    // =========================================================================
+    const granularMaps = {
+      media_manganese_granules: createGranularTextures('manganese'),
+      media_activated_carbon: createGranularTextures('carbon'),
+      media_silica_sand: createGranularTextures('sand'),
+      media_support_gravel: createGranularTextures('gravel')
+    };
+
+    const materials = {};
+    Object.entries(CONFIG.pbr_materials_library).forEach(([key, m]) => {
+      const opts = {
+        color: new THREE.Color(m.color),
+        metalness: m.metalness ?? 0.1,
+        roughness: m.roughness ?? 0.5,
+        emissive: new THREE.Color(m.emissive || '#000000'),
+        emissiveIntensity: m.emissive_intensity ?? 0.0,
+        side: m.side === 'DoubleSide' ? THREE.DoubleSide : (m.side === 'BackSide' ? THREE.BackSide : THREE.FrontSide),
+        transparent: m.transparent ?? false,
+        opacity: m.opacity ?? 1.0,
+        depthWrite: m.depth_write ?? true
+      };
+
+      if (granularMaps[key]) {
+        opts.map = granularMaps[key].map;
+        opts.bumpMap = granularMaps[key].bumpMap;
+        opts.bumpScale = m.procedural_bump_scale || 0.015;
+      }
+
+      if (m.type === 'MeshPhysicalMaterial') {
+        opts.clearcoat = m.clearcoat ?? 0.0;
+        opts.clearcoatRoughness = m.clearcoat_roughness ?? 0.2;
+        if (m.transmission) opts.transmission = m.transmission;
+        if (m.ior) opts.ior = m.ior;
+        materials[key] = new THREE.MeshPhysicalMaterial(opts);
+      } else {
+        materials[key] = new THREE.MeshStandardMaterial(opts);
+      }
+      materials[key].userData.baseColor = opts.color.clone();
+      materials[key].userData.baseEmissive = opts.emissive.clone();
+      materials[key].userData.baseEmissiveIntensity = opts.emissiveIntensity;
+    });
+
+    // =========================================================================
+    // 8. PROCEDURAL GEOMETRY BUILDERS (ขึ้นรูปชิ้นส่วนวิศวกรรมทั้ง 12 ชุด)
+    // =========================================================================
+    const tankRoot = new THREE.Group();
+    scene.add(tankRoot);
+
+    const assembliesMap = new Map(); // id -> { config, group, basePos, explodeOffset, meshes, cutawayCaps, originalMats }
+    const clickableMeshes = [];
+    const clippableMaterials = new Set();
+
+    // ฟังก์ชันช่วยโคลนวัสดุเฉพาะของแต่ละชุดชิ้นส่วน เพื่อให้ไฮไลต์/แยกสี/ผ่าครึ่งไม่ชนกัน
+    function getPartMaterial(refKey, clippable) {
+      const mat = materials[refKey].clone();
+      mat.userData.baseColor = materials[refKey].userData.baseColor.clone();
+      mat.userData.baseEmissive = materials[refKey].userData.baseEmissive.clone();
+      mat.userData.baseEmissiveIntensity = materials[refKey].userData.baseEmissiveIntensity;
+      mat.userData.baseOpacity = mat.opacity;
+      mat.userData.baseTransparent = mat.transparent;
+      if (clippable) {
+        mat.clippingPlanes = activeClipPlanes;
+        mat.clipShadows = true;
+        clippableMaterials.add(mat);
+      }
+      return mat;
+    }
+
+    // คำนวณจุดโค้งหัว-ท้ายทรง Ellipsoidal Head สำหรับ Vessel & Cutaway Section Cap
+    function getVesselProfilePoints(outerR, innerR, cylH, domeH) {
+      const halfCyl = cylH / 2;
+      const domeSteps = 16;
+      const outerPts = [];
+      const innerPts = [];
+      const wall = outerR - innerR;
+      const innerDomeH = domeH - wall;
+
+      // ก้นถังโค้งขึ้นไปถึงขอบล่างทรงกระบอก
+      for (let i = 0; i <= domeSteps; i++) {
+        const t = (i / domeSteps) * (Math.PI / 2);
+        outerPts.push(new THREE.Vector2(Math.max(0.024, outerR * Math.sin(t)), -halfCyl - domeH * Math.cos(t)));
+      }
+      // ขอบบนทรงกระบอกโค้งขึ้นไปยอดถัง
+      for (let i = 0; i <= domeSteps; i++) {
+        const t = (i / domeSteps) * (Math.PI / 2);
+        outerPts.push(new THREE.Vector2(Math.max(0.002, outerR * Math.cos(t)), halfCyl + domeH * Math.sin(t)));
+      }
+
+      // ผนังด้านในจากยอดลงก้น
+      for (let i = domeSteps; i >= 0; i--) {
+        const t = (i / domeSteps) * (Math.PI / 2);
+        innerPts.push(new THREE.Vector2(Math.max(0.002, innerR * Math.cos(t)), halfCyl + innerDomeH * Math.sin(t)));
+      }
+      for (let i = domeSteps; i >= 0; i--) {
+        const t = (i / domeSteps) * (Math.PI / 2);
+        innerPts.push(new THREE.Vector2(Math.max(0.020, innerR * Math.sin(t)), -halfCyl - innerDomeH * Math.cos(t)));
+      }
+
+      return { outerPts, innerPts };
+    }
+
+    // สร้างขอบหน้าตัดสีแดง (Cutaway Section Cap) ที่ z = 0 สำหรับผนังถังกลวง
+    function buildVesselRedSectionCap(outerPts, innerPts) {
+      const capGroup = new THREE.Group();
+      const capMat = materials.cutaway_section_cap;
+
+      // ฝั่งขวา (+X) และฝั่งซ้าย (-X)
+      [1, -1].forEach(sign => {
+        const shape = new THREE.Shape();
+        const combined = [...outerPts, ...innerPts];
+        combined.forEach((pt, idx) => {
+          const x = pt.x * sign;
+          const y = pt.y;
+          if (idx === 0) shape.moveTo(x, y);
+          else shape.lineTo(x, y);
+        });
+        shape.closePath();
+        const geo = new THREE.ShapeGeometry(shape);
+        const mesh = new THREE.Mesh(geo, capMat);
+        mesh.position.z = 0.0006;
+        capGroup.add(mesh);
+      });
+      return capGroup;
+    }
+
+    // สร้างชุดหน้าแปลนพร้อมน็อตสเตนเลสและปะเก็นยาง (ใช้กับ Top Manhole & Side Handhole)
+    function buildBoltedFlangeAssembly(g, partMat) {
+      const grp = new THREE.Group();
+      const boltMat = materials[g.bolt_material_ref] || materials.stainless_steel_hardware;
+      const gasketMat = materials[g.gasket_material_ref] || materials.rubber_gasket_dark;
+
+      // คอท่อเชื่อมเข้าตัวถัง
+      const neckGeo = new THREE.CylinderGeometry(g.neck_radius_m, g.neck_radius_m * 1.04, g.neck_height_m + 0.035, 32);
+      const neck = new THREE.Mesh(neckGeo, partMat);
+      neck.position.y = -0.015;
+      neck.castShadow = true;
+      grp.add(neck);
+
+      // จานหน้าแปลนล่าง
+      const flangeGeo = new THREE.CylinderGeometry(g.flange_outer_radius_m, g.flange_outer_radius_m, g.flange_thickness_m, 32);
+      const flangeLower = new THREE.Mesh(flangeGeo, partMat);
+      flangeLower.position.y = g.neck_height_m * 0.35;
+      flangeLower.castShadow = true;
+      grp.add(flangeLower);
+
+      // ปะเก็นยางดำ
+      const gasketGeo = new THREE.CylinderGeometry(g.flange_outer_radius_m * 0.96, g.flange_outer_radius_m * 0.96, 0.004, 32);
+      const gasket = new THREE.Mesh(gasketGeo, gasketMat);
+      gasket.position.y = g.neck_height_m * 0.35 + g.flange_thickness_m * 0.5 + 0.002;
+      grp.add(gasket);
+
+      // ฝาปิดหน้าแปลนด้านบน
+      const coverGeo = new THREE.CylinderGeometry(g.flange_outer_radius_m * 0.99, g.flange_outer_radius_m, g.cover_plate_thickness_m, 32);
+      const cover = new THREE.Mesh(coverGeo, partMat);
+      cover.position.y = g.neck_height_m * 0.35 + g.flange_thickness_m * 0.5 + 0.004 + g.cover_plate_thickness_m * 0.5;
+      cover.castShadow = true;
+      grp.add(cover);
+
+      // สลักเกลียวและหัวน็อตสเตนเลสรอบหน้าแปลน
+      const boltShaftGeo = new THREE.CylinderGeometry(0.0042, 0.0042, g.flange_thickness_m + g.cover_plate_thickness_m + 0.016, 8);
+      const nutGeo = new THREE.CylinderGeometry(0.0075, 0.0075, 0.006, 6);
+      const boltCenterY = g.neck_height_m * 0.35 + g.cover_plate_thickness_m * 0.5 + 0.002;
+
+      for (let i = 0; i < g.bolt_count; i++) {
+        const ang = (i / g.bolt_count) * Math.PI * 2;
+        const bx = Math.cos(ang) * g.bolt_circle_radius_m;
+        const bz = Math.sin(ang) * g.bolt_circle_radius_m;
+
+        const bolt = new THREE.Mesh(boltShaftGeo, boltMat);
+        bolt.position.set(bx, boltCenterY, bz);
+        grp.add(bolt);
+
+        const topNut = new THREE.Mesh(nutGeo, boltMat);
+        topNut.position.set(bx, boltCenterY + (g.flange_thickness_m + g.cover_plate_thickness_m) * 0.5 + 0.004, bz);
+        grp.add(topNut);
+      }
+
+      return grp;
+    }
+
+    // สร้างเม็ดสารกรอง 3 มิติแบบ InstancedMesh บนหน้าตัดผ่าครึ่ง (เพื่อความสมจริงระดับ Macro)
+    function buildCutawayInstancedGrains(count, radiusM, heightM, rangeR, paletteHex, isAngular, bottomDomeH = 0) {
+      const geo = isAngular
+        ? new THREE.DodecahedronGeometry(1.0, 0)
+        : new THREE.IcosahedronGeometry(1.0, 1);
+
+      const mat = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        roughness: isAngular ? 0.90 : 0.80,
+        metalness: isAngular ? 0.14 : 0.06
+      });
+
+      const instMesh = new THREE.InstancedMesh(geo, mat, count);
+      const dummy = new THREE.Object3D();
+      const col = new THREE.Color();
+
+      for (let i = 0; i < count; i++) {
+        const r = rangeR[0] + Math.random() * (rangeR[1] - rangeR[0]);
+        let yLocal = (Math.random() - 0.5) * (heightM - r * 2);
+        let maxHalfWidth = radiusM - r * 1.4;
+
+        // สำหรับชั้นกรวดก้นโค้ง คำนวณความกว้างตามโค้งทรงรีด้านล่าง
+        if (bottomDomeH > 0) {
+          const yBottom = -heightM / 2;
+          const domeTop = yBottom + bottomDomeH;
+          if (yLocal < domeTop) {
+            const dy = (domeTop - yLocal) / bottomDomeH;
+            const factor = Math.sqrt(Math.max(0.05, 1 - dy * dy));
+            maxHalfWidth = Math.max(0.02, radiusM * factor - r * 1.3);
+          }
+          // เว้นช่องเล็กน้อยรอบแกนกลางล่างให้เห็นชุดหัวสเตรนเนอร์ชัดเจน
+          if (yLocal < domeTop + 0.03 && Math.abs(maxHalfWidth) > 0.06) {
+            const xCandidate = (Math.random() * 2 - 1) * maxHalfWidth;
+            if (Math.abs(xCandidate) < 0.048 && yLocal < domeTop + 0.015) {
+              yLocal += 0.045;
+            }
+          }
+        }
+
+        const x = (Math.random() * 2 - 1) * maxHalfWidth;
+        const z = -0.002 + (Math.random() - 0.35) * r * 1.1;
+
+        dummy.position.set(x, yLocal, z);
+        dummy.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+        dummy.scale.set(
+          r * (0.85 + Math.random() * 0.45),
+          r * (0.75 + Math.random() * 0.4),
+          r * (0.65 + Math.random() * 0.35)
+        );
+        dummy.updateMatrix();
+        instMesh.setMatrixAt(i, dummy.matrix);
+
+        col.set(paletteHex[Math.floor(Math.random() * paletteHex.length)]);
+        instMesh.setColorAt(i, col);
+      }
+
+      instMesh.instanceMatrix.needsUpdate = true;
+      if (instMesh.instanceColor) instMesh.instanceColor.needsUpdate = true;
+      return instMesh;
+    }
+
+    // วนลูปสร้างชิ้นส่วนทั้ง 12 ชุดตาม JSON
+    CONFIG.mechanical_assemblies.forEach(cfg => {
+      const group = new THREE.Group();
+      group.name = cfg.id;
+      group.position.set(...cfg.position);
+      group.rotation.set(...cfg.rotation);
+
+      const partMat = getPartMaterial(cfg.material_ref, cfg.cutaway_clippable);
+      const cutawayCaps = [];
+      const g = cfg.procedural_geometry;
+
+      if (g.type === 'LatheGeometry_HollowVessel') {
+        const { outerPts, innerPts } = getVesselProfilePoints(g.outer_radius_m, g.inner_radius_m, g.cylinder_height_m, g.top_dome_height_m);
+
+        // ผนังด้านนอก (เคลือบอีพ็อกซี่น้ำเงินเงา)
+        const outerGeo = new THREE.LatheGeometry(outerPts, g.radial_segments);
+        const outerMesh = new THREE.Mesh(outerGeo, partMat);
+        outerMesh.castShadow = true;
+        outerMesh.receiveShadow = true;
+        group.add(outerMesh);
+
+        // ผนังเคลือบด้านใน (สีน้ำเงินเข้ม)
+        const innerMat = getPartMaterial('vessel_interior_lining', true);
+        const innerGeo = new THREE.LatheGeometry(innerPts.slice().reverse(), g.radial_segments);
+        const innerMesh = new THREE.Mesh(innerGeo, innerMat);
+        group.add(innerMesh);
+
+        // แหวนเชื่อมขอบบน-ล่างตกแต่งความสมจริง
+        const weldGeo = new THREE.TorusGeometry(g.outer_radius_m + 0.001, 0.0025, 10, 64);
+        const weldTop = new THREE.Mesh(weldGeo, partMat);
+        weldTop.rotation.x = Math.PI / 2;
+        weldTop.position.y = g.cylinder_height_m / 2;
+        group.add(weldTop);
+
+        const weldBot = weldTop.clone();
+        weldBot.position.y = -g.cylinder_height_m / 2;
+        group.add(weldBot);
+
+        // ขอบหน้าตัดผ่าครึ่งสีแดง (Cutaway Section Cap)
+        const redCap = buildVesselRedSectionCap(outerPts, innerPts);
+        group.add(redCap);
+        cutawayCaps.push(redCap);
+      }
+      else if (g.type === 'Group_TripodLegs') {
+        g.azimuth_angles_deg.forEach(deg => {
+          const rad = THREE.MathUtils.degToRad(deg);
+          const legContainer = new THREE.Group();
+          legContainer.rotation.y = rad;
+
+          // ขาเหล็กทรงเรียวเอียงออกเล็กน้อยจากด้านบนลงฐาน
+          const legH = g.leg_height_m;
+          const dx = g.bottom_stance_radius_m - g.top_attach_radius_m;
+          const tiltAngle = Math.atan2(dx, legH);
+
+          // ใช้ CylinderGeometry แบบ 4 เหลี่ยม (สี่เหลี่ยมเรียว)
+          const legGeo = new THREE.CylinderGeometry(g.leg_profile_top_m[0] * 0.65, g.leg_profile_bottom_m[0] * 0.62, legH, 4);
+          legGeo.rotateY(Math.PI / 4);
+          legGeo.scale(1.0, 1.0, 0.58);
+          const legMesh = new THREE.Mesh(legGeo, partMat);
+          legMesh.position.set((g.top_attach_radius_m + g.bottom_stance_radius_m) * 0.5, 0.0, 0.0);
+          legMesh.rotation.z = tiltAngle;
+          legMesh.castShadow = true;
+          legMesh.receiveShadow = true;
+          legContainer.add(legMesh);
+
+          // แผ่นเพลทฐานยึดพื้น
+          const fp = g.footplate_size_m;
+          const plateGeo = new THREE.BoxGeometry(fp[0], fp[1], fp[2]);
+          const plate = new THREE.Mesh(plateGeo, partMat);
+          plate.position.set(g.bottom_stance_radius_m, -legH / 2 + fp[1] / 2, 0.0);
+          plate.castShadow = true;
+          plate.receiveShadow = true;
+          legContainer.add(plate);
+
+          // น็อตพุกยึดพื้นสเตนเลส 2 ตัวต่อขา
+          const anchorGeo = new THREE.CylinderGeometry(0.0045, 0.0045, 0.009, 6);
+          [-0.022, 0.022].forEach(az => {
+            const bolt = new THREE.Mesh(anchorGeo, materials.stainless_steel_hardware);
+            bolt.position.set(g.bottom_stance_radius_m + 0.015, -legH / 2 + fp[1] + 0.004, az);
+            legContainer.add(bolt);
+          });
+
+          group.add(legContainer);
+        });
+      }
+      else if (g.type === 'Group_BoltedFlangeCover') {
+        const flangeGrp = buildBoltedFlangeAssembly(g, partMat);
+        group.add(flangeGrp);
+      }
+      else if (g.type === 'CylinderGeometry_Nozzle') {
+        const pipeGeo = new THREE.CylinderGeometry(g.outer_radius_m, g.outer_radius_m, g.height_m, g.radial_segments);
+        const pipe = new THREE.Mesh(pipeGeo, partMat);
+        pipe.castShadow = true;
+        group.add(pipe);
+
+        const collarGeo = new THREE.CylinderGeometry(g.collar_radius_m, g.collar_radius_m, g.collar_height_m, g.radial_segments);
+        const collar = new THREE.Mesh(collarGeo, materials.stainless_steel_hardware);
+        collar.position.y = g.height_m * 0.42;
+        group.add(collar);
+
+        // รูท่อด้านบน
+        const boreGeo = new THREE.CylinderGeometry(g.inner_radius_m, g.inner_radius_m, 0.004, 16);
+        const bore = new THREE.Mesh(boreGeo, materials.rubber_gasket_dark);
+        bore.position.y = g.height_m * 0.5 + 0.001;
+        group.add(bore);
+      }
+      else if (g.type === 'LatheGeometry_DomeCylinderFill') {
+        // ช่องน้ำดิบ Freeboard ด้านบน (ทรงกระบอก + โดมโค้ง)
+        const totalH = g.y_max_m - g.y_min_m;
+        const pts = [];
+        pts.push(new THREE.Vector2(0.0, -totalH / 2));
+        pts.push(new THREE.Vector2(g.radius_m, -totalH / 2));
+        const domeStartLocalY = -totalH / 2 + g.cylinder_height_m;
+        pts.push(new THREE.Vector2(g.radius_m, domeStartLocalY));
+
+        const steps = 14;
+        for (let i = 1; i <= steps; i++) {
+          const t = (i / steps) * (Math.PI / 2);
+          pts.push(new THREE.Vector2(g.radius_m * Math.cos(t), domeStartLocalY + g.top_dome_height_m * Math.sin(t)));
+        }
+
+        const waterGeo = new THREE.LatheGeometry(pts, g.radial_segments);
+        const waterMesh = new THREE.Mesh(waterGeo, partMat);
+        group.add(waterMesh);
+
+        // แผ่นหน้าตัดผิวน้ำโปร่งแสงเมื่อผ่าครึ่ง
+        const capShape = new THREE.Shape();
+        capShape.moveTo(-g.radius_m, -totalH / 2);
+        capShape.lineTo(g.radius_m, -totalH / 2);
+        capShape.lineTo(g.radius_m, domeStartLocalY);
+        for (let i = 1; i <= steps; i++) {
+          const t = (i / steps) * Math.PI;
+          capShape.lineTo(g.radius_m * Math.cos(t), domeStartLocalY + g.top_dome_height_m * Math.sin(t));
+        }
+        capShape.closePath();
+
+        const capMat = partMat.clone();
+        capMat.clippingPlanes = [];
+        capMat.opacity = 0.32;
+        capMat.emissiveIntensity = 0.30;
+        const capMesh = new THREE.Mesh(new THREE.ShapeGeometry(capShape), capMat);
+        capMesh.position.z = -0.001;
+        group.add(capMesh);
+        cutawayCaps.push(capMesh);
+      }
+      else if (g.type === 'CylinderGeometry_GranularBed') {
+        // ชั้นสารกรองทรงกระบอก (แมงกานีส / คาร์บอน / ทราย)
+        const cylGeo = new THREE.CylinderGeometry(g.radius_top_m, g.radius_bottom_m, g.height_m, g.radial_segments);
+        const cylMesh = new THREE.Mesh(cylGeo, partMat);
+        cylMesh.castShadow = true;
+        cylMesh.receiveShadow = true;
+        group.add(cylMesh);
+
+        // แผ่นหน้าตัดผ่าครึ่ง + เม็ดสารกรอง 3 มิติแบบ InstancedMesh
+        const cutCapGroup = new THREE.Group();
+        const capMat = partMat.clone();
+        capMat.clippingPlanes = [];
+        const facePlane = new THREE.Mesh(new THREE.PlaneGeometry(g.radius_top_m * 2, g.height_m), capMat);
+        facePlane.position.z = -0.0012;
+        cutCapGroup.add(facePlane);
+
+        // เลือกโทนสีเม็ด 3 มิติตามชนิดสารกรอง
+        let grainPalette = ['#C7A678', '#DEC298', '#B08F61', '#E8D2AE'];
+        let isAngular = false;
+        if (cfg.id === 'media_layer_manganese') {
+          grainPalette = ['#6E422C', '#875137', '#543120', '#9E6143', '#422416'];
+        } else if (cfg.id === 'media_layer_carbon') {
+          grainPalette = ['#1C2024', '#2A3036', '#111417', '#363C44', '#22272C'];
+          isAngular = true;
+        }
+
+        const instGrains = buildCutawayInstancedGrains(
+          g.surface_instanced_grains,
+          g.radius_top_m,
+          g.height_m,
+          g.grain_radius_range_m,
+          grainPalette,
+          isAngular,
+          0
+        );
+        cutCapGroup.add(instGrains);
+
+        // เส้นแบ่งชั้นสารกรองบางๆ เพื่อความคมชัดทางการเรียนรู้
+        const dividerGeo = new THREE.PlaneGeometry(g.radius_top_m * 2, 0.003);
+        const dividerMat = new THREE.MeshBasicMaterial({ color: 0x0B1524, transparent: true, opacity: 0.75 });
+        const topLine = new THREE.Mesh(dividerGeo, dividerMat);
+        topLine.position.set(0, g.height_m / 2 - 0.0015, 0.003);
+        cutCapGroup.add(topLine);
+
+        group.add(cutCapGroup);
+        cutawayCaps.push(cutCapGroup);
+      }
+      else if (g.type === 'LatheGeometry_BottomDomeGravelBed') {
+        // ชั้นกรวดก้นถังทรงโค้ง + กระบอก
+        const totalH = g.y_max_m - g.y_min_m;
+        const yBot = -totalH / 2;
+        const domeTop = yBot + g.bottom_dome_height_m;
+        const pts = [];
+        const steps = 14;
+        for (let i = 0; i <= steps; i++) {
+          const t = (i / steps) * (Math.PI / 2);
+          pts.push(new THREE.Vector2(g.radius_m * Math.sin(t), domeTop - g.bottom_dome_height_m * Math.cos(t)));
+        }
+        pts.push(new THREE.Vector2(g.radius_m, totalH / 2));
+        pts.push(new THREE.Vector2(0.0, totalH / 2));
+
+        const gravelGeo = new THREE.LatheGeometry(pts, g.radial_segments);
+        const gravelMesh = new THREE.Mesh(gravelGeo, partMat);
+        gravelMesh.castShadow = true;
+        gravelMesh.receiveShadow = true;
+        group.add(gravelMesh);
+
+        // หน้าตัดผ่าครึ่งสำหรับชั้นกรวด + เม็ดกรวดแม่น้ำหลากสี 3 มิติ
+        const cutCapGroup = new THREE.Group();
+        const shape = new THREE.Shape();
+        shape.moveTo(-g.radius_m, totalH / 2);
+        shape.lineTo(g.radius_m, totalH / 2);
+        shape.lineTo(g.radius_m, domeTop);
+        for (let i = 0; i <= steps; i++) {
+          const t = (i / steps) * Math.PI;
+          shape.lineTo(g.radius_m * Math.cos(t), domeTop - g.bottom_dome_height_m * Math.sin(t));
+        }
+        shape.closePath();
+
+        const capMat = partMat.clone();
+        capMat.clippingPlanes = [];
+        const capPlane = new THREE.Mesh(new THREE.ShapeGeometry(shape), capMat);
+        capPlane.position.z = -0.0025;
+        cutCapGroup.add(capPlane);
+
+        const pebblePalette = ['#D9D2C5', '#A89F8D', '#786F61', '#EBE6DC', '#5E574C', '#BFAA8C', '#8F7A60', '#CCC4B4'];
+        const instPebbles = buildCutawayInstancedGrains(
+          g.surface_instanced_pebbles,
+          g.radius_m,
+          totalH,
+          g.pebble_radius_range_m,
+          pebblePalette,
+          false,
+          g.bottom_dome_height_m
+        );
+        cutCapGroup.add(instPebbles);
+
+        group.add(cutCapGroup);
+        cutawayCaps.push(cutCapGroup);
+      }
+      else if (g.type === 'Group_RadialStrainerCollector') {
+        // ชุดหัวสเตรนเนอร์รวบรวมน้ำสะอาดภายใน (Central Hub + 6 กิ่ง Slotted Laterals)
+        const hubGeo = new THREE.CylinderGeometry(g.central_hub_radius_m, g.central_hub_radius_m * 0.92, g.central_hub_height_m, 24);
+        const hub = new THREE.Mesh(hubGeo, partMat);
+        hub.castShadow = true;
+        group.add(hub);
+
+        // แกนท่อต่อลงหน้าแปลนด้านล่าง
+        const stemGeo = new THREE.CylinderGeometry(0.022, 0.022, 0.06, 20);
+        const stem = new THREE.Mesh(stemGeo, partMat);
+        stem.position.y = -0.04;
+        group.add(stem);
+
+        // กิ่งสเตรนเนอร์ 6 กิ่งพร้อมร่องกรอง Slot Rings
+        const latGeo = new THREE.CylinderGeometry(g.lateral_radius_m, g.lateral_radius_m * 0.92, g.lateral_length_m, 16);
+        const endCapGeo = new THREE.SphereGeometry(g.lateral_radius_m * 0.92, 12, 10);
+        const slotRingGeo = new THREE.TorusGeometry(g.lateral_radius_m + 0.0008, 0.0012, 6, 16);
+        const slotMat = new THREE.MeshBasicMaterial({ color: 0x0EA5E9 });
+
+        for (let i = 0; i < g.lateral_count; i++) {
+          const ang = (i / g.lateral_count) * Math.PI * 2 + Math.PI / 6;
+          const armGrp = new THREE.Group();
+          armGrp.rotation.y = ang;
+
+          const pipe = new THREE.Mesh(latGeo, partMat);
+          pipe.rotation.z = Math.PI / 2;
+          pipe.position.x = g.central_hub_radius_m + g.lateral_length_m * 0.45;
+          armGrp.add(pipe);
+
+          const tip = new THREE.Mesh(endCapGeo, partMat);
+          tip.position.x = g.central_hub_radius_m + g.lateral_length_m * 0.95;
+          armGrp.add(tip);
+
+          // วงแหวนร่องกรอง Slotted Screen
+          for (let s = 0; s < 5; s++) {
+            const ring = new THREE.Mesh(slotRingGeo, slotMat);
+            ring.rotation.y = Math.PI / 2;
+            ring.position.x = g.central_hub_radius_m + 0.018 + s * 0.019;
+            armGrp.add(ring);
+          }
+          group.add(armGrp);
+        }
+      }
+      else if (g.type === 'Group_PipeFlangeOutlet') {
+        const pipeGeo = new THREE.CylinderGeometry(g.pipe_outer_radius_m, g.pipe_outer_radius_m, g.pipe_height_m, 28);
+        const pipe = new THREE.Mesh(pipeGeo, partMat);
+        pipe.castShadow = true;
+        group.add(pipe);
+
+        const flangeGeo = new THREE.CylinderGeometry(g.flange_outer_radius_m, g.flange_outer_radius_m, g.flange_thickness_m, 28);
+        const flange = new THREE.Mesh(flangeGeo, partMat);
+        flange.position.y = -g.pipe_height_m * 0.42;
+        flange.castShadow = true;
+        group.add(flange);
+
+        // น็อตยึดหน้าแปลนล่าง 6 ตัว
+        const boltGeo = new THREE.CylinderGeometry(0.004, 0.004, g.flange_thickness_m + 0.014, 6);
+        for (let i = 0; i < g.bolt_count; i++) {
+          const ang = (i / g.bolt_count) * Math.PI * 2;
+          const bolt = new THREE.Mesh(boltGeo, materials.stainless_steel_hardware);
+          bolt.position.set(
+            Math.cos(ang) * g.bolt_circle_radius_m,
+            -g.pipe_height_m * 0.42,
+            Math.sin(ang) * g.bolt_circle_radius_m
+          );
+          group.add(bolt);
+        }
+      }
+
+      // เก็บรายการ Mesh ทั้งหมดเพื่อใช้กับ Raycaster, Hover, Isolate และ X-Ray Mode
+      const meshes = [];
+      group.traverse(child => {
+        if (child.isMesh) {
+          child.userData.assemblyId = cfg.id;
+          meshes.push(child);
+          clickableMeshes.push(child);
+        }
+      });
+
+      tankRoot.add(group);
+      assembliesMap.set(cfg.id, {
+        config: cfg,
+        group,
+        basePos: new THREE.Vector3(...cfg.position),
+        explodeOffset: new THREE.Vector3(...cfg.exploded_offset),
+        meshes,
+        cutawayCaps,
+        originalMats: meshes.map(m => m.material),
+        partMat
+      });
+    });
+
+    // =========================================================================
+    // 9. CHANNELING JET VISUAL (เส้นทางน้ำไหลลัดวงจรสำหรับ Anomaly #2)
+    // =========================================================================
+    const channelingCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0.128, 1.09, 0.006),
+      new THREE.Vector3(0.142, 0.88, 0.008),
+      new THREE.Vector3(0.130, 0.66, 0.007),
+      new THREE.Vector3(0.145, 0.46, 0.008),
+      new THREE.Vector3(0.105, 0.29, 0.006)
+    ]);
+    const channelingGeo = new THREE.TubeGeometry(channelingCurve, 32, 0.011, 10, false);
+    const channelingMat = new THREE.MeshBasicMaterial({
+      color: 0xF97316,
+      transparent: true,
+      opacity: 0.78,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const channelingJetMesh = new THREE.Mesh(channelingGeo, channelingMat);
+    channelingJetMesh.visible = false;
+    tankRoot.add(channelingJetMesh);
+
+    // =========================================================================
+    // 10. REAL-TIME PARTICLE FLOW SYSTEM (3,600 อนุภาคแยก 5 สายการไหลตาม JSON)
+    // =========================================================================
+    const particleSystemData = [];
+    const totalParticles = CONFIG.particles_and_flow_dynamics.total_particle_count;
+    const pPositions = new Float32Array(totalParticles * 3);
+    const pColors = new Float32Array(totalParticles * 3);
+    const pMeta = []; // เก็บข้อมูล streamIndex, life, seed ต่ออนุภาค
+
+    const particleGeo = new THREE.BufferGeometry();
+    let pCursor = 0;
+
+    CONFIG.particles_and_flow_dynamics.streams.forEach((stream, sIdx) => {
+      const cStart = new THREE.Color(stream.color_start);
+      const cEnd = new THREE.Color(stream.color_end);
+      particleSystemData.push({
+        cfg: stream,
+        baseStartColor: cStart,
+        baseEndColor: cEnd,
+        curStartColor: cStart.clone(),
+        curEndColor: cEnd.clone()
+      });
+
+      for (let i = 0; i < stream.particle_count; i++) {
+        const life = Math.random();
+        const angle = Math.random() * Math.PI; // ครึ่งวงกลมด้านใน z <= 0
+        const radialNorm = Math.sqrt(Math.random());
+        const idx3 = pCursor * 3;
+
+        pMeta.push({
+          sIdx,
+          life,
+          angle,
+          radialNorm,
+          speedJitter: 0.72 + Math.random() * 0.56,
+          phase: Math.random() * Math.PI * 2
+        });
+
+        pPositions[idx3] = 0;
+        pPositions[idx3 + 1] = 0.8;
+        pPositions[idx3 + 2] = 0;
+        pColors[idx3] = cStart.r;
+        pColors[idx3 + 1] = cStart.g;
+        pColors[idx3 + 2] = cStart.b;
+        pCursor++;
+      }
+    });
+
+    particleGeo.setAttribute('position', new THREE.BufferAttribute(pPositions, 3));
+    particleGeo.setAttribute('color', new THREE.BufferAttribute(pColors, 3));
+
+    const particleMat = new THREE.PointsMaterial({
+      size: CONFIG.particles_and_flow_dynamics.base_particle_size_m,
+      map: createParticleGlowTexture(),
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.92,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+
+    const particlePoints = new THREE.Points(particleGeo, particleMat);
+    tankRoot.add(particlePoints);
+
+    const tempColor = new THREE.Color();
+    const rustyTint = new THREE.Color('#9A3412');
+
+    function updateParticles(dt, elapsed) {
+      const anomaly = CONFIG.anomaly_simulations.find(a => a.id === state.anomalyId);
+      const isBackwash = state.controls.backwash_cycle_toggle > 0.5;
+      const throttleNorm = state.controls.inlet_valve_throttle / 100.0;
+      const impurityNorm = state.controls.raw_water_impurity_load / 100.0;
+      const timeScale = state.controls.time_scale_slowmo;
+      const speedMult = (anomaly.visual_effects.particle_speed_multiplier ?? 1.0) * (0.15 + throttleNorm * 1.15) * timeScale;
+      const isChanneling = state.anomalyId === 'channeling_breakthrough' && !isBackwash;
+
+      // อัปเดตสีของแต่ละ Stream ตาม Anomaly + ความเข้มข้นสนิมเหล็ก
+      particleSystemData.forEach(sd => {
+        sd.curStartColor.copy(sd.baseStartColor);
+        sd.curEndColor.copy(sd.baseEndColor);
+
+        if (sd.cfg.id === 'raw_water_inlet_freeboard' || sd.cfg.id === 'manganese_iron_removal_stream') {
+          sd.curStartColor.lerp(rustyTint, (impurityNorm - 0.45) * 0.7);
+        }
+
+        const override = anomaly.visual_effects.particle_color_override;
+        if (override && override.stream_id === sd.cfg.id && !isBackwash) {
+          sd.curStartColor.set(override.color_start);
+          sd.curEndColor.set(override.color_end);
+        }
+
+        if (isBackwash && sd.cfg.id !== 'microbubbles_and_backwash_lift') {
+          sd.curStartColor.set('#38BDF8');
+          sd.curEndColor.set('#D97706');
+        }
+      });
+
+      const posArr = particleGeo.attributes.position.array;
+      const colArr = particleGeo.attributes.color.array;
+      const useFullCircle = !state.clippingEnabled;
+
+      for (let i = 0; i < pMeta.length; i++) {
+        const m = pMeta[i];
+        const sd = particleSystemData[m.sIdx];
+        const st = sd.cfg;
+        const idx3 = i * 3;
+
+        // คำนวณความก้าวหน้า life (0..1)
+        const dirSign = (isBackwash && st.id !== 'microbubbles_and_backwash_lift') ? -1.35 : 1.0;
+        const rate = st.base_speed_mps * speedMult * m.speedJitter * 1.9;
+        m.life += dt * rate * dirSign;
+
+        if (m.life > 1.0) m.life -= 1.0;
+        if (m.life < 0.0) m.life += 1.0;
+
+        const t = m.life;
+        const y0 = (st.spawn_bounds_m.y[0] + st.spawn_bounds_m.y[1]) * 0.5;
+        const y1 = (st.target_bounds_m.y[0] + st.target_bounds_m.y[1]) * 0.5;
+        let y = THREE.MathUtils.lerp(y0, y1, t);
+
+        // ขอบเขตรัศมีของสายน้ำแต่ละช่วง
+        let rMax = 0.172;
+        if (st.id === 'raw_water_inlet_freeboard') {
+          rMax = THREE.MathUtils.lerp(0.025, 0.172, Math.pow(t, 0.65));
+        } else if (st.id === 'sand_gravel_polishing_stream') {
+          rMax = t > 0.72 ? THREE.MathUtils.lerp(0.172, 0.022, (t - 0.72) / 0.28) : 0.172;
+        }
+
+        // โหมดน้ำไหลลัดวงจร (Channeling): ดึงอนุภาค 40% วิ่งรวมเป็นลำด้านขวา x ≈ 0.135
+        let x, z;
+        const theta = useFullCircle ? m.angle * 2.0 : (Math.PI + m.angle); // z <= 0 เมื่อผ่าครึ่ง
+        const r = m.radialNorm * rMax;
+
+        if (isChanneling && (i % 5 < 2) && st.id !== 'microbubbles_and_backwash_lift') {
+          x = 0.135 + Math.sin(elapsed * 8.0 + m.phase + y * 14.0) * 0.015;
+          z = 0.008 + Math.cos(elapsed * 6.0 + m.phase) * 0.008;
+        } else {
+          const curl = st.turbulence_curl * 0.025;
+          x = Math.cos(theta) * r + Math.sin(elapsed * 3.0 + m.phase + y * 10.0) * curl;
+          z = Math.sin(theta) * r + Math.cos(elapsed * 2.5 + m.phase) * curl * 0.5;
+
+          // บังคับให้อนุภาคอยู่ใกล้ระนาบหน้าตัดเพื่อให้เห็นสีไล่เฉดชัดเจนในโหมดผ่าครึ่ง
+          if (state.clippingEnabled && z > 0.008) z = 0.008;
+          if (state.clippingEnabled && (i % 3 === 0)) z = 0.004 + (Math.random() - 0.5) * 0.006;
+
+          if (st.id === 'raw_water_inlet_freeboard' && t < 0.25) {
+            x = THREE.MathUtils.lerp(0.06, x, t / 0.25);
+          }
+        }
+
+        // เมื่อแยกชิ้นส่วน (Exploded View) เลื่อนตำแหน่ง Y ของอนุภาคตามเล็กน้อย
+        if (state.explodeCurrent > 0.01) {
+          y += (y - 0.78) * 0.28 * state.explodeCurrent;
+        }
+
+        posArr[idx3] = x;
+        posArr[idx3 + 1] = y;
+        posArr[idx3 + 2] = z;
+
+        tempColor.copy(sd.curStartColor).lerp(sd.curEndColor, t);
+        if (isChanneling && (i % 5 < 2)) {
+          tempColor.set('#F97316');
+        }
+        colArr[idx3] = tempColor.r;
+        colArr[idx3 + 1] = tempColor.g;
+        colArr[idx3 + 2] = tempColor.b;
+      }
+
+      particleGeo.attributes.position.needsUpdate = true;
+      particleGeo.attributes.color.needsUpdate = true;
+    }
+
+    // =========================================================================
+    // 11. FLOATING 3D CALLOUT LABELS (ป้ายกำกับลอยตามวัตถุ 3 มิติ)
+    // =========================================================================
+    const labelsLayer = document.getElementById('labels-layer');
+    const floatingLabels = [];
+
+    const labelFocusIds = [
+      'top_loading_manhole',
+      'freeboard_water_chamber',
+      'media_layer_manganese',
+      'media_layer_carbon',
+      'media_layer_silica_sand',
+      'media_layer_gravel',
+      'side_discharge_handhole',
+      'underdrain_strainer_hub',
+      'bottom_outlet_flange'
+    ];
+
+    labelFocusIds.forEach(id => {
+      const asm = assembliesMap.get(id);
+      if (!asm) return;
+      const el = document.createElement('div');
+      el.className = 'label-3d hidden px-2.5 py-1 rounded-xl bg-slate-900/85 border border-sky-400/45 shadow-lg backdrop-blur-md text-[11px] text-slate-100 whitespace-nowrap flex items-center gap-1.5';
+      el.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span><span class="font-medium">${asm.config.name_th.split('(')[0].trim()}</span>`;
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectAssembly(id);
+        soundEngine.playClick(580);
+      });
+      labelsLayer.appendChild(el);
+      floatingLabels.push({ id, el, worldPos: new THREE.Vector3() });
+    });
+
+    function updateFloatingLabels() {
+      const visible = state.showLabels || state.viewMode === 'exploded_view';
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+
+      floatingLabels.forEach((item, idx) => {
+        if (!visible) {
+          item.el.classList.add('hidden');
+          return;
+        }
+        const asm = assembliesMap.get(item.id);
+        asm.group.getWorldPosition(item.worldPos);
+        // เยื้องซ้าย/ขวาเล็กน้อยไม่ให้ทับกลางถัง
+        const sideSign = item.id === 'side_discharge_handhole' || item.id === 'top_loading_manhole' ? -1 : 1;
+        item.worldPos.x += sideSign * (state.explodeCurrent > 0.4 ? 0.24 : 0.21);
+
+        const projected = item.worldPos.clone().project(camera);
+        if (projected.z > 1.0) {
+          item.el.classList.add('hidden');
+          return;
+        }
+        const sx = (projected.x * 0.5 + 0.5) * w;
+        const sy = (-projected.y * 0.5 + 0.5) * h;
+
+        item.el.classList.remove('hidden');
+        item.el.style.left = `${sx}px`;
+        item.el.style.top = `${sy}px`;
+      });
+    }
+
+    // =========================================================================
+    // 12. INTERACTIVE MODES (Cutaway / Full / X-Ray / Exploded) & CAMERA TWEEN
+    // =========================================================================
+    let camTween = null;
+
+    function tweenCameraTo(posArr, targetArr, fov = 42, duration = 0.85) {
+      camTween = {
+        startTime: performance.now(),
+        duration: duration * 1000,
+        startPos: camera.position.clone(),
+        endPos: new THREE.Vector3(...posArr),
+        startTarget: controls.target.clone(),
+        endTarget: new THREE.Vector3(...targetArr),
+        startFov: camera.fov,
+        endFov: fov
+      };
+    }
+
+    function applyViewMode(modeId) {
+      const modeCfg = CONFIG.interactive_modes.inspection_views.find(v => v.id === modeId);
+      if (!modeCfg) return;
+
+      state.viewMode = modeId;
+      state.clippingEnabled = modeCfg.clipping_enabled;
+      state.xrayEnabled = modeCfg.xray_enabled;
+      state.explodeTarget = modeCfg.explode_factor;
+
+      // อัปเดต Local Clipping Planes ให้วัสดุที่อนุญาตตัดผ่าครึ่ง
+      const planes = state.clippingEnabled ? activeClipPlanes : [];
+      clippableMaterials.forEach(mat => {
+        mat.clippingPlanes = planes;
+        mat.needsUpdate = true;
+      });
+
+      // อัปเดตหน้าตัดผ่าครึ่ง (Cutaway Caps) และ X-Ray Material
+      assembliesMap.forEach((asm, id) => {
+        asm.cutawayCaps.forEach(cap => {
+          cap.visible = state.clippingEnabled && !state.xrayEnabled;
+        });
+
+        const isShellOrFitting = asm.config.motion_group === 'static_chassis' || asm.config.motion_group === 'static_fitting';
+        asm.meshes.forEach((mesh, idx) => {
+          if (state.xrayEnabled) {
+            if (isShellOrFitting) {
+              mesh.material = materials.xray_hologram_shell;
+            } else {
+              const m = asm.originalMats[idx];
+              if (m && m.opacity !== undefined) {
+                m.transparent = true;
+                m.opacity = id === 'underdrain_strainer_hub' ? 0.95 : 0.42;
+              }
+              mesh.material = m;
+            }
+          } else {
+            const m = asm.originalMats[idx];
+            if (m && m.userData && m.userData.baseOpacity !== undefined) {
+              m.transparent = m.userData.baseTransparent;
+              m.opacity = m.userData.baseOpacity;
+            }
+            mesh.material = m;
+          }
+        });
+      });
+
+      // คืนค่า Isolate หากเปลี่ยนโหมด
+      if (state.isolatedPartId) applyIsolate(state.isolatedPartId);
+      updateViewModeUI();
+      soundEngine.playClick(540);
+    }
+
+    // =========================================================================
+    // 13. RAYCASTER SELECTION & COMPONENT INSPECTOR CARD
+    // =========================================================================
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    let pointerDownPos = { x: 0, y: 0 };
+    let hoveredAssemblyId = null;
+
+    function getIntersectedAssembly(clientX, clientY) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+
+      const hits = raycaster.intersectObjects(clickableMeshes, false);
+      for (const hit of hits) {
+        if (!hit.object.visible) continue;
+        // กรองจุดที่ถูกตัดออกโดย Clipping Plane
+        if (state.clippingEnabled && hit.object.material && hit.object.material.clippingPlanes && hit.object.material.clippingPlanes.length > 0) {
+          if (clipPlane.distanceToPoint(hit.point) < -0.002) continue;
+        }
+        const id = hit.object.userData.assemblyId;
+        if (id) return id;
+      }
+      return null;
+    }
+
+    renderer.domElement.addEventListener('pointerdown', (e) => {
+      pointerDownPos = { x: e.clientX, y: e.clientY };
+    });
+
+    renderer.domElement.addEventListener('pointermove', (e) => {
+      const id = getIntersectedAssembly(e.clientX, e.clientY);
+      hoveredAssemblyId = id;
+      renderer.domElement.style.cursor = id ? 'pointer' : 'grab';
+    });
+
+    renderer.domElement.addEventListener('pointerup', (e) => {
+      const dist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
+      if (dist > 6) return; // เป็นการลากหมุน Orbit ไม่ใช่การคลิก
+      const id = getIntersectedAssembly(e.clientX, e.clientY);
+      if (id) {
+        selectAssembly(id);
+        soundEngine.playClick(640);
+      }
+    });
+
+    function selectAssembly(id) {
+      state.selectedPartId = id;
+      const asm = assembliesMap.get(id);
+      if (!asm) return;
+
+      const c = asm.config;
+      document.getElementById('insp-stage-code').textContent = c.stage_code;
+      document.getElementById('insp-name-th').textContent = c.name_th;
+      document.getElementById('insp-summary').textContent = c.education_info.summary;
+
+      const ul = document.getElementById('insp-metrics');
+      ul.innerHTML = '';
+      c.education_info.key_metrics.forEach(metric => {
+        const li = document.createElement('li');
+        li.className = 'text-[11px] text-slate-200 bg-slate-800/70 border border-slate-700/70 rounded-xl px-2.5 py-1.5 flex items-start gap-2 font-body';
+        li.innerHTML = `<span class="text-sky-400 font-bold">•</span><span>${metric}</span>`;
+        ul.appendChild(li);
+      });
+
+      document.getElementById('inspector-card').classList.remove('hidden');
+      updateIsolateButtonUI();
+    }
+
+    function closeInspector() {
+      state.selectedPartId = null;
+      if (state.isolatedPartId) applyIsolate(null);
+      document.getElementById('inspector-card').classList.add('hidden');
+    }
+
+    function applyIsolate(targetId) {
+      state.isolatedPartId = targetId;
+      assembliesMap.forEach((asm, id) => {
+        const isTarget = !targetId || id === targetId;
+        asm.meshes.forEach((mesh, idx) => {
+          if (state.xrayEnabled) return;
+          const m = asm.originalMats[idx];
+          if (!m || m.opacity === undefined) return;
+          if (isTarget) {
+            m.transparent = m.userData?.baseTransparent ?? false;
+            m.opacity = m.userData?.baseOpacity ?? 1.0;
+          } else {
+            m.transparent = true;
+            m.opacity = 0.14;
+          }
+        });
+      });
+      updateIsolateButtonUI();
+    }
+
+    function updateIsolateButtonUI() {
+      const btn = document.getElementById('btn-isolate-part');
+      const active = state.isolatedPartId && state.isolatedPartId === state.selectedPartId;
+      if (active) {
+        btn.className = 'py-2 px-2.5 rounded-xl bg-amber-500/30 border border-amber-400/60 text-amber-200 text-[11px] font-medium transition';
+        btn.textContent = '↩ แสดงชิ้นส่วนทั้งหมด';
+      } else {
+        btn.className = 'py-2 px-2.5 rounded-xl bg-slate-800/80 hover:bg-amber-500/25 border border-slate-700 text-slate-200 text-[11px] font-medium transition';
+        btn.textContent = '✨ ไฮไลต์แยกชิ้นส่วน';
+      }
+    }
+
+    // =========================================================================
+    // 14. PHYSICS & TELEMETRY ENGINE + SPARKLINE RENDERER
+    // =========================================================================
+    let lastTelemetryTick = 0;
+
+    function updatePhysicsAndTelemetry(nowMs, dt) {
+      const anomaly = CONFIG.anomaly_simulations.find(a => a.id === state.anomalyId);
+      const ov = anomaly.telemetry_overrides;
+      const throttle = state.controls.inlet_valve_throttle / 100.0; // 0..1
+      const impurity = state.controls.raw_water_impurity_load / 100.0; // 0.1..1
+      const isBackwash = state.controls.backwash_cycle_toggle > 0.5;
+
+      // สะสมหรือล้างตะกอนแบบไดนามิก
+      if (isBackwash) {
+        state.bedSaturationDynamic = Math.max(8.0, state.bedSaturationDynamic - dt * 14.0);
+      } else {
+        const targetSat = Math.min(99.0, ov.bed_saturation_pct + (impurity - 0.45) * 18.0);
+        state.bedSaturationDynamic = THREE.MathUtils.lerp(state.bedSaturationDynamic, targetSat, dt * 1.4);
+      }
+
+      const noise = (amp) => (Math.random() - 0.5) * amp;
+
+      // คำนวณค่า Telemetry 6 ช่องตามหลักฟิสิกส์ระบบกรองน้ำแรงดัน
+      const baseFlow = throttle * 43.8;
+      const flowLpm = Math.max(0, Math.min(45, (isBackwash ? baseFlow * 1.12 : baseFlow * ov.flow_rate_multiplier) + noise(0.35)));
+      const inletBar = Math.max(0, Math.min(6.0, (0.4 + throttle * 3.1 + (isBackwash ? 0.55 : ov.inlet_pressure_offset_bar)) + noise(0.04)));
+      const dpBar = Math.max(0.02, Math.min(2.5, (0.08 + throttle * 0.30 + (state.bedSaturationDynamic / 100) * 0.45 + (isBackwash ? -0.15 : ov.differential_pressure_offset_bar)) + noise(0.02)));
+      const turbidityNtu = Math.max(0.15, Math.min(15.0, (isBackwash ? 4.2 + state.bedSaturationDynamic * 0.06 : ov.outlet_turbidity_ntu * (0.7 + impurity * 0.75)) + noise(0.06)));
+      const ironEffPct = Math.max(25.0, Math.min(99.5, (isBackwash ? 62.0 : ov.iron_removal_efficiency_pct - (impurity - 0.45) * 6.0) + noise(0.25)));
+      const bedSatPct = Math.max(0, Math.min(100, state.bedSaturationDynamic + noise(0.2)));
+
+      state.telemetryCurrent = {
+        flow_rate_lpm: flowLpm,
+        inlet_pressure_bar: inletBar,
+        differential_pressure_bar: dpBar,
+        outlet_turbidity_ntu: turbidityNtu,
+        iron_removal_efficiency_pct: ironEffPct,
+        bed_saturation_pct: bedSatPct
+      };
+
+      // อัปเดตเสียงสังเคราะห์ให้สอดคล้องอัตราการไหล
+      soundEngine.update(flowLpm / 45.0, isBackwash, anomaly.severity === 'critical');
+
+      // อัปเดต UI Telemetry & Sparklines ทุก 180ms เพื่อความลื่นไหล 60fps
+      if (nowMs - lastTelemetryTick > 180) {
+        lastTelemetryTick = nowMs;
+        let hasWarning = false;
+
+        CONFIG.physics_and_telemetry_engine.telemetry_channels.forEach(ch => {
+          const val = state.telemetryCurrent[ch.id];
+          const hist = state.telemetryHistory[ch.id];
+          hist.push(val);
+          if (hist.length > 20) hist.shift();
+
+          const isWarn = ch.warning_direction === 'above'
+            ? val >= ch.warning_threshold
+            : val <= ch.warning_threshold;
+          if (isWarn) hasWarning = true;
+
+          const card = document.getElementById(`tel-card-${ch.id}`);
+          const valEl = document.getElementById(`tel-val-${ch.id}`);
+          const badgeEl = document.getElementById(`tel-badge-${ch.id}`);
+          const lineEl = document.getElementById(`tel-spark-${ch.id}`);
+
+          if (valEl) {
+            const decimals = ch.id === 'differential_pressure_bar' || ch.id === 'outlet_turbidity_ntu' ? 2 : 1;
+            valEl.textContent = val.toFixed(decimals);
+            valEl.className = `text-sm sm:text-base font-bold tabular-nums leading-none ${isWarn ? 'text-amber-400' : 'text-white'}`;
+          }
+
+          if (card) {
+            card.style.borderColor = isWarn ? 'rgba(245, 158, 11, 0.65)' : 'rgba(56, 189, 248, 0.20)';
+          }
+          if (badgeEl) {
+            badgeEl.classList.toggle('hidden', !isWarn);
+          }
+
+          if (lineEl) {
+            const minV = ch.min_value;
+            const span = Math.max(0.001, ch.max_value - minV);
+            const pts = hist.map((v, i) => {
+              const x = (i / (hist.length - 1)) * 68;
+              const y = 16 - ((v - minV) / span) * 14;
+              return `${x.toFixed(1)},${Math.max(1, Math.min(16, y)).toFixed(1)}`;
+            }).join(' ');
+            lineEl.setAttribute('points', pts);
+            lineEl.setAttribute('stroke', isWarn ? '#F59E0B' : '#38BDF8');
+          }
+        });
+
+        // ป้ายสถานะรวมบนแผง Telemetry
+        const pill = document.getElementById('telemetry-status-pill');
+        if (isBackwash) {
+          pill.textContent = 'ล้างย้อน';
+          pill.className = 'text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/25 text-cyan-300 border border-cyan-400/50 font-medium';
+        } else if (anomaly.severity === 'critical') {
+          pill.textContent = 'วิกฤต (ΔP)';
+          pill.className = 'text-[10px] px-2 py-0.5 rounded-full bg-rose-500/25 text-rose-300 border border-rose-500/50 font-medium';
+        } else if (hasWarning || anomaly.severity === 'warning') {
+          pill.textContent = 'แจ้งเตือน';
+          pill.className = 'text-[10px] px-2 py-0.5 rounded-full bg-amber-500/25 text-amber-300 border border-amber-500/50 font-medium';
+        } else {
+          pill.textContent = 'ปกติ';
+          pill.className = 'text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-medium';
+        }
+      }
+    }
+
+    // =========================================================================
+    // 15. ANOMALY SIMULATIONS & LEARNING PHASE CONTROLLER
+    // =========================================================================
+    function applyAnomalyMode(anomalyId) {
+      state.anomalyId = anomalyId;
+      const anom = CONFIG.anomaly_simulations.find(a => a.id === anomalyId);
+      if (!anom) return;
+
+      // รีเซ็ต Emissive ของชั้นสารกรองทั้งหมดก่อน
+      ['media_layer_manganese', 'media_layer_carbon', 'media_layer_silica_sand', 'media_layer_gravel'].forEach(id => {
+        const asm = assembliesMap.get(id);
+        if (asm && asm.partMat) {
+          asm.partMat.emissive.copy(asm.partMat.userData.baseEmissive);
+          asm.partMat.emissiveIntensity = asm.partMat.userData.baseEmissiveIntensity;
+        }
+      });
+
+      // ปรับสี Emissive ชั้นสารกรองหากอุดตัน
+      if (anom.visual_effects.media_bed_tint) {
+        const tint = anom.visual_effects.media_bed_tint;
+        tint.target_ids.forEach(id => {
+          const asm = assembliesMap.get(id);
+          if (asm && asm.partMat) {
+            asm.partMat.emissive.set(tint.emissive_color);
+            asm.partMat.emissiveIntensity = tint.emissive_intensity;
+          }
+        });
+      }
+
+      // แสดง/ซ่อน ลำน้ำไหลลัดวงจร (Channeling Jet)
+      channelingJetMesh.visible = Boolean(anom.visual_effects.channeling_jet_path?.enabled) && state.controls.backwash_cycle_toggle < 0.5;
+
+      // ปรับสีแสงไดนามิกภายในถัง
+      if (dynamicLights.freeboard_aqua_glow) {
+        dynamicLights.freeboard_aqua_glow.color.set(anom.lighting_effects.freeboard_light_color);
+      }
+      if (dynamicLights.underdrain_clean_glow) {
+        dynamicLights.underdrain_clean_glow.color.set(anom.lighting_effects.underdrain_light_color);
+      }
+
+      // แสดงแบนเนอร์แจ้งเตือนบน HUD (Desktop + Mobile)
+      const banner = document.getElementById('hud-alert-banner');
+      const mBanner = document.getElementById('hud-alert-banner-mobile');
+      const alertCfg = anom.hud_alert;
+
+      if (alertCfg.visible) {
+        const isCrit = alertCfg.level === 'critical';
+        const styleClass = isCrit ? 'alert-pulse-critical bg-rose-950/80 border-rose-500/80' : 'alert-pulse-warning bg-amber-950/80 border-amber-500/80';
+        const titleColor = isCrit ? 'text-rose-300' : 'text-amber-300';
+
+        banner.className = `glass-panel rounded-2xl px-3.5 py-2.5 w-full border ${styleClass}`;
+        document.getElementById('hud-alert-icon').className = `mt-0.5 shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${isCrit ? 'bg-rose-500 text-white' : 'bg-amber-500 text-slate-950'}`;
+        document.getElementById('hud-alert-title').className = `text-xs font-semibold ${titleColor}`;
+        document.getElementById('hud-alert-title').textContent = alertCfg.title_th;
+        document.getElementById('hud-alert-message').textContent = alertCfg.message_th;
+
+        mBanner.className = `lg:hidden glass-panel rounded-2xl px-3 py-2 w-[215px] border ${styleClass}`;
+        document.getElementById('hud-alert-title-mobile').className = `text-[11px] font-semibold ${titleColor}`;
+        document.getElementById('hud-alert-title-mobile').textContent = alertCfg.title_th;
+        document.getElementById('hud-alert-message-mobile').textContent = alertCfg.message_th;
+
+        if (isCrit) soundEngine.playBeep(720, 0.14, 0.12);
+        else soundEngine.playBeep(540, 0.10, 0.08);
+      } else {
+        banner.classList.add('hidden');
+        mBanner.classList.add('hidden');
+      }
+
+      updateAnomalyUI();
+    }
+
+    function setLearningPhase(index, moveCamera = false) {
+      const phases = CONFIG.project_meta.operating_cycle.learning_phases;
+      state.activePhaseIndex = ((index % phases.length) + phases.length) % phases.length;
+      const p = phases[state.activePhaseIndex];
+
+      document.getElementById('phase-title').textContent = p.name_th;
+      document.getElementById('phase-desc').textContent = p.description_th;
+
+      const dots = document.querySelectorAll('.phase-dot-btn');
+      dots.forEach((btn, idx) => {
+        if (idx === state.activePhaseIndex) {
+          btn.className = 'phase-dot-btn h-1.5 rounded-full bg-sky-400 shadow-[0_0_8px_#38BDF8] transition-all cursor-pointer';
+        } else if (idx < state.activePhaseIndex) {
+          btn.className = 'phase-dot-btn h-1.5 rounded-full bg-sky-500/45 transition-all cursor-pointer';
+        } else {
+          btn.className = 'phase-dot-btn h-1.5 rounded-full bg-slate-700/80 hover:bg-slate-600 transition-all cursor-pointer';
+        }
+      });
+
+      if (moveCamera && p.camera_preset) {
+        const preset = CONFIG.interactive_modes.camera_presets.find(c => c.id === p.camera_preset);
+        if (preset) tweenCameraTo(preset.position, preset.target, preset.fov, 0.9);
+      }
+    }
+
+    // =========================================================================
+    // 16. BUILD INTERACTIVE HUD UI ELEMENTS
+    // =========================================================================
+    function initHUD() {
+      // 1) Live Telemetry Cards (6 ช่อง + SVG Sparkline)
+      const telGrid = document.getElementById('telemetry-grid');
+      CONFIG.physics_and_telemetry_engine.telemetry_channels.forEach(ch => {
+        const div = document.createElement('div');
+        div.id = `tel-card-${ch.id}`;
+        div.className = 'rounded-xl bg-slate-900/75 border border-sky-400/20 px-2.5 py-2 flex flex-col justify-between transition-colors';
+        div.innerHTML = `
+          <div class="flex items-center justify-between gap-1">
+            <span class="text-[10px] text-slate-400 truncate" title="${ch.label_th}">${ch.label_th}</span>
+            <span id="tel-badge-${ch.id}" class="hidden w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_6px_#F59E0B] shrink-0"></span>
+          </div>
+          <div class="flex items-end justify-between gap-1 mt-1">
+            <div class="flex items-baseline gap-1">
+              <span id="tel-val-${ch.id}" class="text-sm sm:text-base font-bold text-white tabular-nums leading-none">${ch.default_value}</span>
+              <span class="text-[9px] text-sky-300/80">${ch.unit}</span>
+            </div>
+            <svg width="46" height="17" viewBox="0 0 68 17" class="shrink-0 overflow-visible">
+              <polyline id="tel-spark-${ch.id}" fill="none" stroke="#38BDF8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="0,8 68,8" />
+            </svg>
+          </div>
+        `;
+        telGrid.appendChild(div);
+      });
+
+      // 2) Learning Phase Stepper Dots
+      const phaseDotsEl = document.getElementById('phase-dots');
+      CONFIG.project_meta.operating_cycle.learning_phases.forEach((p, idx) => {
+        const b = document.createElement('button');
+        b.className = 'phase-dot-btn h-1.5 rounded-full bg-slate-700 transition-all cursor-pointer';
+        b.title = p.name_th;
+        b.addEventListener('click', () => {
+          state.autoTourActive = false;
+          updateTourBtnUI();
+          setLearningPhase(idx, true);
+          soundEngine.playClick(600);
+        });
+        phaseDotsEl.appendChild(b);
+      });
+      setLearningPhase(0, false);
+
+      // 3) Camera Presets (5 มุมกล้องลัด)
+      const camList = document.getElementById('camera-presets-list');
+      CONFIG.interactive_modes.camera_presets.forEach((preset, idx) => {
+        const btn = document.createElement('button');
+        btn.className = 'cam-preset-btn w-full text-left px-2.5 py-1.5 rounded-xl bg-slate-800/70 hover:bg-sky-500/25 border border-slate-700/70 hover:border-sky-400/50 text-[11px] text-slate-200 hover:text-sky-200 transition flex items-center gap-1.5';
+        btn.innerHTML = `<span class="text-[10px] text-sky-400 font-semibold">${idx + 1}.</span><span class="truncate">${preset.label_th}</span>`;
+        btn.addEventListener('click', () => {
+          tweenCameraTo(preset.position, preset.target, preset.fov, 0.85);
+          soundEngine.playClick(580);
+        });
+        camList.appendChild(btn);
+      });
+
+      // 4) Inspection View Mode Buttons (4 โหมด)
+      const viewContainer = document.getElementById('view-mode-buttons');
+      CONFIG.interactive_modes.inspection_views.forEach(view => {
+        const btn = document.createElement('button');
+        btn.dataset.viewId = view.id;
+        btn.className = 'view-mode-btn py-1.5 px-2.5 rounded-xl text-[11px] font-medium border transition truncate';
+        btn.textContent = view.label_th;
+        btn.addEventListener('click', () => applyViewMode(view.id));
+        viewContainer.appendChild(btn);
+      });
+
+      // 5) Anomaly Scenario Buttons (ปกติ + 2 ภาวะผิดปกติ)
+      const anomContainer = document.getElementById('anomaly-buttons');
+      CONFIG.anomaly_simulations.forEach(anom => {
+        const btn = document.createElement('button');
+        btn.dataset.anomId = anom.id;
+        btn.className = 'anom-btn py-1.5 px-2.5 rounded-xl text-[11px] font-medium border transition text-left truncate flex items-center gap-1.5';
+        const dotColor = anom.severity === 'critical' ? 'bg-rose-500' : (anom.severity === 'warning' ? 'bg-amber-400' : 'bg-emerald-400');
+        btn.innerHTML = `<span class="w-2 h-2 rounded-full ${dotColor} shrink-0"></span><span class="truncate">${anom.label_th}</span>`;
+        btn.addEventListener('click', () => applyAnomalyMode(anom.id));
+        anomContainer.appendChild(btn);
+      });
+
+      // 6) Physics Sliders (3 สไลเดอร์หลัก)
+      const slidersContainer = document.getElementById('physics-sliders-container');
+      CONFIG.physics_and_telemetry_engine.control_inputs.forEach(ctrl => {
+        const wrap = document.createElement('div');
+        wrap.className = 'bg-slate-900/60 border border-slate-800/90 rounded-xl px-2.5 py-1.5';
+        wrap.innerHTML = `
+          <div class="flex items-center justify-between text-[10px] mb-1">
+            <span class="text-slate-300 truncate">${ctrl.label_th}</span>
+            <span id="slider-val-${ctrl.id}" class="text-sky-300 font-semibold tabular-nums">${ctrl.default}${ctrl.unit}</span>
+          </div>
+          <input id="slider-${ctrl.id}" type="range" class="hud-slider" min="${ctrl.min}" max="${ctrl.max}" step="${ctrl.step}" value="${ctrl.default}" />
+        `;
+        slidersContainer.appendChild(wrap);
+
+        const inputEl = wrap.querySelector(`#slider-${ctrl.id}`);
+        inputEl.addEventListener('input', (e) => {
+          const v = parseFloat(e.target.value);
+          state.controls[ctrl.id] = v;
+          const display = ctrl.unit === 'x' ? `${v.toFixed(1)}x` : `${Math.round(v)}${ctrl.unit}`;
+          document.getElementById(`slider-val-${ctrl.id}`).textContent = display;
+        });
+      });
+
+      // 7) Event Listeners สำหรับปุ่มควบคุมทั้งหมด
+      document.getElementById('btn-backwash-toggle').addEventListener('click', () => {
+        const next = state.controls.backwash_cycle_toggle > 0.5 ? 0.0 : 1.0;
+        state.controls.backwash_cycle_toggle = next;
+        const btn = document.getElementById('btn-backwash-toggle');
+        const dot = document.getElementById('backwash-dot');
+        const cycleBadge = document.getElementById('cycle-mode-badge');
+
+        if (next > 0.5) {
+          btn.className = 'px-2.5 py-1 rounded-xl text-[11px] font-medium bg-cyan-500/30 border border-cyan-400 text-cyan-200 shadow-[0_0_12px_rgba(34,211,238,0.35)] transition flex items-center gap-1.5';
+          dot.className = 'w-2 h-2 rounded-full bg-cyan-300 animate-ping';
+          if (cycleBadge) cycleBadge.textContent = 'Backwash ↑';
+          channelingJetMesh.visible = false;
+        } else {
+          btn.className = 'px-2.5 py-1 rounded-xl text-[11px] font-medium bg-slate-800/90 hover:bg-cyan-500/20 border border-slate-600/80 text-slate-200 transition flex items-center gap-1.5';
+          dot.className = 'w-2 h-2 rounded-full bg-slate-500';
+          if (cycleBadge) cycleBadge.textContent = 'Downflow ↓';
+          applyAnomalyMode(state.anomalyId);
+        }
+        soundEngine.playClick(next > 0.5 ? 700 : 480);
+      });
+
+      document.getElementById('btn-reset-orbit').addEventListener('click', () => {
+        const def = CONFIG.interactive_modes.camera_presets[0];
+        tweenCameraTo(def.position, def.target, def.fov, 0.8);
+        soundEngine.playClick(500);
+      });
+
+      document.getElementById('btn-toggle-labels').addEventListener('click', () => {
+        state.showLabels = !state.showLabels;
+        const btn = document.getElementById('btn-toggle-labels');
+        btn.classList.toggle('bg-sky-500/30', state.showLabels);
+        btn.classList.toggle('border-sky-400', state.showLabels);
+        soundEngine.playClick(560);
+      });
+
+      document.getElementById('btn-audio-toggle').addEventListener('click', () => {
+        state.audioEnabled = !state.audioEnabled;
+        soundEngine.setEnabled(state.audioEnabled);
+        document.getElementById('icon-audio-off').classList.toggle('hidden', state.audioEnabled);
+        document.getElementById('icon-audio-on').classList.toggle('hidden', !state.audioEnabled);
+      });
+
+      document.getElementById('btn-toggle-telemetry').addEventListener('click', () => {
+        const p = document.getElementById('telemetry-panel');
+        const chev = document.getElementById('icon-telemetry-chevron');
+        p.classList.toggle('hidden');
+        chev.classList.toggle('rotate-180');
+      });
+
+      document.getElementById('btn-toggle-cam-list').addEventListener('click', () => {
+        document.getElementById('camera-presets-list').classList.toggle('hidden');
+      });
+
+      // Inspector Card Actions
+      document.getElementById('btn-close-inspector').addEventListener('click', () => {
+        closeInspector();
+        soundEngine.playClick(420);
+      });
+
+      document.getElementById('btn-focus-part').addEventListener('click', () => {
+        if (!state.selectedPartId) return;
+        const asm = assembliesMap.get(state.selectedPartId);
+        const wp = new THREE.Vector3();
+        asm.group.getWorldPosition(wp);
+        const camPos = [wp.x + 0.42, wp.y + 0.14, wp.z + 0.72];
+        tweenCameraTo(camPos, [wp.x, wp.y, wp.z], 36, 0.8);
+        soundEngine.playClick(640);
+      });
+
+      document.getElementById('btn-isolate-part').addEventListener('click', () => {
+        if (!state.selectedPartId) return;
+        const nextIso = state.isolatedPartId === state.selectedPartId ? null : state.selectedPartId;
+        applyIsolate(nextIso);
+        soundEngine.playClick(580);
+      });
+
+      // Operating Cycle Stepper Controls
+      document.getElementById('btn-phase-prev').addEventListener('click', () => {
+        state.autoTourActive = false;
+        updateTourBtnUI();
+        setLearningPhase(state.activePhaseIndex - 1, true);
+        soundEngine.playClick(540);
+      });
+
+      document.getElementById('btn-phase-next').addEventListener('click', () => {
+        state.autoTourActive = false;
+        updateTourBtnUI();
+        setLearningPhase(state.activePhaseIndex + 1, true);
+        soundEngine.playClick(580);
+      });
+
+      document.getElementById('btn-phase-tour').addEventListener('click', () => {
+        state.autoTourActive = !state.autoTourActive;
+        state.autoTourTimer = 0;
+        if (state.autoTourActive) setLearningPhase(state.activePhaseIndex, true);
+        updateTourBtnUI();
+        soundEngine.playClick(660);
+      });
+
+      updateViewModeUI();
+      updateAnomalyUI();
+    }
+
+    function updateTourBtnUI() {
+      const btn = document.getElementById('btn-phase-tour');
+      if (state.autoTourActive) {
+        btn.textContent = '⏸ หยุดไล่ดู';
+        btn.className = 'px-2 py-0.5 rounded-lg bg-amber-500/25 border border-amber-400/50 text-amber-200 text-[10px] font-medium transition';
+      } else {
+        btn.textContent = '▶ ไล่ดูอัตโนมัติ';
+        btn.className = 'px-2 py-0.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/35 border border-sky-400/40 text-sky-300 text-[10px] font-medium transition';
+      }
+    }
+
+    function updateViewModeUI() {
+      document.querySelectorAll('.view-mode-btn').forEach(btn => {
+        const active = btn.dataset.viewId === state.viewMode;
+        btn.className = active
+          ? 'view-mode-btn py-1.5 px-2.5 rounded-xl text-[11px] font-semibold border border-sky-400 bg-sky-500/25 text-sky-200 shadow-[0_0_12px_rgba(56,189,248,0.28)] transition truncate'
+          : 'view-mode-btn py-1.5 px-2.5 rounded-xl text-[11px] font-medium border border-slate-700/80 bg-slate-800/70 hover:bg-slate-700/70 text-slate-300 transition truncate';
+      });
+    }
+
+    function updateAnomalyUI() {
+      document.querySelectorAll('.anom-btn').forEach(btn => {
+        const active = btn.dataset.anomId === state.anomalyId;
+        const anom = CONFIG.anomaly_simulations.find(a => a.id === btn.dataset.anomId);
+        let activeCls = 'border-emerald-400/70 bg-emerald-500/20 text-emerald-200';
+        if (anom.severity === 'critical') activeCls = 'border-rose-500 bg-rose-500/25 text-rose-200';
+        else if (anom.severity === 'warning') activeCls = 'border-amber-400 bg-amber-500/25 text-amber-200';
+
+        btn.className = active
+          ? `anom-btn py-1.5 px-2.5 rounded-xl text-[11px] font-semibold border transition text-left truncate flex items-center gap-1.5 ${activeCls}`
+          : 'anom-btn py-1.5 px-2.5 rounded-xl text-[11px] font-medium border border-slate-700/80 bg-slate-800/70 hover:bg-slate-700/70 text-slate-300 transition text-left truncate flex items-center gap-1.5';
+      });
+    }
+
+    // =========================================================================
+    // 17. ANIMATION LOOP (Real-time Motion, Bed Expansion, Lighting & Render)
+    // =========================================================================
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const rawDt = Math.min(0.05, clock.getDelta());
+      const elapsed = clock.elapsedTime;
+      const nowMs = performance.now();
+
+      // 1) Camera Smooth Tweening
+      if (camTween) {
+        const p = Math.min(1.0, (nowMs - camTween.startTime) / camTween.duration);
+        const ease = 1 - Math.pow(1 - p, 3); // EaseOutCubic
+        camera.position.lerpVectors(camTween.startPos, camTween.endPos, ease);
+        controls.target.lerpVectors(camTween.startTarget, camTween.endTarget, ease);
+        camera.fov = THREE.MathUtils.lerp(camTween.startFov, camTween.endFov, ease);
+        camera.updateProjectionMatrix();
+        if (p >= 1.0) camTween = null;
+      }
+
+      controls.update();
+
+      // 2) Smooth Exploded View & Mechanical Motion Groups (Bed Expansion / Breathing)
+      state.explodeCurrent = THREE.MathUtils.lerp(state.explodeCurrent, state.explodeTarget, rawDt * 6.0);
+      const isBackwash = state.controls.backwash_cycle_toggle > 0.5;
+      const flowFactor = state.controls.inlet_valve_throttle / 100.0;
+
+      assembliesMap.forEach((asm, id) => {
+        const targetPos = asm.basePos.clone().addScaledVector(asm.explodeOffset, state.explodeCurrent);
+
+        // โหมดล้างย้อน (Backwash): ชั้นสารกรองแมงกานีส คาร์บอน และทรายจะฟุ้งขยายตัวขึ้นด้านบน (Bed Expansion)
+        if (asm.config.motion_group === 'media_bed_vibration') {
+          if (isBackwash && state.explodeCurrent < 0.1) {
+            const lift = id === 'media_layer_manganese' ? 0.065 : (id === 'media_layer_carbon' ? 0.040 : 0.018);
+            const jitter = Math.sin(elapsed * 11.0 + targetPos.y * 8.0) * 0.004 * flowFactor;
+            targetPos.y += lift * (0.4 + flowFactor * 0.6) + jitter;
+            asm.group.scale.y = THREE.MathUtils.lerp(asm.group.scale.y, 1.12, rawDt * 3.0);
+          } else {
+            asm.group.scale.y = THREE.MathUtils.lerp(asm.group.scale.y, 1.0, rawDt * 4.0);
+          }
+        } else if (asm.config.motion_group === 'fluid_breathing') {
+          const pulse = 1.0 + Math.sin(elapsed * 2.8) * 0.008 * flowFactor;
+          asm.group.scale.set(1.0, pulse, 1.0);
+        }
+
+        asm.group.position.lerp(targetPos, rawDt * 8.0);
+
+        // ไฮไลต์ Emissive เบาๆ เมื่อเลือกชิ้นส่วนหรือโฮเวอร์
+        if (asm.partMat && id === 'vessel_pressure_shell') {
+          const anom = CONFIG.anomaly_simulations.find(a => a.id === state.anomalyId);
+          if (anom.visual_effects.shell_pulse_warning && !isBackwash) {
+            const pulseRed = 0.20 + Math.sin(elapsed * 8.0) * 0.18;
+            asm.partMat.emissive.set('#DC2626');
+            asm.partMat.emissiveIntensity = Math.max(0.05, pulseRed);
+          } else if (state.selectedPartId === id) {
+            asm.partMat.emissive.set('#0284C7');
+            asm.partMat.emissiveIntensity = 0.25;
+          } else {
+            asm.partMat.emissive.set('#000000');
+            asm.partMat.emissiveIntensity = 0.0;
+          }
+        }
+      });
+
+      // 3) Dynamic Internal Lights Strobe / Pulse
+      const anom = CONFIG.anomaly_simulations.find(a => a.id === state.anomalyId);
+      if (dynamicLights.freeboard_aqua_glow) {
+        const baseI = dynamicLights.freeboard_aqua_glow.userData.baseIntensity;
+        if (anom.lighting_effects.strobe_enabled && !isBackwash) {
+          const freq = anom.lighting_effects.strobe_frequency_hz || 2.0;
+          dynamicLights.freeboard_aqua_glow.intensity = baseI * (0.65 + 0.85 * Math.abs(Math.sin(elapsed * Math.PI * freq)));
+        } else {
+          dynamicLights.freeboard_aqua_glow.intensity = baseI * (0.75 + flowFactor * 0.45 + Math.sin(elapsed * 3.5) * 0.12);
+        }
+      }
+
+      // 4) Channeling Jet Pulse Effect
+      if (channelingJetMesh.visible) {
+        channelingMat.opacity = 0.55 + Math.sin(elapsed * 12.0) * 0.25;
+      }
+
+      // 5) Guided Operating Cycle Auto Tour
+      if (state.autoTourActive) {
+        state.autoTourTimer += rawDt;
+        if (state.autoTourTimer >= 4.2) {
+          state.autoTourTimer = 0;
+          setLearningPhase(state.activePhaseIndex + 1, true);
+        }
+      }
+
+      // 6) Update Particles, Physics Telemetry & Floating Labels
+      updateParticles(rawDt, elapsed);
+      updatePhysicsAndTelemetry(nowMs, rawDt);
+      updateFloatingLabels();
+
+      // 7) Render with UnrealBloomPass Composer
+      composer.render();
+    }
+
+    // =========================================================================
+    // 18. RESIZE HANDLER & SAFE BOOTSTRAP (Window Onload)
+    // =========================================================================
+    function onWindowResize() {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+      composer.setSize(w, h);
+      bloomPass.setSize(w, h);
+    }
+    window.addEventListener('resize', onWindowResize);
+
+    // หยุด Camera Tween อัตโนมัติหากผู้ใช้ควบคุมเมาส์/สัมผัสเอง
+    controls.addEventListener('start', () => { camTween = null; });
+
+    window.addEventListener('load', () => {
+      try {
+        initHUD();
+        applyViewMode('cutaway_180');
+        applyAnomalyMode('normal_filtration');
+        animate();
+
+        const loader = document.getElementById('loading-overlay');
+        if (loader) {
+          loader.style.opacity = '0';
+          setTimeout(() => loader.remove(), 500);
+        }
+      } catch (err) {
+        console.error('3D Simulation Initialization Error:', err);
+        const loader = document.getElementById('loading-overlay');
+        if (loader) {
+          loader.innerHTML = `<div class="p-6 max-w-md text-center glass-panel rounded-2xl border-rose-500/60">
+            <h2 class="text-rose-400 font-semibold mb-2">ไม่สามารถเริ่มต้นการแสดงผล 3 มิติได้</h2>
+            <p class="text-xs text-slate-300">${err.message}</p>
+          </div>`;
+        }
+      }
+    });
+  </script>
+</body>
+</html>

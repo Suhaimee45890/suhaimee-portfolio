@@ -1,0 +1,3286 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Interactive 3D M16A4 Direct Impingement Mechanical Simulator</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Three.js r128 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- Google Fonts: Inter, JetBrains Mono & Noto Sans Thai -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-deep: #080c14;
+      --panel-bg: rgba(10, 16, 28, 0.80);
+      --panel-border: rgba(56, 189, 248, 0.24);
+      --accent-cyan: #38bdf8;
+      --accent-amber: #f59e0b;
+      --accent-danger: #ef4444;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-deep);
+      color: #e2e8f0;
+      font-family: 'Noto Sans Thai', 'Inter', sans-serif;
+      user-select: none;
+    }
+
+    .font-mono-tech {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Fullscreen 3D Canvas Container */
+    #canvas-container {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      touch-action: none;
+      cursor: grab;
+    }
+
+    #canvas-container:active {
+      cursor: grabbing;
+    }
+
+    /* Glassmorphic Ballistics Lab HUD Panel */
+    .hud-panel {
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--panel-border);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.52), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+
+    /* Custom Slow-Motion Range Slider */
+    input[type="range"].lab-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 8px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #0284c7 0%, #38bdf8 45%, #f59e0b 80%, #ef4444 100%);
+      outline: none;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.65);
+    }
+
+    input[type="range"].lab-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 6px;
+      background: linear-gradient(180deg, #f8fafc 0%, #94a3b8 100%);
+      border: 2px solid #0f172a;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.8), 0 2px 6px rgba(0, 0, 0, 0.6);
+      cursor: pointer;
+      transition: transform 0.12s ease;
+    }
+
+    input[type="range"].lab-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.12);
+    }
+
+    input[type="range"].lab-slider::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 6px;
+      background: linear-gradient(180deg, #f8fafc 0%, #94a3b8 100%);
+      border: 2px solid #0f172a;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.8);
+      cursor: pointer;
+    }
+
+    /* Floating 3D Component Labels */
+    #labels-layer {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 10;
+      overflow: hidden;
+    }
+
+    .floating-label {
+      position: absolute;
+      transform: translate(-50%, -100%);
+      pointer-events: auto;
+      cursor: pointer;
+      transition: opacity 0.22s ease, transform 0.15s ease;
+    }
+
+    .floating-label:hover {
+      transform: translate(-50%, -106%) scale(1.04);
+      z-index: 25;
+    }
+
+    /* Warning Alert Pulse */
+    @keyframes alertPulse {
+      0%, 100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7), inset 0 0 18px rgba(239, 68, 68, 0.25);
+        border-color: rgba(239, 68, 68, 0.95);
+      }
+      50% {
+        box-shadow: 0 0 24px 4px rgba(239, 68, 68, 0.45), inset 0 0 28px rgba(239, 68, 68, 0.4);
+        border-color: rgba(252, 165, 165, 1);
+      }
+    }
+
+    .alert-banner-active {
+      animation: alertPulse 0.85s infinite ease-in-out;
+    }
+
+    @keyframes warnText {
+      0%, 100% { color: #f87171; text-shadow: 0 0 10px rgba(239, 68, 68, 0.85); }
+      50% { color: #fef08a; text-shadow: 0 0 14px rgba(250, 204, 21, 0.9); }
+    }
+
+    .telemetry-warning {
+      animation: warnText 0.7s infinite;
+    }
+
+    .custom-scroll::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.4);
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: rgba(56, 189, 248, 0.35);
+      border-radius: 999px;
+    }
+
+    .scanlines {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 2;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(255, 255, 255, 0.011) 0px,
+        rgba(255, 255, 255, 0.011) 1px,
+        transparent 1px,
+        transparent 4px
+      );
+    }
+
+    /* Fire Trigger Button Active Glow */
+    .btn-fire-active {
+      box-shadow: 0 0 20px rgba(249, 115, 22, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    }
+  </style>
+</head>
+<body class="bg-[#080c14] text-slate-100">
+
+  <!-- 3D WebGL Canvas Mount -->
+  <div id="canvas-container"></div>
+  <div class="scanlines"></div>
+
+  <!-- Floating 3D Component Labels Layer -->
+  <div id="labels-layer"></div>
+
+  <!-- Top Center Alert Banner (Malfunctions: FTE / Gas Overheat) -->
+  <div id="hud-alert-banner" class="hidden fixed top-3 left-1/2 -translate-x-1/2 z-40 w-[92%] max-w-xl px-4 py-2.5 rounded-xl bg-red-950/90 border-2 border-red-500 text-center alert-banner-active pointer-events-auto">
+    <div class="flex items-center justify-center gap-2">
+      <svg class="w-5 h-5 text-red-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+      </svg>
+      <span id="hud-alert-text" class="font-mono-tech text-[11px] sm:text-xs font-bold tracking-wider text-red-100 uppercase"></span>
+    </div>
+    <p id="hud-alert-desc" class="text-[11px] sm:text-xs text-red-200/90 mt-1"></p>
+  </div>
+
+  <!-- TOP LEFT: Ballistics Engineering Lab Telemetry Grid -->
+  <aside id="panel-telemetry" class="fixed top-3 left-3 z-30 w-[235px] sm:w-[295px] md:w-[325px] hud-panel rounded-2xl p-3 transition-all duration-300">
+    <div class="flex items-center justify-between gap-2 pb-2 mb-2 border-b border-slate-700/70">
+      <div class="min-w-0">
+        <div class="flex items-center gap-1.5">
+          <span id="status-dot" class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span>
+          <span class="font-mono-tech text-[10px] tracking-widest text-sky-400 uppercase font-semibold truncate">BALLISTICS LAB // DIRECT IMPINGEMENT</span>
+        </div>
+        <h1 class="text-xs sm:text-sm font-bold text-white leading-tight truncate mt-0.5">M16A4 3D Mechanical Simulator</h1>
+      </div>
+      <button id="btn-toggle-telemetry" title="ย่อ/ขยายแผงวัดค่า" class="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-600/50 transition">
+        <svg id="icon-telemetry-chevron" class="w-4 h-4 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+    </div>
+
+    <div id="telemetry-body" class="space-y-2.5">
+      <!-- Current 8-Step Cycle Readout Pill -->
+      <div class="bg-slate-900/90 border border-sky-500/35 rounded-xl px-2.5 py-1.5">
+        <div class="flex items-center justify-between text-[9px] font-mono-tech text-sky-400 uppercase tracking-wider">
+          <span>ACTIVE OPERATING CYCLE</span>
+          <span id="cycle-pct-label" class="text-amber-300 font-bold">0%</span>
+        </div>
+        <div id="active-step-label" class="text-[11px] sm:text-xs font-semibold text-white truncate mt-0.5">พร้อมยิง (Chambered & Locked)</div>
+        <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mt-1.5">
+          <div id="cycle-progress-fill" class="h-full bg-gradient-to-r from-sky-400 via-amber-400 to-orange-500 rounded-full transition-all duration-75" style="width: 22%"></div>
+        </div>
+      </div>
+
+      <!-- 6 Telemetry Channels Grid -->
+      <div id="telemetry-grid" class="grid grid-cols-2 gap-1.5 sm:gap-2"></div>
+
+      <!-- Bolt Status & Gas Legend -->
+      <div class="flex flex-wrap items-center justify-between gap-1 pt-1 border-t border-slate-700/50 text-[10px] text-slate-400">
+        <span class="flex items-center gap-1"><i class="w-2 h-2 rounded-full bg-sky-400 inline-block"></i>เขี้ยวล็อก 22.5°</span>
+        <span class="flex items-center gap-1"><i class="w-2 h-2 rounded-full bg-yellow-300 inline-block"></i>แก๊สดันตรง</span>
+        <span class="flex items-center gap-1"><i class="w-2 h-2 rounded-full bg-orange-500 inline-block"></i>จุดระเบิด</span>
+        <span class="flex items-center gap-1"><i class="w-2 h-2 rounded-full bg-red-500 inline-block"></i>หน้าตัดผ่า</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- TOP RIGHT: Quick Actions, Camera Presets & 8-Step Operating Cycle Stepper -->
+  <aside class="fixed top-3 right-3 z-30 flex flex-col items-end gap-2 max-w-[44vw] sm:max-w-[345px]">
+    <!-- Quick Toggle Bar -->
+    <div class="hud-panel rounded-2xl p-1.5 flex items-center gap-1.5">
+      <button id="btn-toggle-particles" class="px-2.5 py-1.5 rounded-xl text-[11px] font-medium flex items-center gap-1.5 bg-sky-500/20 text-sky-300 border border-sky-400/40 hover:bg-sky-500/30 transition" title="เปิด/ปิด อนุภาคแก๊สและควัน">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z" />
+        </svg>
+        <span class="hidden sm:inline">แก๊ส/เปลวไฟ</span>
+      </button>
+      <button id="btn-toggle-audio" class="px-2.5 py-1.5 rounded-xl text-[11px] font-medium flex items-center gap-1.5 bg-slate-800/80 text-slate-300 border border-slate-600/50 hover:bg-slate-700/80 transition" title="เปิด/ปิด เสียงกลไกสังเคราะห์">
+        <svg id="icon-audio-off" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 9.75L19.5 12m0 0l2.25 2.25M19.5 12l2.25-2.25M19.5 12l-2.25 2.25m-10.5-6l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z" />
+        </svg>
+        <svg id="icon-audio-on" class="w-3.5 h-3.5 hidden text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z" />
+        </svg>
+        <span class="hidden sm:inline">เสียง</span>
+      </button>
+      <button id="btn-toggle-labels" class="px-2.5 py-1.5 rounded-xl text-[11px] font-medium flex items-center gap-1.5 bg-slate-800/80 text-slate-300 border border-slate-600/50 hover:bg-slate-700/80 transition" title="แสดง/ซ่อน ป้ายชื่อชิ้นส่วน 11 ชุด">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+        </svg>
+        <span class="hidden sm:inline">ป้ายชื่อ</span>
+      </button>
+    </div>
+
+    <!-- Camera Presets Panel -->
+    <div class="hud-panel rounded-2xl p-2 w-full">
+      <div class="flex items-center justify-between px-1 mb-1.5">
+        <span class="font-mono-tech text-[10px] tracking-wider text-slate-400 uppercase">มุมกล้อง (CAMERA PRESETS)</span>
+        <span class="text-[10px] text-slate-500 hidden sm:inline">ลากหมุน / ซูมได้</span>
+      </div>
+      <div id="camera-presets-container" class="grid grid-cols-2 gap-1"></div>
+    </div>
+
+    <!-- 8-Step Operating Cycle Stepper (Desktop/Tablet) -->
+    <div class="hud-panel rounded-2xl p-2 w-full hidden md:block">
+      <div class="flex items-center justify-between px-1 mb-1.5">
+        <span class="font-mono-tech text-[10px] tracking-wider text-sky-400 uppercase">วงจรทำงาน 8 ขั้นตอน (STEPPER)</span>
+        <div class="flex items-center gap-1">
+          <button id="btn-step-prev" class="px-2 py-0.5 rounded-md bg-slate-800 hover:bg-slate-700 text-[10px] font-mono-tech text-slate-200 border border-slate-600/60" title="ขั้นก่อนหน้า">◀</button>
+          <button id="btn-step-next" class="px-2 py-0.5 rounded-md bg-slate-800 hover:bg-slate-700 text-[10px] font-mono-tech text-slate-200 border border-slate-600/60" title="ขั้นถัดไป">▶</button>
+        </div>
+      </div>
+      <div id="cycle-steps-container" class="grid grid-cols-2 gap-1"></div>
+    </div>
+  </aside>
+
+  <!-- RIGHT DRAWER: Component Inspector Card (Triggered on 3D Assembly Click) -->
+  <section id="inspector-drawer" class="fixed right-3 top-1/2 -translate-y-1/2 z-40 w-[88vw] max-w-[335px] hud-panel rounded-2xl p-4 transform translate-x-[125%] transition-transform duration-300 ease-out border-sky-400/45">
+    <div class="flex items-start justify-between gap-2 pb-2.5 border-b border-slate-700/70">
+      <div>
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <span id="insp-stage-code" class="font-mono-tech text-[10px] px-2 py-0.5 rounded-md bg-sky-500/20 text-sky-300 border border-sky-400/30 font-semibold">ASSY</span>
+          <span id="insp-motion-badge" class="font-mono-tech text-[10px] px-2 py-0.5 rounded-md bg-slate-800 text-amber-300 border border-amber-400/30 font-semibold">MECHANISM</span>
+        </div>
+        <h2 id="insp-title" class="text-sm sm:text-base font-bold text-white mt-1.5 leading-snug">Component Name</h2>
+      </div>
+      <button id="btn-close-inspector" class="p-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-slate-300 border border-slate-600/50 transition" title="ปิดหน้าต่าง">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <div class="mt-3 space-y-3 max-h-[45vh] overflow-y-auto custom-scroll pr-1">
+      <p id="insp-summary" class="text-xs sm:text-sm text-slate-200 leading-relaxed"></p>
+
+      <div>
+        <div class="font-mono-tech text-[10px] uppercase tracking-wider text-slate-400 mb-1.5">ข้อมูลทางวิศวกรรม (KEY METRICS)</div>
+        <ul id="insp-metrics" class="space-y-1.5"></ul>
+      </div>
+
+      <div class="pt-2 border-t border-slate-700/60 flex items-center justify-between text-[11px] text-slate-400">
+        <span>ตำแหน่งแกน X: <strong id="insp-xpos" class="font-mono-tech text-slate-200">0.00 m</strong></span>
+        <button id="btn-focus-selected" class="px-2.5 py-1 rounded-lg bg-sky-500/20 hover:bg-sky-500/35 text-sky-300 border border-sky-400/40 font-medium transition">
+          ซูมไปที่ชิ้นนี้
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- BOTTOM CENTER: Fire Controls, Slow-Motion Time Scale, Inspection Views & Malfunctions -->
+  <footer class="fixed bottom-3 left-1/2 -translate-x-1/2 z-30 w-[96vw] max-w-5xl hud-panel rounded-2xl p-2.5 sm:p-3">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-2.5 items-center">
+
+      <!-- Cols 1-5: Fire Selector, Trigger, Charging Handle, Reload & Slow-Mo Slider -->
+      <div class="lg:col-span-5 flex flex-col gap-2">
+        <!-- Action Buttons Row -->
+        <div class="flex flex-wrap items-center gap-1.5">
+          <!-- Fire Selector SAFE / SEMI / AUTO -->
+          <div class="inline-flex rounded-xl bg-slate-900/90 p-0.5 border border-slate-700/80">
+            <button data-mode="SAFE" class="btn-fire-mode px-2 py-1 rounded-lg font-mono-tech text-[10px] font-bold transition">SAFE</button>
+            <button data-mode="SEMI" class="btn-fire-mode px-2 py-1 rounded-lg font-mono-tech text-[10px] font-bold transition">SEMI</button>
+            <button data-mode="AUTO" class="btn-fire-mode px-2 py-1 rounded-lg font-mono-tech text-[10px] font-bold transition">AUTO</button>
+          </div>
+
+          <!-- Trigger Fire Button -->
+          <button id="btn-trigger-fire" class="flex-1 min-w-[90px] px-3 py-1.5 rounded-xl bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95 btn-fire-active">
+            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M13 2L3 14h7v8l11-12h-7V2z"/></svg>
+            <span id="trigger-btn-text">ลั่นไก (FIRE)</span>
+          </button>
+
+          <!-- Pull Charging Handle (Chamber / Clear Jam) -->
+          <button id="btn-charging-handle" title="ดึงคันรั้งลูกเลื่อนเพื่อขึ้นลำหรือเคลียร์ปลอกติด" class="px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-sky-300 border border-sky-500/40 text-[11px] font-semibold transition active:scale-95">
+            ดึงคันรั้ง
+          </button>
+
+          <!-- Reload Magazine -->
+          <button id="btn-reload-mag" title="เปลี่ยนซองกระสุนใหม่ 30 นัด" class="px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-emerald-300 border border-emerald-500/40 text-[11px] font-semibold transition active:scale-95">
+            เติมซอง
+          </button>
+        </div>
+
+        <!-- Slow-Motion Speed & Manual Scrub Row -->
+        <div class="flex items-center gap-2.5">
+          <button id="btn-loop-toggle" title="เล่นวนลูปสโลว์โมชันต่อเนื่องเพื่อดูกลไก" class="shrink-0 px-2 py-1 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-600/70 font-mono-tech text-[10px] font-semibold transition">
+            ▶ LOOP
+          </button>
+          <div class="flex-1 flex flex-col gap-0.5">
+            <div class="flex items-center justify-between text-[10px] font-mono-tech">
+              <span class="text-slate-400">ความเร็วสโลว์โมชัน (TIME SCALE)</span>
+              <span id="timescale-display" class="text-sky-400 font-bold">0.15x</span>
+            </div>
+            <input id="timescale-slider" type="range" min="0.02" max="1.00" value="0.15" step="0.01" class="lab-slider" />
+          </div>
+          <!-- Mobile Stepper Shortcut -->
+          <button id="btn-mobile-step" class="md:hidden shrink-0 px-2 py-1 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-400/40 text-[10px] font-semibold">
+            ขั้นถัดไป ▶
+          </button>
+        </div>
+      </div>
+
+      <!-- Cols 6-9: Inspection Views -->
+      <div class="lg:col-span-4 flex flex-col gap-1">
+        <span class="font-mono-tech text-[10px] tracking-wider text-slate-400 uppercase">มุมมองโครงสร้าง (INSPECTION VIEW)</span>
+        <div id="inspection-views-container" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-1"></div>
+      </div>
+
+      <!-- Cols 10-12: Malfunction Simulations -->
+      <div class="lg:col-span-3 flex flex-col gap-1">
+        <span class="font-mono-tech text-[10px] tracking-wider text-slate-400 uppercase">จำลองเหตุขัดข้อง (DIAGNOSTICS)</span>
+        <div id="malfunction-selector-container" class="grid grid-cols-3 lg:grid-cols-1 gap-1"></div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Subtle Hint Toast -->
+  <div class="hidden xl:flex fixed bottom-4 right-4 z-20 items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/75 border border-slate-700/70 text-[11px] text-slate-300 pointer-events-none">
+    <span class="w-2 h-2 rounded-full bg-sky-400 animate-pulse"></span>
+    คลิกชิ้นส่วน 3 มิติเพื่ออ่านรายละเอียด | กด Space เพื่อลั่นไก
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. MASTER JSON CONFIGURATION (Embedded directly from User Blueprint)
+    // =========================================================================
+    const RIFLE_CONFIG = {
+      "project_meta": {
+        "title": "Interactive 3D M16A4 Direct Impingement Mechanical Simulator",
+        "version": "1.0.0",
+        "rifle_reference_class": "M16A4 5.56x45mm Rifle-Length Direct Impingement System",
+        "coordinate_system": {
+          "up_axis": "Y",
+          "longitudinal_barrel_axis": "X",
+          "firing_direction": "negative_X_to_positive_X",
+          "unit": "meters"
+        },
+        "operating_cycle_8_steps": [
+          { "step": 1, "id": "feeding", "label_th": "1. ป้อนกระสุน (Feeding)", "cycle_progress_range": [0.0, 0.12], "stage_refs": ["magazine_and_ammo", "bolt_carrier_group"] },
+          { "step": 2, "id": "chambering_and_locking", "label_th": "2. บรรจุและหมุนขัดกลอน 22.5°", "cycle_progress_range": [0.12, 0.22], "stage_refs": ["bolt_carrier_group", "barrel_and_chamber"] },
+          { "step": 3, "id": "firing", "label_th": "3. ลั่นไกและจุดระเบิด (Firing)", "cycle_progress_range": [0.22, 0.32], "stage_refs": ["fire_control_group", "bolt_carrier_group", "barrel_and_chamber"] },
+          { "step": 4, "id": "direct_impingement_gas", "label_th": "4. แก๊สดันตรงย้อนท่อแก๊ส", "cycle_progress_range": [0.32, 0.46], "stage_refs": ["direct_impingement_gas_system", "bolt_carrier_group"] },
+          { "step": 5, "id": "unlocking", "label_th": "5. ปลดกลอนหัวลูกเลื่อน", "cycle_progress_range": [0.46, 0.58], "stage_refs": ["bolt_carrier_group", "upper_receiver_and_carry_handle"] },
+          { "step": 6, "id": "extraction_and_ejection", "label_th": "6. รั้งและคัดปลอกกระสุน", "cycle_progress_range": [0.58, 0.74], "stage_refs": ["bolt_carrier_group", "upper_receiver_and_carry_handle"] },
+          { "step": 7, "id": "cocking_and_buffering", "label_th": "7. ขึ้นนกและซับแรงถอยหลัง", "cycle_progress_range": [0.74, 0.88], "stage_refs": ["fire_control_group", "buffer_and_recoil_spring"] },
+          { "step": 8, "id": "cycle_reset", "label_th": "8. สปริงดีดลูกเลื่อนคืนตัว", "cycle_progress_range": [0.88, 1.0], "stage_refs": ["buffer_and_recoil_spring", "bolt_carrier_group"] }
+        ]
+      },
+      "rendering_and_lighting": {
+        "renderer": {
+          "antialias": true,
+          "tone_mapping": "ACESFilmicToneMapping",
+          "tone_mapping_exposure": 1.18,
+          "shadows_enabled": true,
+          "shadow_map_type": "PCFSoftShadowMap",
+          "local_clipping_enabled": true
+        },
+        "environment": {
+          "background_color": "#080c14",
+          "grid_floor": {
+            "enabled": true,
+            "y_position": -0.26,
+            "color_center": "#1e293b",
+            "color_grid": "#0f172a"
+          }
+        },
+        "lights": [
+          { "id": "key_light", "type": "DirectionalLight", "color": "#ffffff", "intensity": 2.5, "position": [1.5, 2.8, 2.5], "cast_shadow": true },
+          { "id": "rim_light_cool", "type": "DirectionalLight", "color": "#38bdf8", "intensity": 1.7, "position": [-2.2, 1.4, -2.0] },
+          { "id": "fill_light_warm", "type": "PointLight", "color": "#cbd5e1", "intensity": 1.1, "position": [0.2, -1.2, 1.8] },
+          { "id": "chamber_ignition_light", "type": "PointLight", "color": "#ff7b00", "intensity_base": 0.0, "intensity_peak": 7.5, "distance": 0.6, "position": [0.06, 0.03, 0.0] },
+          { "id": "muzzle_flash_light", "type": "PointLight", "color": "#fde047", "intensity_base": 0.0, "intensity_peak": 9.0, "distance": 1.4, "position": [0.58, 0.03, 0.0] }
+        ]
+      },
+      "pbr_materials_library": {
+        "anodized_aluminum_7075": { "type": "MeshPhysicalMaterial", "color": "#1e242b", "metalness": 0.72, "roughness": 0.36, "clearcoat": 0.15 },
+        "parkerized_steel": { "type": "MeshStandardMaterial", "color": "#2b323c", "metalness": 0.85, "roughness": 0.44 },
+        "polished_stainless_chrome": { "type": "MeshStandardMaterial", "color": "#e2e8f0", "metalness": 0.96, "roughness": 0.14 },
+        "matte_polymer_fiberglass": { "type": "MeshStandardMaterial", "color": "#11161d", "metalness": 0.06, "roughness": 0.64 },
+        "brass_cartridge_case": { "type": "MeshStandardMaterial", "color": "#eab308", "metalness": 0.92, "roughness": 0.22 },
+        "copper_fmj_bullet": { "type": "MeshStandardMaterial", "color": "#d97706", "metalness": 0.9, "roughness": 0.24 },
+        "thermal_gas_tube_hot": { "type": "MeshStandardMaterial", "color": "#cbd5e1", "metalness": 0.94, "roughness": 0.18, "emissive": "#ff3b00", "emissive_intensity_max": 2.2 },
+        "locking_lug_highlight": { "type": "MeshStandardMaterial", "color": "#38bdf8", "metalness": 0.4, "roughness": 0.2, "emissive": "#0284c7", "emissive_intensity": 1.2 },
+        "cutaway_section_cap": { "type": "MeshStandardMaterial", "color": "#ef4444", "metalness": 0.25, "roughness": 0.48, "emissive": "#7f1d1d", "emissive_intensity": 0.4 },
+        "xray_hologram_shell": { "type": "MeshPhysicalMaterial", "color": "#38bdf8", "metalness": 0.1, "roughness": 0.15, "transparent": true, "opacity": 0.15, "depthWrite": false }
+      },
+      "mechanical_assemblies": [
+        {
+          "id": "buttstock_and_buffer_tube",
+          "name_th": "พานท้ายและแกนรับแรงถอย (A2 Buttstock & Receiver Extension)",
+          "stage_code": "ASSY 01",
+          "motion_group": "static_structure",
+          "cutaway_clippable": true,
+          "x_position_m": -0.26,
+          "exploded_offset_x_m": -0.22,
+          "exploded_offset_y_m": 0.0,
+          "material_ref": "matte_polymer_fiberglass",
+          "procedural_geometry": { "stock_length_m": 0.265, "buffer_tube_length_m": 0.245, "buffer_tube_inner_radius_m": 0.013, "buffer_tube_outer_radius_m": 0.0155, "inline_axis_y_m": 0.03 },
+          "education_info": {
+            "summary": "วางแนวแกนพานท้ายเป็นเส้นตรงเดียวกับลำกล้อง (Inline Recoil Design) ทำให้แรงถอยหลังส่งตรงสู่ไหล่ผู้ยิง ลดอาการปากลำกล้องสะบัดเงยขึ้นขณะยิงต่อเนื่อง",
+            "key_metrics": ["Tube Length: 245 mm", "Inline Recoil Axis", "A2 Fixed Polymer Stock"]
+          }
+        },
+        {
+          "id": "buffer_and_recoil_spring",
+          "name_th": "ชุดลูกตุ้มซับแรงและสปริงคืนตัว (Rifle Buffer & Action Spring)",
+          "stage_code": "ASSY 02",
+          "motion_group": "reciprocating_recoil",
+          "cutaway_clippable": false,
+          "x_position_m": -0.24,
+          "exploded_offset_x_m": -0.14,
+          "exploded_offset_y_m": 0.075,
+          "material_ref": "polished_stainless_chrome",
+          "procedural_geometry": { "type": "HelicalSpringAndBuffer", "buffer_length_m": 0.15, "buffer_radius_m": 0.012, "spring_free_length_m": 0.24, "spring_compressed_length_m": 0.145, "spring_coils": 38, "max_recoil_travel_m": 0.095 },
+          "education_info": {
+            "summary": "ภายในลูกตุ้ม Buffer บรรจุลูกน้ำหนักเคลื่อนที่ได้เพื่อลดแรงกระดอน (Bolt Bounce) เมื่อชุดลูกเลื่อนปิดสนิท ส่วนสปริงทำหน้าที่เก็บพลังงานขณะถอยหลังและดีดลูกเลื่อนกลับไปป้อนนัดถัดไป",
+            "key_metrics": ["Travel Stroke: 95 mm", "Buffer Mass: ~147 g", "38-Coil Action Spring"]
+          }
+        },
+        {
+          "id": "lower_receiver",
+          "name_th": "โครงปืนส่วนล่างและด้ามจับ (Lower Receiver & Pistol Grip)",
+          "stage_code": "ASSY 03",
+          "motion_group": "static_structure",
+          "cutaway_clippable": true,
+          "x_position_m": -0.04,
+          "exploded_offset_x_m": 0.0,
+          "exploded_offset_y_m": -0.09,
+          "material_ref": "anodized_aluminum_7075",
+          "procedural_geometry": { "length_m": 0.19, "height_m": 0.075, "width_m": 0.032, "magwell_x_offset_m": 0.055, "grip_angle_deg": 25 },
+          "education_info": {
+            "summary": "โครงสร้างอะลูมิเนียมฟอร์จ 7075-T6 ทำหน้าที่ยึดชุดกลไกลั่นไก ช่องเสียบซองกระสุน และเชื่อมต่อกับโครงปืนส่วนบนด้วยสลักถอดประกอบเพียง 2 ตัว (Takedown & Pivot Pins)",
+            "key_metrics": ["Material: 7075-T6 Aluminum", "2-Pin Modular Assembly"]
+          }
+        },
+        {
+          "id": "fire_control_group",
+          "name_th": "ชุดกลไกลั่นไกและนกสับ (Fire Control Group — FCG)",
+          "stage_code": "ASSY 04",
+          "motion_group": "trigger_hammer_kinematics",
+          "cutaway_clippable": false,
+          "x_position_m": -0.05,
+          "exploded_offset_x_m": 0.0,
+          "exploded_offset_y_m": -0.155,
+          "material_ref": "parkerized_steel",
+          "procedural_geometry": { "hammer_pivot_pos": [-0.025, -0.01, 0.0], "hammer_cocked_angle_deg": -82, "hammer_fired_angle_deg": 12, "trigger_pivot_pos": [-0.062, -0.022, 0.0], "selector_positions_deg": { "SAFE": 0, "SEMI": 90, "AUTO": 180 } },
+          "education_info": {
+            "summary": "ควบคุมจังหวะการปล่อยนกสับฟาดเข็มแทงชนวน มีตัวตัดจังหวะ (Disconnector) คอยจับนกสับไว้หลังการยิงทีละนัด และใช้ Auto Sear ในโหมดยิงอัตโนมัติเพื่อปล่อยนกสับเฉพาะเมื่อลูกเลื่อนล็อกสนิทแล้วเท่านั้น",
+            "key_metrics": ["Modes: SAFE / SEMI / AUTO", "Auto Sear Safety Interlock"]
+          }
+        },
+        {
+          "id": "magazine_and_ammo",
+          "name_th": "ซองกระสุน 30 นัดและกระสุน 5.56 มม. (STANAG Magazine)",
+          "stage_code": "ASSY 05",
+          "motion_group": "magazine_feed_stack",
+          "cutaway_clippable": true,
+          "x_position_m": 0.015,
+          "exploded_offset_x_m": 0.015,
+          "exploded_offset_y_m": -0.19,
+          "material_ref": "anodized_aluminum_7075",
+          "procedural_geometry": { "capacity": 30, "visible_stack_rounds": 12, "magazine_curve_radius_m": 0.45, "cartridge_length_m": 0.0574, "case_length_m": 0.045, "bullet_diameter_m": 0.0057 },
+          "education_info": {
+            "summary": "ซองกระสุนโค้งแบบเรียงสลับฟันปลา (Double-Stack) ใช้สปริงและลิ้นดันกระสุน (Follower) ดันกระสุนขนาด 5.56×45 มม. ขึ้นมาจ่อรอที่ปากซองกระสุน และยกคันค้างลูกเลื่อนขึ้นเมื่อกระสุนนัดสุดท้ายถูกยิง",
+            "key_metrics": ["Caliber: 5.56×45mm NATO", "Capacity: 30 Rounds", "Anti-Tilt Follower"]
+          }
+        },
+        {
+          "id": "upper_receiver_and_carry_handle",
+          "name_th": "โครงปืนส่วนบนและรางอุปกรณ์ (Upper Receiver & Carry Handle)",
+          "stage_code": "ASSY 06",
+          "motion_group": "static_structure",
+          "cutaway_clippable": true,
+          "x_position_m": -0.02,
+          "exploded_offset_x_m": 0.0,
+          "exploded_offset_y_m": 0.115,
+          "material_ref": "anodized_aluminum_7075",
+          "procedural_geometry": { "length_m": 0.21, "height_m": 0.062, "width_m": 0.036, "picatinny_rail_slots": 14, "ejection_port_x_range": [-0.015, 0.055], "has_detachable_carry_handle": true },
+          "education_info": {
+            "summary": "ห่อหุ้มและประคองรางวิ่งของชุดโครงลูกเลื่อน มีช่องคัดปลอกพร้อมฝาปิดกันฝุ่น (Dust Cover) และปุ่มช่วยดันลูกเลื่อน (Forward Assist) ส่วนบนเป็นราง Picatinny มาตรฐาน MIL-STD-1913",
+            "key_metrics": ["MIL-STD-1913 Flat-Top Rail", "Detachable A4 Carry Handle", "Brass Deflector & Dust Cover"]
+          }
+        },
+        {
+          "id": "bolt_carrier_group",
+          "name_th": "ชุดโครงลูกเลื่อนและหัวลูกเลื่อน 7 เขี้ยว (Bolt Carrier Group — BCG)",
+          "stage_code": "ASSY 07",
+          "motion_group": "bcg_reciprocating_and_rotating",
+          "cutaway_clippable": false,
+          "x_position_m": -0.02,
+          "exploded_offset_x_m": -0.06,
+          "exploded_offset_y_m": 0.195,
+          "material_ref": "parkerized_steel",
+          "procedural_geometry": { "carrier_length_m": 0.168, "carrier_radius_m": 0.0115, "gas_key_height_m": 0.014, "bolt_head_length_m": 0.048, "locking_lug_count": 7, "bolt_rotation_deg": 22.5, "cam_track_travel_m": 0.012, "max_recoil_travel_m": 0.095, "side_vent_ports": 2 },
+          "education_info": {
+            "summary": "หัวใจของระบบแก๊สดันตรง แก๊สจะพุ่งเข้าท่อ Gas Key ไปขยายตัวในห้องลูกสูบภายในโครงลูกเลื่อน ดันโครงลูกเลื่อนถอยหลังผ่านร่องลูกเบี้ยว (Cam Track) จนบิดหัวลูกเลื่อน 7 เขี้ยวหมุน 22.5° เพื่อปลดกลอนและดึงปลอกออก",
+            "key_metrics": ["7-Lug Rotating Bolt", "Unlock Rotation: 22.5°", "Internal Piston & 2 Vent Ports"]
+          }
+        },
+        {
+          "id": "charging_handle",
+          "name_th": "คันรั้งลูกเลื่อนรูปตัว T (T-Handle Charging Handle)",
+          "stage_code": "ASSY 08",
+          "motion_group": "manual_charging",
+          "cutaway_clippable": false,
+          "x_position_m": -0.04,
+          "exploded_offset_x_m": -0.10,
+          "exploded_offset_y_m": 0.255,
+          "material_ref": "anodized_aluminum_7075",
+          "procedural_geometry": { "length_m": 0.175, "t_handle_width_m": 0.052, "non_reciprocating": true },
+          "education_info": {
+            "summary": "ใช้ดึงชุดโครงลูกเลื่อนถอยหลังด้วยมือเพื่อขึ้นลำนัดแรกหรือเคลียร์เหตุขัดข้อง โดยตัวคันรั้งจะล็อกอยู่นิ่งกับที่ (Non-Reciprocating) ไม่ขยับตามลูกเลื่อนขณะยิง",
+            "key_metrics": ["Non-Reciprocating Design", "Rear Latch Lock"]
+          }
+        },
+        {
+          "id": "barrel_and_chamber",
+          "name_th": "ลำกล้อง 20 นิ้ว รังเพลิง และปลอกลดแสง (20-inch Barrel & Chamber)",
+          "stage_code": "ASSY 09",
+          "motion_group": "static_structure",
+          "cutaway_clippable": true,
+          "thermal_glow_reactive": true,
+          "x_position_m": 0.33,
+          "exploded_offset_x_m": 0.16,
+          "exploded_offset_y_m": 0.0,
+          "material_ref": "parkerized_steel",
+          "procedural_geometry": { "barrel_length_m": 0.508, "bore_diameter_m": 0.00556, "outer_radius_chamber_m": 0.0125, "outer_radius_muzzle_m": 0.0092, "rifling_grooves": 6, "rifling_twist_rate": "1:7 inches", "gas_port_x_m": 0.39, "flash_suppressor_slots": 5 },
+          "education_info": {
+            "summary": "ลำกล้องเหล็กกล้าชุบโครเมียมด้านในยาว 20 นิ้ว เกลียว 1:7 รอบต่อนิ้วเพื่อสร้างแรงหมุนรักษาเสถียรภาพหัวกระสุน เจาะรูแก๊ส (Gas Port) ที่ระยะ 12.6 นิ้วจากรังเพลิง และมีปลอกลดแสง A2 ที่ปลายลำกล้อง",
+            "key_metrics": ["Length: 20 in (508 mm)", "Muzzle Velocity: ~948 m/s", "Twist: 1:7 RH (6 Grooves)"]
+          }
+        },
+        {
+          "id": "direct_impingement_gas_system",
+          "name_th": "ระบบท่อแก๊สดันตรงและศูนย์หน้า (Gas Block & Direct Gas Tube)",
+          "stage_code": "ASSY 10",
+          "motion_group": "static_structure",
+          "cutaway_clippable": false,
+          "thermal_glow_reactive": true,
+          "x_position_m": 0.21,
+          "exploded_offset_x_m": 0.14,
+          "exploded_offset_y_m": 0.145,
+          "material_ref": "thermal_gas_tube_hot",
+          "procedural_geometry": { "type": "TubeGeometry", "gas_tube_length_m": 0.385, "gas_tube_outer_radius_m": 0.0023, "gas_tube_y_m": 0.056, "front_sight_base_x_m": 0.39, "front_sight_height_m": 0.068 },
+          "education_info": {
+            "summary": "ดึงแก๊สความดันสูงจากรูเจาะบนลำกล้องผ่านศูนย์หน้า (Front Sight Base) ส่งย้อนกลับตามท่อสเตนเลสเส้นเล็กเข้าสู่ Gas Key ของชุดลูกเลื่อนโดยตรง ลดมวลชิ้นส่วนเคลื่อนที่ด้านหน้าเพื่อความแม่นยำสูง",
+            "key_metrics": ["Rifle-Length Gas System", "Peak Gas Port Pressure: ~14,500 PSI"]
+          }
+        },
+        {
+          "id": "handguard_quad_rail",
+          "name_th": "ประกับลำกล้องรางติดอุปกรณ์ (M5 RAS Quad-Rail Handguard)",
+          "stage_code": "ASSY 11",
+          "motion_group": "static_structure",
+          "cutaway_clippable": true,
+          "x_position_m": 0.225,
+          "exploded_offset_x_m": 0.14,
+          "exploded_offset_y_m": -0.095,
+          "material_ref": "anodized_aluminum_7075",
+          "procedural_geometry": { "length_m": 0.295, "outer_radius_m": 0.028, "rail_quadrants": 4, "cooling_vent_slots": 16 },
+          "education_info": {
+            "summary": "ป้องกันความร้อนจากลำกล้องและท่อแก๊สขณะจับถือ พร้อมเจาะช่องระบายความร้อนและติดตั้งราง Picatinny ทั้ง 4 ด้านสำหรับติดอุปกรณ์เสริมทางยุทธวิธี",
+            "key_metrics": ["4-Sided Picatinny Rails", "Internal Heat Shield", "16 Cooling Vents"]
+          }
+        }
+      ],
+      "gas_dynamics_and_ballistics_particles": {
+        "max_total_particles": 3200,
+        "streams": [
+          { "id": "chamber_ignition_blast", "label_th": "การจุดระเบิดในรังเพลิง", "active_cycle_range": [0.23, 0.38], "particle_count": 500, "spawn_x_range": [0.055, 0.115], "radial_range_m": [0.001, 0.006], "speed_mps": 6.5, "color_start": "#fef08a", "color_end": "#ff5500", "particle_size": 0.015 },
+          { "id": "barrel_propellant_gas", "label_th": "แก๊สขับดันหัวกระสุนในลำกล้อง", "active_cycle_range": [0.25, 0.43], "particle_count": 800, "spawn_x_range": [0.09, 0.56], "radial_range_m": [0.0005, 0.0038], "speed_mps": 18.0, "color_start": "#fb923c", "color_end": "#ef4444", "particle_size": 0.012 },
+          { "id": "direct_impingement_gas_tube_stream", "label_th": "แก๊สแรงดันสูงวิ่งย้อนท่อแก๊สเข้า Gas Key", "active_cycle_range": [0.32, 0.54], "particle_count": 750, "flow_direction": "positive_X_to_negative_X", "spawn_x_range": [0.39, 0.01], "y_axis_center_m": 0.056, "radial_range_m": [0.0005, 0.0022], "speed_mps": 14.0, "color_start": "#fde047", "color_end": "#f97316", "particle_size": 0.013 },
+          { "id": "carrier_vent_exhaust", "label_th": "แก๊สระบายออกทางรูข้างโครงลูกเลื่อน", "active_cycle_range": [0.48, 0.70], "particle_count": 450, "spawn_position_m": [0.005, 0.03, 0.013], "velocity_vector_mps": [0.08, 0.22, 1.5], "color_start": "#fdba74", "color_end": "#64748b", "particle_size": 0.016 },
+          { "id": "muzzle_flash_and_smoke", "label_th": "เปลวไฟและควันที่ปลอกลดแสงปลายลำกล้อง", "active_cycle_range": [0.33, 0.52], "particle_count": 700, "spawn_position_m": [0.585, 0.03, 0.0], "cone_spread_deg": 38, "speed_mps": 9.5, "color_start": "#fef9c3", "color_end": "#94a3b8", "particle_size": 0.024 }
+        ],
+        "ejected_brass_shell_physics": {
+          "trigger_cycle_progress": 0.62,
+          "initial_velocity_mps": [-0.35, 0.95, 1.45],
+          "angular_velocity_rad_s": [14.0, 22.0, -18.0],
+          "gravity_mps2": -9.81,
+          "lifetime_sec": 1.6
+        }
+      },
+      "physics_and_telemetry_engine": {
+        "default_fire_mode": "SEMI",
+        "default_time_scale": 0.15,
+        "time_scale_range": [0.02, 1.0],
+        "cyclic_rate_rpm": 800,
+        "single_cycle_real_duration_sec": 0.075,
+        "magazine_capacity": 30,
+        "telemetry_channels": [
+          { "key": "chamber_pressure_psi", "label_th": "แรงดันรังเพลิง", "unit": "PSI", "idle_value": 0, "peak_value": 55000, "warning_threshold": 52000, "decimals": 0 },
+          { "key": "gas_port_pressure_psi", "label_th": "แรงดันท่อแก๊ส", "unit": "PSI", "idle_value": 0, "peak_value": 14500, "warning_threshold": 14000, "decimals": 0 },
+          { "key": "bcg_velocity_mps", "label_th": "ความเร็วลูกเลื่อน", "unit": "m/s", "idle_value": 0.0, "peak_value": 6.4, "warning_threshold": 7.5, "decimals": 2 },
+          { "key": "bolt_rotation_deg", "label_th": "มุมบิดหัวลูกเลื่อน", "unit": "°", "idle_value": 22.5, "peak_value": 22.5, "warning_threshold": 25.0, "decimals": 1 },
+          { "key": "gas_tube_temp_celsius", "label_th": "อุณหภูมิท่อแก๊ส", "unit": "°C", "idle_value": 28, "peak_value": 640, "warning_threshold": 520, "decimals": 0 },
+          { "key": "rounds_remaining", "label_th": "กระสุนในซอง", "unit": "นัด", "idle_value": 30, "peak_value": 30, "warning_threshold": 5, "decimals": 0, "warn_below": true }
+        ]
+      },
+      "interactive_modes": {
+        "inspection_views": [
+          { "id": "cutaway_180", "label_th": "ผ่าครึ่ง 180°", "is_default": true, "clip_plane_normal": [0, 0, -1], "clip_plane_constant": 0.0, "highlight_cut_edges": true, "explode_factor": 0.0 },
+          { "id": "full_exterior", "label_th": "เต็มตัว 360°", "is_default": false, "clip_plane_normal": [0, 0, -1], "clip_plane_constant": 5.0, "highlight_cut_edges": false, "explode_factor": 0.0 },
+          { "id": "xray_hologram", "label_th": "เอ็กซเรย์", "is_default": false, "override_material": "xray_hologram_shell", "highlight_gas_and_bcg": true, "explode_factor": 0.0 },
+          { "id": "field_strip_exploded", "label_th": "ถอดแยกชิ้นส่วน", "is_default": false, "explode_factor": 1.0, "transition_duration_sec": 1.1, "show_floating_labels": true }
+        ],
+        "camera_presets": [
+          { "id": "iso_hero", "label_th": "มุมหลักเต็มกระบอก", "position": [0.15, 0.25, 0.90], "target": [0.12, 0.01, 0.0] },
+          { "id": "bcg_chamber_closeup", "label_th": "ลูกเลื่อนและรังเพลิง", "position": [0.02, 0.09, 0.27], "target": [0.02, 0.03, 0.0] },
+          { "id": "gas_system_overview", "label_th": "ท่อแก๊สดันตรง", "position": [0.22, 0.14, 0.42], "target": [0.21, 0.05, 0.0] },
+          { "id": "trigger_fcg_closeup", "label_th": "กลไกลั่นไก (FCG)", "position": [-0.04, 0.01, 0.21], "target": [-0.04, -0.02, 0.0] },
+          { "id": "buffer_tube_recoil", "label_th": "สปริงซับแรงพานท้าย", "position": [-0.24, 0.10, 0.35], "target": [-0.22, 0.03, 0.0] }
+        ]
+      },
+      "malfunction_simulations": [
+        {
+          "id": "normal_operation",
+          "label_th": "ปกติ (Normal)",
+          "description_th": "แก๊สแรงดันสูงขับโครงลูกเลื่อนถอยสุดระยะ ปลดกลอน คัดปลอก และป้อนกระสุนนัดถัดไปอย่างสมบูรณ์"
+        },
+        {
+          "id": "failure_to_extract",
+          "label_th": "ปลอกติด (FTE)",
+          "description_th": "ขอเกี่ยวปลอกหลุดจากจานท้ายปลอกกระสุน ทำให้ปลอกเปล่าค้างในรังเพลิงขณะที่ลูกเลื่อนดันนัดใหม่ขึ้นมาชนซ้อน (Double Feed)",
+          "effects": {
+            "halt_at_cycle_progress": 0.91,
+            "leave_spent_case_in_chamber": true,
+            "jam_next_round_angle_deg": 28,
+            "hud_alert_message": "MALFUNCTION: FAILURE TO EXTRACT / DOUBLE FEED — PULL CHARGING HANDLE TO CLEAR"
+          }
+        },
+        {
+          "id": "gas_tube_overheat",
+          "label_th": "ท่อแก๊สร้อนจัด",
+          "description_th": "การยิงอัตโนมัติต่อเนื่องหลายซองกระสุนทำให้ท่อแก๊สสเตนเลสและลำกล้องสะสมความร้อนจนเรืองแสงสีแดงส้ม",
+          "effects": {
+            "gas_tube_temp_celsius": 640,
+            "gas_tube_emissive_boost": 2.4,
+            "heat_mirage_smoke": true,
+            "hud_alert_message": "CAUTION: GAS TUBE THERMAL LIMIT (>550°C) — CEASE SUSTAINED FIRE"
+          }
+        }
+      ]
+    };
+
+    // =========================================================================
+    // 2. APPLICATION STATE
+    // =========================================================================
+    const state = {
+      fireMode: RIFLE_CONFIG.physics_and_telemetry_engine.default_fire_mode, // SAFE | SEMI | AUTO
+      timeScale: RIFLE_CONFIG.physics_and_telemetry_engine.default_time_scale,
+      cycleProgress: 0.22,            // 0.22 = Chambered & Locked ready to fire
+      isCycling: false,               // Currently executing a shot cycle
+      continuousLoop: false,          // Demo slow-mo continuous cycle
+      triggerHeld: false,             // Mouse/Touch held on trigger for AUTO
+      roundsRemaining: 30,
+      boltLockedBack: false,          // Empty mag bolt hold-open
+      isJammed: false,                // Failure-to-Extract Double Feed jam active
+      chargingAnim: 0,                // >0 when manual T-handle pull is animating (0..1)
+      chargingActive: false,
+      currentViewId: 'cutaway_180',
+      currentMalfunctionId: 'normal_operation',
+      targetExplode: 0.0,
+      currentExplode: 0.0,
+      particlesEnabled: true,
+      labelsForceEnabled: false,
+      audioEnabled: false,
+      selectedAssemblyId: null,
+      activeStepIndex: 1,
+      gasTubeTemp: 28,
+      shellEjectedThisCycle: false,
+      shotAudioTriggeredThisCycle: false,
+      boltClackTriggeredThisCycle: false,
+      telemetryValues: {},
+      timeElapsed: 0
+    };
+
+    // Three.js Globals
+    let scene, camera, renderer, clock;
+    let clipPlane;
+    let chamberLight, muzzleLight, muzzleFlashSprite;
+    const materials = {};
+    const assembliesMap = new Map();
+    const clickableMeshes = [];
+    const floatingLabelEls = new Map();
+    const particleSystems = [];
+    let heatMirageSystem = null;
+
+    // Key Dynamic Mechanical Part References
+    const dynParts = {
+      bcgRoot: null,             // Moves along X (recoil stroke 0..-0.095m)
+      boltHeadGroup: null,       // Rotates around X (0..22.5 deg)
+      boltLugsMeshes: [],        // Highlight blue when locked
+      firingPinMesh: null,
+      camPinMesh: null,
+      bufferGroup: null,         // Moves with recoil inside buffer tube
+      actionSpringMesh: null,    // Scales along X dynamically to compress 38 coils
+      hammerPivot: null,
+      triggerPivot: null,
+      selectorPivot: null,
+      chargingHandleGroup: null,
+      magStackMeshes: [],        // 12 visible rounds inside magazine
+      magFollowerMesh: null,
+      magSpringMesh: null,
+      activeCartridgeGroup: null,// Round currently being fed/chambered/extracted
+      activeBulletMesh: null,    // Copper FMJ bullet flying down barrel
+      activeCaseMesh: null,      // Brass casing
+      jammedExtraRound: null,    // Double-feed jammed round angled at 28 deg
+      gasTubeMaterial: null,
+      barrelThermalMaterial: null
+    };
+
+    // Active Ejected Brass Casings in Flight
+    const flyingShells = [];
+
+    // Smooth Spherical Camera Controller
+    const camCtrl = {
+      target: new THREE.Vector3(0.12, 0.01, 0.0),
+      desiredTarget: new THREE.Vector3(0.12, 0.01, 0.0),
+      spherical: new THREE.Spherical(0.96, Math.PI / 2.4, 0.1),
+      desiredSpherical: new THREE.Spherical(0.96, Math.PI / 2.4, 0.1),
+      isDragging: false,
+      dragMoved: false,
+      lastX: 0,
+      lastY: 0,
+      pinchDist: 0,
+      minRadius: 0.16,
+      maxRadius: 2.2
+    };
+
+    // Procedural Web Audio Context
+    let audioCtx = null;
+
+    // =========================================================================
+    // 3. PROCEDURAL TEXTURES & STUDIO ENVIRONMENT (ZERO EXTERNAL ASSETS)
+    // =========================================================================
+    function createGlowSpriteTexture(coreColor = 'rgba(255,255,255,1)', midColor = 'rgba(255,255,255,0.6)') {
+      const size = 128;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+      grad.addColorStop(0.0, coreColor);
+      grad.addColorStop(0.3, midColor);
+      grad.addColorStop(0.68, 'rgba(255,255,255,0.14)');
+      grad.addColorStop(1.0, 'rgba(0,0,0,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, size, size);
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.needsUpdate = true;
+      return tex;
+    }
+
+    /** Generates subtle machined CNC brushed texture for 7075 aluminum & parkerized steel */
+    function createMachinedMetalTexture(baseHex, grainHex) {
+      const w = 256, h = 256;
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = baseHex;
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = grainHex;
+      for (let i = 0; i < 420; i++) {
+        ctx.globalAlpha = Math.random() * 0.14;
+        ctx.fillRect(0, Math.random() * h, w, 1 + Math.random() * 1.5);
+      }
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      return tex;
+    }
+
+    /** Creates Studio PMREM Environment Map so anodized aluminum, stainless chrome, brass & copper gleam realistically */
+    function buildStudioEnvironment(renderer) {
+      const pmrem = new THREE.PMREMGenerator(renderer);
+      pmrem.compileEquirectangularShader();
+
+      const envScene = new THREE.Scene();
+      envScene.background = new THREE.Color('#0c1322');
+
+      const topStrip = new THREE.Mesh(
+        new THREE.PlaneGeometry(14, 3.5),
+        new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide })
+      );
+      topStrip.position.set(0, 6.5, 1.5);
+      topStrip.rotation.x = Math.PI / 2;
+      envScene.add(topStrip);
+
+      const coolRim = new THREE.Mesh(
+        new THREE.PlaneGeometry(12, 4.5),
+        new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide })
+      );
+      coolRim.position.set(-6.5, 2.2, -4.5);
+      coolRim.lookAt(0, 0, 0);
+      envScene.add(coolRim);
+
+      const frontFill = new THREE.Mesh(
+        new THREE.PlaneGeometry(10, 4),
+        new THREE.MeshBasicMaterial({ color: 0xe2e8f0, side: THREE.DoubleSide })
+      );
+      frontFill.position.set(3.0, 1.8, 7.0);
+      frontFill.lookAt(0, 0, 0);
+      envScene.add(frontFill);
+
+      const warmFloorBounce = new THREE.Mesh(
+        new THREE.PlaneGeometry(10, 4),
+        new THREE.MeshBasicMaterial({ color: 0xf59e0b, side: THREE.DoubleSide })
+      );
+      warmFloorBounce.position.set(2.0, -4.5, 3.5);
+      warmFloorBounce.lookAt(0, 0, 0);
+      envScene.add(warmFloorBounce);
+
+      const envRT = pmrem.fromScene(envScene, 0.04);
+      pmrem.dispose();
+      return envRT.texture;
+    }
+
+    // =========================================================================
+    // 4. THREE.JS SCENE, LIGHTS & PBR MATERIALS INITIALIZATION
+    // =========================================================================
+    function initThreeScene() {
+      const container = document.getElementById('canvas-container');
+      const cfg = RIFLE_CONFIG.rendering_and_lighting;
+
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(cfg.environment.background_color);
+      scene.fog = new THREE.FogExp2(cfg.environment.background_color, 0.14);
+
+      camera = new THREE.PerspectiveCamera(38, container.clientWidth / container.clientHeight, 0.008, 30);
+      setCameraPreset('iso_hero', true);
+
+      renderer = new THREE.WebGLRenderer({ antialias: cfg.renderer.antialias, powerPreference: 'high-performance' });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(container.clientWidth, container.clientHeight);
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = cfg.renderer.tone_mapping_exposure;
+      renderer.shadowMap.enabled = cfg.renderer.shadows_enabled;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.localClippingEnabled = cfg.renderer.local_clipping_enabled;
+      container.appendChild(renderer.domElement);
+
+      scene.environment = buildStudioEnvironment(renderer);
+
+      // Cutaway Plane: keeps Z <= 0, slices Z > 0 open toward viewer
+      clipPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), 0.0);
+
+      // Studio Lighting Rig from JSON
+      scene.add(new THREE.HemisphereLight('#bae6fd', '#0f172a', 0.7));
+
+      cfg.lights.forEach(l => {
+        if (l.type === 'DirectionalLight') {
+          const light = new THREE.DirectionalLight(l.color, l.intensity);
+          light.position.set(...l.position);
+          if (l.cast_shadow) {
+            light.castShadow = true;
+            light.shadow.mapSize.set(1024, 1024);
+            light.shadow.camera.near = 0.2;
+            light.shadow.camera.far = 8;
+            light.shadow.camera.left = -0.9;
+            light.shadow.camera.right = 0.9;
+            light.shadow.camera.top = 0.6;
+            light.shadow.camera.bottom = -0.6;
+          }
+          scene.add(light);
+        } else if (l.type === 'PointLight') {
+          const light = new THREE.PointLight(
+            l.color,
+            l.intensity !== undefined ? l.intensity : l.intensity_base,
+            l.distance || 6
+          );
+          light.position.set(...l.position);
+          if (l.id === 'chamber_ignition_light') chamberLight = light;
+          if (l.id === 'muzzle_flash_light') muzzleLight = light;
+          scene.add(light);
+        }
+      });
+
+      // Volumetric Muzzle Flash Sprite at A2 Birdcage
+      const flashTex = createGlowSpriteTexture('rgba(255,253,220,1)', 'rgba(255,145,20,0.85)');
+      muzzleFlashSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: flashTex,
+        color: 0xffe484,
+        transparent: true,
+        opacity: 0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      }));
+      muzzleFlashSprite.position.set(0.60, 0.03, 0.0);
+      muzzleFlashSprite.scale.set(0.16, 0.11, 1);
+      scene.add(muzzleFlashSprite);
+
+      // Lab Floor Grid
+      if (cfg.environment.grid_floor.enabled) {
+        const yFloor = cfg.environment.grid_floor.y_position;
+        const grid = new THREE.GridHelper(4.0, 40, cfg.environment.grid_floor.color_center, cfg.environment.grid_floor.color_grid);
+        grid.position.set(0.1, yFloor, 0);
+        scene.add(grid);
+
+        const shadowFloor = new THREE.Mesh(
+          new THREE.PlaneGeometry(4.0, 4.0),
+          new THREE.ShadowMaterial({ opacity: 0.38 })
+        );
+        shadowFloor.rotation.x = -Math.PI / 2;
+        shadowFloor.position.set(0.1, yFloor + 0.001, 0);
+        shadowFloor.receiveShadow = true;
+        scene.add(shadowFloor);
+      }
+
+      initMaterialLibrary();
+      buildAllAssemblies();
+      buildDynamicCartridges();
+      buildParticleSystems();
+
+      clock = new THREE.Clock();
+    }
+
+    function initMaterialLibrary() {
+      const lib = RIFLE_CONFIG.pbr_materials_library;
+      const brushedTex = createMachinedMetalTexture('#ffffff', '#94a3b8');
+
+      for (const [key, def] of Object.entries(lib)) {
+        const params = {
+          color: new THREE.Color(def.color),
+          metalness: def.metalness,
+          roughness: def.roughness,
+          side: THREE.DoubleSide
+        };
+        if (key === 'anodized_aluminum_7075' || key === 'parkerized_steel') {
+          params.roughnessMap = brushedTex;
+        }
+        if (def.emissive) {
+          params.emissive = new THREE.Color(def.emissive);
+          params.emissiveIntensity = def.emissive_intensity !== undefined ? def.emissive_intensity : 0.0;
+        }
+        if (def.transparent) {
+          params.transparent = true;
+          params.opacity = def.opacity;
+          params.depthWrite = def.depthWrite !== undefined ? def.depthWrite : false;
+        }
+        if (def.type === 'MeshPhysicalMaterial') {
+          if (def.clearcoat !== undefined) params.clearcoat = def.clearcoat;
+          materials[key] = new THREE.MeshPhysicalMaterial(params);
+        } else {
+          materials[key] = new THREE.MeshStandardMaterial(params);
+        }
+      }
+
+      // Highlighted materials for X-Ray internal systems (Gas tube, BCG, Action Spring)
+      materials.xray_highlight_gas = new THREE.MeshStandardMaterial({
+        color: '#fde047',
+        emissive: '#f59e0b',
+        emissiveIntensity: 1.4,
+        metalness: 0.4,
+        roughness: 0.2
+      });
+      materials.xray_highlight_bcg = new THREE.MeshStandardMaterial({
+        color: '#38bdf8',
+        emissive: '#0284c7',
+        emissiveIntensity: 0.9,
+        metalness: 0.6,
+        roughness: 0.25
+      });
+    }
+
+    // =========================================================================
+    // 5. PROCEDURAL 3D M16A4 MECHANICAL ASSEMBLY BUILDERS (ALL 11 ASSEMBLIES)
+    // =========================================================================
+    function registerMesh(entry, mesh, { clippable = false, isCutawayCap = false, xrayRole = 'shell' } = {}) {
+      mesh.userData.assemblyId = entry.config.id;
+      mesh.userData.xrayRole = xrayRole;
+      mesh.castShadow = !isCutawayCap;
+      mesh.receiveShadow = !isCutawayCap;
+
+      if (clippable) {
+        mesh.material = mesh.material.clone();
+        mesh.material.clippingPlanes = [clipPlane];
+        mesh.material.clipShadows = true;
+        entry.clippableMeshes.push(mesh);
+      }
+
+      if (isCutawayCap) {
+        entry.cutawayCaps.push(mesh);
+      } else {
+        clickableMeshes.push(mesh);
+      }
+
+      entry.meshes.push(mesh);
+      entry.originalMaterials.set(mesh, mesh.material);
+      return mesh;
+    }
+
+    /** Helper: Creates a procedural 5.56x45mm NATO cartridge (brass case + bottleneck + copper FMJ bullet) */
+    function createCartridge556(includeBullet = true) {
+      const group = new THREE.Group();
+
+      // Brass case profile rotated along +X (total case ~0.045m)
+      const casePts = [
+        new THREE.Vector2(0.0047, 0.0),      // Rim base
+        new THREE.Vector2(0.0047, 0.0014),
+        new THREE.Vector2(0.0040, 0.0018),   // Extractor groove
+        new THREE.Vector2(0.0040, 0.0032),
+        new THREE.Vector2(0.0048, 0.0036),   // Case head
+        new THREE.Vector2(0.0045, 0.0365),   // Body taper
+        new THREE.Vector2(0.0032, 0.0405),   // Shoulder
+        new THREE.Vector2(0.0031, 0.0450)    // Neck
+      ];
+      const caseGeo = new THREE.LatheGeometry(casePts, 20);
+      caseGeo.rotateZ(-Math.PI / 2);
+      const caseMesh = new THREE.Mesh(caseGeo, materials.brass_cartridge_case);
+      caseMesh.name = 'brass_case';
+      group.add(caseMesh);
+
+      // Silver primer disk at rear
+      const primerGeo = new THREE.CylinderGeometry(0.0022, 0.0022, 0.0006, 12);
+      primerGeo.rotateZ(-Math.PI / 2);
+      const primer = new THREE.Mesh(primerGeo, materials.polished_stainless_chrome);
+      primer.position.x = -0.0001;
+      group.add(primer);
+
+      let bulletMesh = null;
+      if (includeBullet) {
+        // Copper FMJ spitzer projectile (0.045m to 0.0574m)
+        const bPts = [
+          new THREE.Vector2(0.00285, 0.0442),
+          new THREE.Vector2(0.00285, 0.0495),
+          new THREE.Vector2(0.0020, 0.0540),
+          new THREE.Vector2(0.0003, 0.0574)
+        ];
+        const bGeo = new THREE.LatheGeometry(bPts, 18);
+        bGeo.rotateZ(-Math.PI / 2);
+        bulletMesh = new THREE.Mesh(bGeo, materials.copper_fmj_bullet);
+        bulletMesh.name = 'copper_bullet';
+        group.add(bulletMesh);
+      }
+
+      return { group, caseMesh, bulletMesh };
+    }
+
+    /** Helper: Generates a 3D Helical Spring TubeGeometry along X-axis */
+    function createHelicalSpringGeometry(length, coilRadius, wireRadius, coils, tubularSegs = 260) {
+      const pts = [];
+      for (let i = 0; i <= tubularSegs; i++) {
+        const t = i / tubularSegs;
+        const angle = t * coils * Math.PI * 2;
+        const x = t * length;
+        const y = Math.cos(angle) * coilRadius;
+        const z = Math.sin(angle) * coilRadius;
+        pts.push(new THREE.Vector3(x, y, z));
+      }
+      const curve = new THREE.CatmullRomCurve3(pts);
+      return new THREE.TubeGeometry(curve, tubularSegs, wireRadius, 6, false);
+    }
+
+    /** Helper: Creates a red cutaway cross-section strip on Z=0 */
+    function addCutawayStrip(entry, x, y, w, h, parentGroup = entry.group) {
+      const strip = new THREE.Mesh(new THREE.PlaneGeometry(w, h), materials.cutaway_section_cap);
+      strip.position.set(x, y, 0.0006);
+      registerMesh(entry, strip, { isCutawayCap: true });
+      parentGroup.add(strip);
+      return strip;
+    }
+
+    /** Helper: Creates Picatinny Rail teeth along X */
+    function addPicatinnyRail(entry, startX, length, yPos, zPos, slots, rotX = 0, parentGroup = entry.group, clippable = true) {
+      const railGroup = new THREE.Group();
+      railGroup.position.set(startX + length / 2, yPos, zPos);
+      railGroup.rotation.x = rotX;
+
+      const baseBar = new THREE.Mesh(new THREE.BoxGeometry(length, 0.004, 0.017), materials.anodized_aluminum_7075);
+      registerMesh(entry, baseBar, { clippable, xrayRole: 'shell' });
+      railGroup.add(baseBar);
+
+      const step = length / slots;
+      const toothGeo = new THREE.BoxGeometry(step * 0.56, 0.0038, 0.0205);
+      for (let i = 0; i < slots; i++) {
+        const tooth = new THREE.Mesh(toothGeo, materials.anodized_aluminum_7075);
+        tooth.position.set(-length / 2 + step * (i + 0.5), 0.0035, 0);
+        registerMesh(entry, tooth, { clippable, xrayRole: 'shell' });
+        railGroup.add(tooth);
+      }
+
+      parentGroup.add(railGroup);
+      return railGroup;
+    }
+
+    function buildAllAssemblies() {
+      RIFLE_CONFIG.mechanical_assemblies.forEach(cfg => {
+        const group = new THREE.Group();
+        group.position.set(cfg.x_position_m, 0, 0);
+        scene.add(group);
+
+        const entry = {
+          config: cfg,
+          group,
+          baseX: cfg.x_position_m,
+          baseY: 0,
+          meshes: [],
+          clippableMeshes: [],
+          cutawayCaps: [],
+          originalMaterials: new Map(),
+          labelAnchor: new THREE.Vector3(0, 0.08, 0)
+        };
+        assembliesMap.set(cfg.id, entry);
+
+        switch (cfg.id) {
+          case 'buttstock_and_buffer_tube': buildButtstockAndTube(entry); break;
+          case 'buffer_and_recoil_spring': buildBufferAndSpring(entry); break;
+          case 'lower_receiver': buildLowerReceiver(entry); break;
+          case 'fire_control_group': buildFireControlGroup(entry); break;
+          case 'magazine_and_ammo': buildMagazineAndAmmo(entry); break;
+          case 'upper_receiver_and_carry_handle': buildUpperReceiver(entry); break;
+          case 'bolt_carrier_group': buildBoltCarrierGroup(entry); break;
+          case 'charging_handle': buildChargingHandle(entry); break;
+          case 'barrel_and_chamber': buildBarrelAndChamber(entry); break;
+          case 'direct_impingement_gas_system': buildGasSystem(entry); break;
+          case 'handguard_quad_rail': buildQuadRailHandguard(entry); break;
+        }
+      });
+    }
+
+    // ASSY 01: A2 Buttstock & Receiver Extension (Buffer Tube)
+    function buildButtstockAndTube(entry) {
+      const g = entry.config.procedural_geometry;
+      const yAxis = g.inline_axis_y_m;
+
+      // Sculpted A2 Triangular Polymer Buttstock shell (local X: -0.135 to +0.130)
+      const stockShape = new THREE.Shape();
+      stockShape.moveTo(0.13, yAxis + 0.017);
+      stockShape.lineTo(-0.135, yAxis + 0.017);
+      stockShape.lineTo(-0.135, yAxis - 0.095);
+      stockShape.lineTo(-0.095, yAxis - 0.090);
+      stockShape.lineTo(0.13, yAxis - 0.022);
+      stockShape.closePath();
+
+      const extrudeSettings = { depth: 0.032, bevelEnabled: true, bevelThickness: 0.004, bevelSize: 0.003, bevelSegments: 3 };
+      const stockGeo = new THREE.ExtrudeGeometry(stockShape, extrudeSettings);
+      stockGeo.translate(0, 0, -0.016);
+      const stockMesh = new THREE.Mesh(stockGeo, materials[entry.config.material_ref]);
+      registerMesh(entry, stockMesh, { clippable: true, xrayRole: 'shell' });
+      entry.group.add(stockMesh);
+
+      // Buttplate pad
+      const padGeo = new THREE.BoxGeometry(0.012, 0.114, 0.036);
+      const padMesh = new THREE.Mesh(padGeo, materials.parkerized_steel);
+      padMesh.position.set(-0.138, yAxis - 0.039, 0);
+      registerMesh(entry, padMesh, { clippable: true, xrayRole: 'shell' });
+      entry.group.add(padMesh);
+
+      // Receiver Extension / Aluminum Buffer Tube (hollow cylinder along X at yAxis)
+      const tubeGeo = new THREE.CylinderGeometry(g.buffer_tube_outer_radius_m, g.buffer_tube_outer_radius_m, g.buffer_tube_length_m, 32, 1, true);
+      tubeGeo.rotateZ(-Math.PI / 2);
+      const tubeMesh = new THREE.Mesh(tubeGeo, materials.anodized_aluminum_7075);
+      tubeMesh.position.set(0.005, yAxis, 0);
+      registerMesh(entry, tubeMesh, { clippable: true, xrayRole: 'shell' });
+      entry.group.add(tubeMesh);
+
+      // Red Cutaway Caps on top & bottom walls of Buffer Tube
+      addCutawayStrip(entry, 0.005, yAxis + 0.0145, g.buffer_tube_length_m, 0.0026);
+      addCutawayStrip(entry, 0.005, yAxis - 0.0145, g.buffer_tube_length_m, 0.0026);
+
+      entry.labelAnchor.set(-0.02, yAxis + 0.055, 0);
+    }
+
+    // ASSY 02: Rifle Buffer & 38-Coil Helical Action Spring
+    function buildBufferAndSpring(entry) {
+      const g = entry.config.procedural_geometry;
+      const yAxis = 0.03;
+
+      // Helical Action Spring anchored at rear of buffer tube (local x = -0.135 -> world -0.375)
+      const springGeo = createHelicalSpringGeometry(g.spring_free_length_m, 0.0108, 0.0011, g.spring_coils, 280);
+      const springMesh = new THREE.Mesh(springGeo, materials[entry.config.material_ref]);
+      springMesh.position.set(-0.135, yAxis, 0);
+      registerMesh(entry, springMesh, { clippable: false, xrayRole: 'gas' });
+      entry.group.add(springMesh);
+      dynParts.actionSpringMesh = springMesh;
+
+      // Rifle Buffer Piston Body (moves rearward with BCG)
+      const bufferGroup = new THREE.Group();
+      bufferGroup.position.set(0.032, yAxis, 0);
+      entry.group.add(bufferGroup);
+      dynParts.bufferGroup = bufferGroup;
+
+      // Aluminum Buffer Body
+      const bodyGeo = new THREE.CylinderGeometry(0.0086, 0.0086, g.buffer_length_m, 24);
+      bodyGeo.rotateZ(-Math.PI / 2);
+      const bodyMesh = new THREE.Mesh(bodyGeo, materials.anodized_aluminum_7075);
+      bodyMesh.material = bodyMesh.material.clone();
+      bodyMesh.material.color = new THREE.Color('#64748b');
+      registerMesh(entry, bodyMesh, { clippable: false, xrayRole: 'bcg' });
+      bufferGroup.add(bodyMesh);
+
+      // Front Impact Face Flange (contacts rear of Bolt Carrier)
+      const faceGeo = new THREE.CylinderGeometry(g.buffer_radius_m, g.buffer_radius_m, 0.012, 24);
+      faceGeo.rotateZ(-Math.PI / 2);
+      const faceMesh = new THREE.Mesh(faceGeo, materials.polished_stainless_chrome);
+      faceMesh.position.x = g.buffer_length_m / 2 - 0.004;
+      registerMesh(entry, faceMesh, { clippable: false, xrayRole: 'bcg' });
+      bufferGroup.add(faceMesh);
+
+      // Rear Rubber Bumper Cap
+      const bumperGeo = new THREE.CylinderGeometry(0.0095, 0.0095, 0.018, 20);
+      bumperGeo.rotateZ(-Math.PI / 2);
+      const bumperMesh = new THREE.Mesh(bumperGeo, materials.matte_polymer_fiberglass);
+      bumperMesh.position.x = -g.buffer_length_m / 2 - 0.006;
+      registerMesh(entry, bumperMesh, { clippable: false, xrayRole: 'bcg' });
+      bufferGroup.add(bumperMesh);
+
+      entry.labelAnchor.set(-0.02, yAxis + 0.045, 0);
+    }
+
+    // ASSY 03: Lower Receiver & A2 Pistol Grip
+    function buildLowerReceiver(entry) {
+      const g = entry.config.procedural_geometry;
+
+      // Main Lower Receiver Body Shell (hollowed FCG pocket visually represented with back wall + side walls)
+      const rearWall = new THREE.Mesh(new THREE.BoxGeometry(g.length_m, 0.048, 0.005), materials[entry.config.material_ref]);
+      rearWall.position.set(0, -0.016, -0.014);
+      registerMesh(entry, rearWall, { clippable: false, xrayRole: 'shell' });
+      entry.group.add(rearWall);
+
+      const frontWall = new THREE.Mesh(new THREE.BoxGeometry(g.length_m, 0.048, 0.005), materials[entry.config.material_ref]);
+      frontWall.position.set(0, -0.016, 0.014);
+      registerMesh(entry, frontWall, { clippable: true, xrayRole: 'shell' });
+      entry.group.add(frontWall);
+
+      // Bottom floor of lower receiver
+      const floorBar = new THREE.Mesh(new THREE.BoxGeometry(g.length_m, 0.006, 0.032), materials[entry.config.material_ref]);
+      floorBar.position.set(0, -0.040, 0);
+      registerMesh(entry, floorBar, { clippable: true, xrayRole: 'shell' });
+      entry.group.add(floorBar);
+
+      // Magazine Well Housing (front of lower)
+      const magwell = new THREE.Mesh(new THREE.BoxGeometry(0.068, 0.072, 0.034), materials[entry.config.material_ref]);
+      magwell.position.set(g.magwell_x_offset_m, -0.038, 0);
+      registerMesh(entry, magwell, { clippable: true, xrayRole: 'shell' });
+      entry.group.add(magwell);
+
+      // Trigger Guard
+      const guard = new THREE.Mesh(new THREE.BoxGeometry(0.066, 0.005, 0.016), materials[entry.config.material_ref]);
+      guard.position.set(-0.012, -0.068, 0);
+      registerMesh(entry, guard, { clippable: true, xrayRole: 'shell' });
+      entry.group.add(guard);
+
+      // A2 Pistol Grip (angled 25 deg)
+      const grip = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.105, 0.028), materials.matte_polymer_fiberglass);
+      grip.position.set(-0.078, -0.088, 0);
+      grip.rotation.z = -THREE.MathUtils.degToRad(g.grip_angle_deg);
+      registerMesh(entry, grip, { clippable: true, xrayRole: 'shell' });
+      entry.group.add(grip);
+
+      // Rear Buffer Tower Ring
+      const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.021, 0.021, 0.028, 24), materials[entry.config.material_ref]);
+      tower.rotation.z = -Math.PI / 2;
+      tower.position.set(-0.095, 0.028, 0);
+      registerMesh(entry, tower, { clippable: true, xrayRole: 'shell' });
+      entry.group.add(tower);
+
+      // Takedown & Pivot Pins (2-pin modular signature)
+      [-0.082, 0.082].forEach(px => {
+        const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.0042, 0.0042, 0.036, 16), materials.polished_stainless_chrome);
+        pin.rotation.x = Math.PI / 2;
+        pin.position.set(px, 0.002, 0);
+        registerMesh(entry, pin, { clippable: false, xrayRole: 'bcg' });
+        entry.group.add(pin);
+      });
+
+      addCutawayStrip(entry, 0, -0.040, g.length_m, 0.004);
+      entry.labelAnchor.set(-0.05, -0.14, 0);
+    }
+
+    // ASSY 04: Fire Control Group (Hammer, Trigger, Disconnector, Selector Switch)
+    function buildFireControlGroup(entry) {
+      const g = entry.config.procedural_geometry;
+      const baseX = entry.baseX;
+
+      // Hammer Pivot Group
+      const hammerPivot = new THREE.Group();
+      hammerPivot.position.set(g.hammer_pivot_pos[0] - baseX, g.hammer_pivot_pos[1], 0);
+      entry.group.add(hammerPivot);
+      dynParts.hammerPivot = hammerPivot;
+
+      const hammerHub = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.011, 16), materials.polished_stainless_chrome);
+      hammerHub.rotation.x = Math.PI / 2;
+      registerMesh(entry, hammerHub, { clippable: false, xrayRole: 'bcg' });
+      hammerPivot.add(hammerHub);
+
+      // Sculpted Hammer Arm & Striking Face
+      const hammerShape = new THREE.Shape();
+      hammerShape.moveTo(-0.006, 0);
+      hammerShape.lineTo(0.006, 0);
+      hammerShape.lineTo(0.009, 0.036);
+      hammerShape.lineTo(0.002, 0.042);
+      hammerShape.lineTo(-0.012, 0.036);
+      hammerShape.lineTo(-0.006, 0.016);
+      hammerShape.closePath();
+      const hammerGeo = new THREE.ExtrudeGeometry(hammerShape, { depth: 0.009, bevelEnabled: true, bevelThickness: 0.001, bevelSize: 0.001 });
+      hammerGeo.translate(0, 0, -0.0045);
+      const hammerMesh = new THREE.Mesh(hammerGeo, materials[entry.config.material_ref]);
+      registerMesh(entry, hammerMesh, { clippable: false, xrayRole: 'bcg' });
+      hammerPivot.add(hammerMesh);
+
+      // Trigger Pivot Group
+      const triggerPivot = new THREE.Group();
+      triggerPivot.position.set(g.trigger_pivot_pos[0] - baseX, g.trigger_pivot_pos[1], 0);
+      entry.group.add(triggerPivot);
+      dynParts.triggerPivot = triggerPivot;
+
+      const triggerBar = new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.008, 0.009), materials[entry.config.material_ref]);
+      triggerBar.position.set(0.012, 0.002, 0);
+      registerMesh(entry, triggerBar, { clippable: false, xrayRole: 'bcg' });
+      triggerPivot.add(triggerBar);
+
+      // Curved Trigger Shoe extending downward
+      const shoeCurve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0.014, -0.002, 0),
+        new THREE.Vector3(0.012, -0.018, 0),
+        new THREE.Vector3(0.019, -0.034, 0)
+      ]);
+      const shoeMesh = new THREE.Mesh(new THREE.TubeGeometry(shoeCurve, 12, 0.0032, 8, false), materials.polished_stainless_chrome);
+      registerMesh(entry, shoeMesh, { clippable: false, xrayRole: 'bcg' });
+      triggerPivot.add(shoeMesh);
+
+      // Disconnector Hook
+      const disconnector = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.009, 0.005), materials.polished_stainless_chrome);
+      disconnector.position.set(0.004, 0.011, 0);
+      registerMesh(entry, disconnector, { clippable: false, xrayRole: 'bcg' });
+      triggerPivot.add(disconnector);
+
+      // Fire Selector Drum & Lever (SAFE / SEMI / AUTO)
+      const selectorPivot = new THREE.Group();
+      selectorPivot.position.set(-0.024, -0.014, 0);
+      entry.group.add(selectorPivot);
+      dynParts.selectorPivot = selectorPivot;
+
+      const selDrum = new THREE.Mesh(new THREE.CylinderGeometry(0.0055, 0.0055, 0.036, 16), materials.polished_stainless_chrome);
+      selDrum.rotation.x = Math.PI / 2;
+      registerMesh(entry, selDrum, { clippable: false, xrayRole: 'bcg' });
+      selectorPivot.add(selDrum);
+
+      const selLever = new THREE.Mesh(new THREE.BoxGeometry(0.020, 0.006, 0.004), materials.cutaway_section_cap);
+      selLever.position.set(-0.008, 0, -0.019);
+      registerMesh(entry, selLever, { clippable: false, xrayRole: 'bcg' });
+      selectorPivot.add(selLever);
+
+      entry.labelAnchor.set(0.0, -0.075, 0);
+    }
+
+    // ASSY 05: STANAG 30-Round Curved Magazine & Visible Double-Stack 5.56mm Ammo
+    function buildMagazineAndAmmo(entry) {
+      const g = entry.config.procedural_geometry;
+
+      // Curved Magazine Housing Shell (Cutaway-clippable on +Z side!)
+      const magShape = new THREE.Shape();
+      magShape.moveTo(-0.030, 0.005);
+      magShape.lineTo(0.030, 0.005);
+      magShape.quadraticCurveTo(0.036, -0.085, 0.056, -0.175);
+      magShape.lineTo(-0.004, -0.185);
+      magShape.quadraticCurveTo(-0.022, -0.095, -0.030, 0.005);
+
+      const magOuter = new THREE.Mesh(
+        new THREE.ExtrudeGeometry(magShape, { depth: 0.024, bevelEnabled: true, bevelThickness: 0.0015, bevelSize: 0.001 }),
+        materials[entry.config.material_ref]
+      );
+      magOuter.position.z = -0.012;
+      registerMesh(entry, magOuter, { clippable: true, xrayRole: 'shell' });
+      entry.group.add(magOuter);
+
+      // Rear permanent backplate of magazine so cutaway reveals interior neatly
+      const magBack = new THREE.Mesh(new THREE.ShapeGeometry(magShape), materials.parkerized_steel);
+      magBack.position.z = -0.0115;
+      registerMesh(entry, magBack, { clippable: false, xrayRole: 'shell' });
+      entry.group.add(magBack);
+
+      // Magazine Floorplate
+      const floorPlate = new THREE.Mesh(new THREE.BoxGeometry(0.065, 0.007, 0.026), materials.matte_polymer_fiberglass);
+      floorPlate.position.set(0.026, -0.182, 0);
+      floorPlate.rotation.z = 0.16;
+      registerMesh(entry, floorPlate, { clippable: true, xrayRole: 'shell' });
+      entry.group.add(floorPlate);
+
+      // 12 Visible Double-Stack 5.56x45mm Cartridges inside Magazine
+      dynParts.magStackMeshes = [];
+      for (let i = 0; i < g.visible_stack_rounds; i++) {
+        const { group: roundGroup } = createCartridge556(true);
+        const yOff = -0.006 - i * 0.0102;
+        const xOff = -0.026 + i * 0.0015;
+        const zZig = (i % 2 === 0 ? -0.0028 : 0.0028);
+        roundGroup.position.set(xOff, yOff, zZig);
+        roundGroup.rotation.z = 0.055 + i * 0.008;
+        roundGroup.traverse(child => {
+          if (child.isMesh) registerMesh(entry, child, { clippable: false, xrayRole: 'gas' });
+        });
+        entry.group.add(roundGroup);
+        dynParts.magStackMeshes.push(roundGroup);
+      }
+
+      // Anti-Tilt Green/Cyan Follower
+      const follower = new THREE.Mesh(new THREE.BoxGeometry(0.052, 0.012, 0.018), materials.locking_lug_highlight);
+      follower.position.set(0.008, -0.132, 0);
+      follower.rotation.z = 0.14;
+      registerMesh(entry, follower, { clippable: false, xrayRole: 'bcg' });
+      entry.group.add(follower);
+      dynParts.magFollowerMesh = follower;
+
+      // Magazine Spring zigzag
+      const magSpringGeo = createHelicalSpringGeometry(0.055, 0.006, 0.0009, 8, 80);
+      magSpringGeo.rotateZ(Math.PI / 2);
+      const magSpring = new THREE.Mesh(magSpringGeo, materials.polished_stainless_chrome);
+      magSpring.position.set(0.022, -0.178, 0);
+      registerMesh(entry, magSpring, { clippable: false, xrayRole: 'gas' });
+      entry.group.add(magSpring);
+      dynParts.magSpringMesh = magSpring;
+
+      entry.labelAnchor.set(0.03, -0.20, 0);
+    }
+
+    // ASSY 06: Upper Receiver, MIL-STD-1913 Rail & Detachable A4 Carry Handle
+    function buildUpperReceiver(entry) {
+      const g = entry.config.procedural_geometry;
+      const yAxis = 0.03;
+
+      // Upper Receiver Cylindrical/Octagonal Housing (Clippable)
+      const upperTube = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.0195, 0.0195, g.length_m, 24, 1, true),
+        materials[entry.config.material_ref]
+      );
+      upperTube.rotation.z = -Math.PI / 2;
+      upperTube.position.set(0, yAxis, 0);
+      registerMesh(entry, upperTube, { clippable: true, xrayRole: 'shell' });
+      entry.group.add(upperTube);
+
+      // Lower side skirt joining Upper to Lower Receiver
+      const skirtBack = new THREE.Mesh(new THREE.BoxGeometry(g.length_m, 0.032, 0.006), materials[entry.config.material_ref]);
+      skirtBack.position.set(0, 0.018, -0.016);
+      registerMesh(entry, skirtBack, { clippable: false, xrayRole: 'shell' });
+      entry.group.add(skirtBack);
+
+      const skirtFront = new THREE.Mesh(new THREE.BoxGeometry(g.length_m, 0.032, 0.006), materials[entry.config.material_ref]);
+      skirtFront.position.set(0, 0.018, 0.016);
+      registerMesh(entry, skirtFront, { clippable: true, xrayRole: 'shell' });
+      entry.group.add(skirtFront);
+
+      // MIL-STD-1913 Flat-Top Picatinny Rail (14 slots)
+      addPicatinnyRail(entry, -g.length_m / 2, g.length_m, yAxis + 0.022, 0, g.picatinny_rail_slots, 0, entry.group, true);
+
+      // Detachable A4 Carry Handle & Rear Aperture Sight
+      if (g.has_detachable_carry_handle) {
+        const chGroup = new THREE.Group();
+        chGroup.position.set(-0.005, yAxis + 0.028, 0);
+
+        const chShape = new THREE.Shape();
+        chShape.moveTo(-0.095, 0);
+        chShape.lineTo(0.095, 0);
+        chShape.lineTo(0.088, 0.012);
+        chShape.lineTo(0.068, 0.044);
+        chShape.lineTo(-0.092, 0.044);
+        chShape.lineTo(-0.095, 0);
+
+        // Cut out carry handle grip opening
+        const hole = new THREE.Path();
+        hole.moveTo(-0.062, 0.010);
+        hole.lineTo(0.056, 0.010);
+        hole.lineTo(0.048, 0.032);
+        hole.lineTo(-0.062, 0.032);
+        hole.closePath();
+        chShape.holes.push(hole);
+
+        const chGeo = new THREE.ExtrudeGeometry(chShape, { depth: 0.018, bevelEnabled: true, bevelThickness: 0.0015, bevelSize: 0.001 });
+        chGeo.translate(0, 0, -0.009);
+        const chMesh = new THREE.Mesh(chGeo, materials[entry.config.material_ref]);
+        registerMesh(entry, chMesh, { clippable: true, xrayRole: 'shell' });
+        chGroup.add(chMesh);
+
+        // Rear Sight Windage Drum
+        const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.022, 16), materials.parkerized_steel);
+        drum.rotation.x = Math.PI / 2;
+        drum.position.set(-0.078, 0.036, 0);
+        registerMesh(entry, drum, { clippable: true, xrayRole: 'shell' });
+        chGroup.add(drum);
+
+        entry.group.add(chGroup);
+      }
+
+      // Forward Assist Plunger & Brass Deflector on +Z exterior (visible in Full View)
+      const fwdAssist = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.034, 16), materials.parkerized_steel);
+      fwdAssist.rotation.set(0, -0.35, Math.PI / 2);
+      fwdAssist.position.set(-0.065, yAxis - 0.002, 0.022);
+      registerMesh(entry, fwdAssist, { clippable: true, xrayRole: 'shell' });
+      entry.group.add(fwdAssist);
+
+      const brassDefl = new THREE.Mesh(new THREE.ConeGeometry(0.010, 0.022, 4), materials[entry.config.material_ref]);
+      brassDefl.rotation.z = -Math.PI / 2;
+      brassDefl.position.set(-0.035, yAxis, 0.021);
+      registerMesh(entry, brassDefl, { clippable: true, xrayRole: 'shell' });
+      entry.group.add(brassDefl);
+
+      // Cutaway red edge highlight along top wall
+      addCutawayStrip(entry, 0, yAxis + 0.019, g.length_m, 0.003);
+
+      entry.labelAnchor.set(0, yAxis + 0.088, 0);
+    }
+
+    // ASSY 07: Bolt Carrier Group (BCG) with 7-Lug Rotating Bolt, Gas Key, Cam Pin & Firing Pin
+    function buildBoltCarrierGroup(entry) {
+      const g = entry.config.procedural_geometry;
+      const yAxis = 0.03;
+
+      const bcgRoot = new THREE.Group();
+      bcgRoot.position.set(0, yAxis, 0);
+      entry.group.add(bcgRoot);
+      dynParts.bcgRoot = bcgRoot;
+
+      // Main Bolt Carrier Cylinder Body (local X: -0.105 to +0.063)
+      const carrierGeo = new THREE.CylinderGeometry(g.carrier_radius_m, g.carrier_radius_m, g.carrier_length_m, 28);
+      carrierGeo.rotateZ(-Math.PI / 2);
+      const carrierMesh = new THREE.Mesh(carrierGeo, materials[entry.config.material_ref]);
+      carrierMesh.position.x = -0.021;
+      registerMesh(entry, carrierMesh, { clippable: false, xrayRole: 'bcg' });
+      bcgRoot.add(carrierMesh);
+
+      // Bottom Carrier Hammer-Cocking Ramp
+      const rampMesh = new THREE.Mesh(new THREE.BoxGeometry(g.carrier_length_m * 0.88, 0.010, 0.012), materials[entry.config.material_ref]);
+      rampMesh.position.set(-0.026, -0.0095, 0);
+      registerMesh(entry, rampMesh, { clippable: false, xrayRole: 'bcg' });
+      bcgRoot.add(rampMesh);
+
+      // Carrier Gas Key (receives stainless Direct Impingement Gas Tube at y = 0.056!)
+      const gasKeyBody = new THREE.Mesh(new THREE.BoxGeometry(0.052, g.gas_key_height_m, 0.010), materials.polished_stainless_chrome);
+      gasKeyBody.position.set(0.026, 0.017, 0);
+      registerMesh(entry, gasKeyBody, { clippable: false, xrayRole: 'gas' });
+      bcgRoot.add(gasKeyBody);
+
+      const gasKeyNozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.0044, 0.0044, 0.028, 16), materials.polished_stainless_chrome);
+      gasKeyNozzle.rotation.z = -Math.PI / 2;
+      gasKeyNozzle.position.set(0.056, 0.024, 0); // Aligns cleanly with y_world = 0.054..0.056 gas tube
+      registerMesh(entry, gasKeyNozzle, { clippable: false, xrayRole: 'gas' });
+      bcgRoot.add(gasKeyNozzle);
+
+      // 2 Side Gas Vent Ports on Bolt Carrier (visible facing viewer)
+      [0.028, 0.036].forEach(vx => {
+        const vent = new THREE.Mesh(new THREE.CylinderGeometry(0.0023, 0.0023, 0.004, 12), materials.cutaway_section_cap);
+        vent.rotation.x = Math.PI / 2;
+        vent.position.set(vx, 0.0, g.carrier_radius_m - 0.001);
+        registerMesh(entry, vent, { clippable: false, xrayRole: 'gas' });
+        bcgRoot.add(vent);
+      });
+
+      // Sculpted Cam Pin Riding in Cam Track
+      const camPin = new THREE.Mesh(new THREE.CylinderGeometry(0.0036, 0.0036, 0.018, 14), materials.polished_stainless_chrome);
+      camPin.position.set(0.044, 0.009, 0);
+      registerMesh(entry, camPin, { clippable: false, xrayRole: 'gas' });
+      bcgRoot.add(camPin);
+      dynParts.camPinMesh = camPin;
+
+      // Firing Pin protruding through center of BCG
+      const fpGeo = new THREE.CylinderGeometry(0.0018, 0.0028, 0.145, 12);
+      fpGeo.rotateZ(-Math.PI / 2);
+      const firingPin = new THREE.Mesh(fpGeo, materials.polished_stainless_chrome);
+      firingPin.position.set(-0.045, 0, 0);
+      registerMesh(entry, firingPin, { clippable: false, xrayRole: 'gas' });
+      bcgRoot.add(firingPin);
+      dynParts.firingPinMesh = firingPin;
+
+      // 7-Lug Rotating Bolt Head Group (Rotates 22.5° around X-axis to lock/unlock!)
+      const boltHeadGroup = new THREE.Group();
+      boltHeadGroup.position.set(0.072, 0, 0);
+      bcgRoot.add(boltHeadGroup);
+      dynParts.boltHeadGroup = boltHeadGroup;
+
+      const boltStem = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.0068, 0.0068, g.bolt_head_length_m, 20),
+        materials.polished_stainless_chrome
+      );
+      boltStem.rotation.z = -Math.PI / 2;
+      registerMesh(entry, boltStem, { clippable: false, xrayRole: 'bcg' });
+      boltHeadGroup.add(boltStem);
+
+      // 7 Radial Locking Lugs (plus 1 Extractor claw occupying the 8th slot)
+      dynParts.boltLugsMeshes = [];
+      const lugGeo = new THREE.BoxGeometry(0.010, 0.0044, 0.0042);
+      const lugMatBase = materials.locking_lug_highlight.clone();
+      for (let i = 0; i < g.locking_lug_count; i++) {
+        const ang = (i / 8) * Math.PI * 2;
+        const lug = new THREE.Mesh(lugGeo, lugMatBase);
+        lug.position.set(0.018, Math.cos(ang) * 0.0085, Math.sin(ang) * 0.0085);
+        lug.rotation.x = ang;
+        registerMesh(entry, lug, { clippable: false, xrayRole: 'bcg' });
+        boltHeadGroup.add(lug);
+        dynParts.boltLugsMeshes.push(lug);
+      }
+
+      // Spring-loaded Extractor Claw (8th radial position)
+      const extractor = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.0042, 0.0046), materials.brass_cartridge_case);
+      extractor.position.set(0.012, 0.004, 0.0085);
+      registerMesh(entry, extractor, { clippable: false, xrayRole: 'gas' });
+      boltHeadGroup.add(extractor);
+
+      entry.labelAnchor.set(0.01, yAxis + 0.055, 0);
+    }
+
+    // ASSY 08: Non-Reciprocating T-Handle Charging Handle
+    function buildChargingHandle(entry) {
+      const g = entry.config.procedural_geometry;
+      const yAxis = 0.0475;
+
+      const chGroup = new THREE.Group();
+      chGroup.position.set(0, yAxis, 0);
+      entry.group.add(chGroup);
+      dynParts.chargingHandleGroup = chGroup;
+
+      const shaft = new THREE.Mesh(new THREE.BoxGeometry(g.length_m, 0.0042, 0.013), materials[entry.config.material_ref]);
+      shaft.position.x = 0.005;
+      registerMesh(entry, shaft, { clippable: false, xrayRole: 'bcg' });
+      chGroup.add(shaft);
+
+      // Rear T-Handle Wings
+      const tWings = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.009, g.t_handle_width_m), materials[entry.config.material_ref]);
+      tWings.position.set(-g.length_m / 2 - 0.002, 0.001, 0);
+      registerMesh(entry, tWings, { clippable: false, xrayRole: 'bcg' });
+      chGroup.add(tWings);
+
+      // Latch lever
+      const latch = new THREE.Mesh(new THREE.BoxGeometry(0.011, 0.007, 0.016), materials.polished_stainless_chrome);
+      latch.position.set(-g.length_m / 2 - 0.004, 0.001, -0.022);
+      registerMesh(entry, latch, { clippable: false, xrayRole: 'bcg' });
+      chGroup.add(latch);
+
+      entry.labelAnchor.set(-0.08, yAxis + 0.025, 0);
+    }
+
+    // ASSY 09: 20-Inch Chrome-Lined Barrel, Chamber, Rifling & A2 Flash Suppressor
+    function buildBarrelAndChamber(entry) {
+      const g = entry.config.procedural_geometry;
+      const yAxis = 0.03;
+      const baseX = entry.baseX; // 0.33 -> Barrel runs from world x = 0.075 (chamber) to 0.583 (muzzle)
+
+      const barrelMat = materials[entry.config.material_ref].clone();
+      barrelMat.emissive = new THREE.Color('#ff3b00');
+      barrelMat.emissiveIntensity = 0.0;
+      dynParts.barrelThermalMaterial = barrelMat;
+
+      // Outer Heavy Government Profile Barrel (Clippable)
+      const profPts = [
+        new THREE.Vector2(0.0145, -0.255), // Barrel Extension / Locking lugs housing (world x = 0.075)
+        new THREE.Vector2(0.0145, -0.220),
+        new THREE.Vector2(g.outer_radius_chamber_m, -0.215),
+        new THREE.Vector2(0.0102, -0.115),
+        new THREE.Vector2(0.0095, 0.050),  // Under gas block (world x = 0.38)
+        new THREE.Vector2(0.0095, 0.095),
+        new THREE.Vector2(g.outer_radius_muzzle_m, 0.218),
+        new THREE.Vector2(0.0032, 0.218),  // Bore exit
+        new THREE.Vector2(0.0030, -0.195), // Chrome-lined bore interior
+        new THREE.Vector2(0.0052, -0.205), // Chamber shoulder
+        new THREE.Vector2(0.0056, -0.240), // Chamber body
+        new THREE.Vector2(0.0110, -0.240), // Barrel extension lug recess
+        new THREE.Vector2(0.0110, -0.255)
+      ];
+      const barrelGeo = new THREE.LatheGeometry(profPts, 36);
+      barrelGeo.rotateZ(-Math.PI / 2);
+      const barrelMesh = new THREE.Mesh(barrelGeo, barrelMat);
+      barrelMesh.position.set(0, yAxis, 0);
+      registerMesh(entry, barrelMesh, { clippable: true, xrayRole: 'shell' });
+      entry.group.add(barrelMesh);
+
+      // Chrome-lined Rifling Helix visual hint inside bore (visible in Cutaway!)
+      const riflingGeo = createHelicalSpringGeometry(0.40, 0.0029, 0.00035, 3.0, 120);
+      const riflingMesh = new THREE.Mesh(riflingGeo, materials.polished_stainless_chrome);
+      riflingMesh.position.set(-0.19, yAxis, 0);
+      registerMesh(entry, riflingMesh, { clippable: true, xrayRole: 'gas' });
+      entry.group.add(riflingMesh);
+
+      // Barrel Nut / Delta Ring at chamber junction
+      const deltaRing = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.025, 0.024, 24), materials.anodized_aluminum_7075);
+      deltaRing.rotation.z = -Math.PI / 2;
+      deltaRing.position.set(-0.235, yAxis, 0);
+      registerMesh(entry, deltaRing, { clippable: true, xrayRole: 'shell' });
+      entry.group.add(deltaRing);
+
+      // A2 Birdcage Flash Suppressor (5 slots at muzzle end, world x ~ 0.55 to 0.595)
+      const flashBaseX = 0.242;
+      const fhBody = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.048, 20, 1, true), materials.parkerized_steel);
+      fhBody.rotation.z = -Math.PI / 2;
+      fhBody.position.set(flashBaseX, yAxis, 0);
+      registerMesh(entry, fhBody, { clippable: false, xrayRole: 'shell' });
+      entry.group.add(fhBody);
+
+      // 5 Vent Rib Bars around flash suppressor
+      for (let i = 0; i < g.flash_suppressor_slots; i++) {
+        const ang = (i / g.flash_suppressor_slots) * Math.PI * 2;
+        const rib = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.0028, 0.0032), materials.polished_stainless_chrome);
+        rib.position.set(flashBaseX + 0.004, yAxis + Math.cos(ang) * 0.0108, Math.sin(ang) * 0.0108);
+        rib.rotation.x = ang;
+        registerMesh(entry, rib, { clippable: false, xrayRole: 'shell' });
+        entry.group.add(rib);
+      }
+
+      // Red Cutaway Caps along upper & lower barrel wall
+      addCutawayStrip(entry, -0.02, yAxis + 0.0082, 0.45, 0.0032);
+      addCutawayStrip(entry, -0.02, yAxis - 0.0082, 0.45, 0.0032);
+
+      entry.labelAnchor.set(0.14, yAxis - 0.04, 0);
+    }
+
+    // ASSY 10: Direct Impingement Gas System (Front Sight Base Gas Block + Stainless Gas Tube)
+    function buildGasSystem(entry) {
+      const g = entry.config.procedural_geometry;
+      const baseX = entry.baseX; // 0.21
+      const fsbLocalX = g.front_sight_base_x_m - baseX; // +0.18 -> world x = 0.39
+
+      // Thermally reactive stainless steel Gas Tube material
+      const gasTubeMat = materials[entry.config.material_ref].clone();
+      dynParts.gasTubeMaterial = gasTubeMat;
+
+      // Sculpted Stainless Gas Tube with authentic S-bend entering upper receiver Gas Key
+      const tubeCurve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(fsbLocalX, 0.032, 0),            // Gas Port Tap inside Front Sight Base
+        new THREE.Vector3(fsbLocalX, g.gas_tube_y_m, 0),   // Vertical riser into Gas Block
+        new THREE.Vector3(fsbLocalX - 0.025, g.gas_tube_y_m, 0),
+        new THREE.Vector3(-0.075, g.gas_tube_y_m, 0),      // Straight run above barrel
+        new THREE.Vector3(-0.115, g.gas_tube_y_m - 0.002, 0),
+        new THREE.Vector3(-0.195, g.gas_tube_y_m - 0.002, 0) // Enters Upper Receiver -> mates with BCG Gas Key (world x = 0.015)
+      ]);
+      const gasTubeGeo = new THREE.TubeGeometry(tubeCurve, 64, g.gas_tube_outer_radius_m, 14, false);
+      const gasTubeMesh = new THREE.Mesh(gasTubeGeo, gasTubeMat);
+      registerMesh(entry, gasTubeMesh, { clippable: false, xrayRole: 'gas' });
+      entry.group.add(gasTubeMesh);
+
+      // Iconic M16 A-Frame Front Sight Base (Gas Block) at x = 0.39
+      const fsbGroup = new THREE.Group();
+      fsbGroup.position.set(fsbLocalX, 0.03, 0);
+
+      const fsbShape = new THREE.Shape();
+      fsbShape.moveTo(-0.026, -0.012);
+      fsbShape.lineTo(0.026, -0.012);
+      fsbShape.lineTo(0.014, g.front_sight_height_m);
+      fsbShape.lineTo(-0.014, g.front_sight_height_m);
+      fsbShape.closePath();
+
+      // Triangular A-frame cutout
+      const triHole = new THREE.Path();
+      triHole.moveTo(-0.010, 0.014);
+      triHole.lineTo(0.010, 0.014);
+      triHole.lineTo(0.0, 0.044);
+      triHole.closePath();
+      fsbShape.holes.push(triHole);
+
+      const fsbGeo = new THREE.ExtrudeGeometry(fsbShape, { depth: 0.014, bevelEnabled: true, bevelThickness: 0.0015, bevelSize: 0.001 });
+      fsbGeo.translate(0, 0, -0.007);
+      const fsbMesh = new THREE.Mesh(fsbGeo, materials.parkerized_steel);
+      registerMesh(entry, fsbMesh, { clippable: false, xrayRole: 'shell' });
+      fsbGroup.add(fsbMesh);
+
+      // Sight Post Ear Guards & Center Post
+      const earL = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.018, 0.003), materials.parkerized_steel);
+      earL.position.set(0, g.front_sight_height_m + 0.008, -0.007);
+      registerMesh(entry, earL, { clippable: false, xrayRole: 'shell' });
+      fsbGroup.add(earL);
+
+      const earR = earL.clone();
+      earR.position.z = 0.007;
+      registerMesh(entry, earR, { clippable: false, xrayRole: 'shell' });
+      fsbGroup.add(earR);
+
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.0014, 0.0014, 0.014, 8), materials.polished_stainless_chrome);
+      post.position.set(0, g.front_sight_height_m + 0.005, 0);
+      registerMesh(entry, post, { clippable: false, xrayRole: 'gas' });
+      fsbGroup.add(post);
+
+      // Bayonet Lug below Gas Block
+      const bayo = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.014, 0.011), materials.parkerized_steel);
+      bayo.position.set(0.006, -0.019, 0);
+      registerMesh(entry, bayo, { clippable: false, xrayRole: 'shell' });
+      fsbGroup.add(bayo);
+
+      entry.group.add(fsbGroup);
+      entry.labelAnchor.set(0.08, 0.095, 0);
+    }
+
+    // ASSY 11: M5 RAS Quad-Rail Handguard
+    function buildQuadRailHandguard(entry) {
+      const g = entry.config.procedural_geometry;
+      const yAxis = 0.03;
+
+      // Outer Octagonal Ventilated Shroud (Clippable)
+      const shroudGeo = new THREE.CylinderGeometry(g.outer_radius_m, g.outer_radius_m, g.length_m, 8, 1, true);
+      shroudGeo.rotateZ(-Math.PI / 2);
+      const shroudMesh = new THREE.Mesh(shroudGeo, materials[entry.config.material_ref]);
+      shroudMesh.position.set(0, yAxis, 0);
+      registerMesh(entry, shroudMesh, { clippable: true, xrayRole: 'shell' });
+      entry.group.add(shroudMesh);
+
+      // 4-Sided Picatinny Quad Rails (Top, Bottom, Left, Right)
+      const slots = 22;
+      addPicatinnyRail(entry, -g.length_m / 2, g.length_m, yAxis + g.outer_radius_m, 0, slots, 0, entry.group, true);
+      addPicatinnyRail(entry, -g.length_m / 2, g.length_m, yAxis - g.outer_radius_m, 0, slots, Math.PI, entry.group, true);
+      addPicatinnyRail(entry, -g.length_m / 2, g.length_m, yAxis, -g.outer_radius_m, slots, -Math.PI / 2, entry.group, true);
+      addPicatinnyRail(entry, -g.length_m / 2, g.length_m, yAxis, g.outer_radius_m, slots, Math.PI / 2, entry.group, true);
+
+      // Internal Heat Shield Metallic Ribs
+      for (let i = 0; i < 4; i++) {
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(g.outer_radius_m - 0.003, 0.0018, 8, 24), materials.polished_stainless_chrome);
+        ring.rotation.y = Math.PI / 2;
+        ring.position.set(-g.length_m * 0.36 + i * (g.length_m * 0.24), yAxis, 0);
+        registerMesh(entry, ring, { clippable: true, xrayRole: 'shell' });
+        entry.group.add(ring);
+      }
+
+      addCutawayStrip(entry, 0, yAxis + g.outer_radius_m - 0.001, g.length_m, 0.0032);
+      addCutawayStrip(entry, 0, yAxis - g.outer_radius_m + 0.001, g.length_m, 0.0032);
+
+      entry.labelAnchor.set(0, yAxis - 0.06, 0);
+    }
+
+    /** Builds the live dynamic chambered/feeding cartridge, flying copper FMJ bullet, and Double-Feed jam round */
+    function buildDynamicCartridges() {
+      const active = createCartridge556(true);
+      active.group.position.set(0.068, 0.03, 0);
+      scene.add(active.group);
+      dynParts.activeCartridgeGroup = active.group;
+      dynParts.activeCaseMesh = active.caseMesh;
+      dynParts.activeBulletMesh = active.bulletMesh;
+
+      // Secondary Jammed Round for Failure-to-Extract / Double Feed simulation
+      const jamRound = createCartridge556(true);
+      jamRound.group.position.set(0.025, 0.014, 0.003);
+      jamRound.group.rotation.z = THREE.MathUtils.degToRad(28);
+      jamRound.group.visible = false;
+      scene.add(jamRound.group);
+      dynParts.jammedExtraRound = jamRound.group;
+    }
+
+    /** Spawns a physically simulated spent brass casing flying out the ejection port */
+    function spawnEjectedBrassShell() {
+      const cfg = RIFLE_CONFIG.gas_dynamics_and_ballistics_particles.ejected_brass_shell_physics;
+      const { group } = createCartridge556(false); // Spent brass case only, no bullet
+      group.position.set(0.015, 0.034, 0.012);
+      scene.add(group);
+
+      const jitter = () => (Math.random() - 0.5) * 0.16;
+      flyingShells.push({
+        mesh: group,
+        vel: new THREE.Vector3(
+          cfg.initial_velocity_mps[0] + jitter(),
+          cfg.initial_velocity_mps[1] + jitter(),
+          cfg.initial_velocity_mps[2] + jitter()
+        ),
+        angVel: new THREE.Vector3(...cfg.angular_velocity_rad_s),
+        age: 0,
+        maxLife: cfg.lifetime_sec
+      });
+    }
+
+    // =========================================================================
+    // 6. GAS DYNAMICS & BALLISTICS PARTICLE ENGINE (3,200 PARTICLES + MIRAGE)
+    // =========================================================================
+    function buildParticleSystems() {
+      const spriteTex = createGlowSpriteTexture('rgba(255,255,255,1)', 'rgba(255,255,255,0.62)');
+
+      RIFLE_CONFIG.gas_dynamics_and_ballistics_particles.streams.forEach(streamCfg => {
+        const count = streamCfg.particle_count;
+        const positions = new Float32Array(count * 3);
+        const colors = new Float32Array(count * 3);
+        const meta = [];
+
+        const cStart = new THREE.Color(streamCfg.color_start);
+        const cEnd = new THREE.Color(streamCfg.color_end);
+
+        for (let i = 0; i < count; i++) {
+          meta.push({
+            progress: Math.random(),
+            radiusNorm: Math.random(),
+            angle: Math.random() * Math.PI * 2,
+            speedJitter: 0.72 + Math.random() * 0.56,
+            conePitch: Math.random(),
+            coneYaw: Math.random() * Math.PI * 2
+          });
+          positions[i * 3] = 0;
+          positions[i * 3 + 1] = 0.03;
+          positions[i * 3 + 2] = 0;
+        }
+
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+        const mat = new THREE.PointsMaterial({
+          size: streamCfg.particle_size,
+          map: spriteTex,
+          vertexColors: true,
+          transparent: true,
+          opacity: 0.85,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+        });
+
+        const points = new THREE.Points(geo, mat);
+        points.frustumCulled = false;
+        points.visible = false;
+        scene.add(points);
+
+        particleSystems.push({ config: streamCfg, points, geo, mat, meta, cStart, cEnd });
+      });
+
+      // Heat Mirage Smoke rising off Gas Tube & Barrel during Gas System Overheat
+      const mirageCount = 260;
+      const mPos = new Float32Array(mirageCount * 3);
+      const mMeta = [];
+      for (let i = 0; i < mirageCount; i++) {
+        mMeta.push({ x: 0.05 + Math.random() * 0.42, p: Math.random(), drift: (Math.random() - 0.5) * 0.015 });
+        mPos[i * 3] = mMeta[i].x;
+        mPos[i * 3 + 1] = 0.056;
+        mPos[i * 3 + 2] = 0;
+      }
+      const mGeo = new THREE.BufferGeometry();
+      mGeo.setAttribute('position', new THREE.BufferAttribute(mPos, 3));
+      const mMat = new THREE.PointsMaterial({
+        size: 0.022,
+        map: spriteTex,
+        color: '#fdba74',
+        transparent: true,
+        opacity: 0.35,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+      const mPoints = new THREE.Points(mGeo, mMat);
+      mPoints.visible = false;
+      scene.add(mPoints);
+      heatMirageSystem = { points: mPoints, geo: mGeo, mat: mMat, meta: mMeta };
+    }
+
+    function updateParticles(dt) {
+      const p = state.cycleProgress;
+      const tmpColor = new THREE.Color();
+      const simDt = dt * Math.max(0.18, state.timeScale * 1.6);
+
+      particleSystems.forEach(ps => {
+        const cfg = ps.config;
+        const [rStart, rEnd] = cfg.active_cycle_range;
+        const isInWindow = p >= rStart && p <= rEnd;
+        ps.points.visible = state.particlesEnabled && isInWindow && state.currentExplode < 0.25;
+        if (!ps.points.visible) return;
+
+        const windowFrac = (p - rStart) / (rEnd - rStart);
+        // Smooth fade-in and fade-out envelope within active step
+        const env = Math.sin(windowFrac * Math.PI);
+        ps.mat.opacity = Math.min(0.95, 0.25 + env * 0.78);
+
+        const posArr = ps.geo.attributes.position.array;
+        const colArr = ps.geo.attributes.color.array;
+
+        for (let i = 0; i < ps.meta.length; i++) {
+          const m = ps.meta[i];
+          m.progress = (m.progress + simDt * cfg.speed_mps * 0.25 * m.speedJitter) % 1;
+
+          if (cfg.id === 'chamber_ignition_blast') {
+            const [x0, x1] = cfg.spawn_x_range;
+            const r = THREE.MathUtils.lerp(cfg.radial_range_m[0], cfg.radial_range_m[1], m.radiusNorm) * (0.6 + env * 1.1);
+            posArr[i * 3] = THREE.MathUtils.lerp(x0, x1, m.progress);
+            posArr[i * 3 + 1] = 0.03 + Math.cos(m.angle + state.timeElapsed * 12) * r;
+            posArr[i * 3 + 2] = Math.sin(m.angle + state.timeElapsed * 12) * r;
+          } else if (cfg.id === 'barrel_propellant_gas') {
+            const [x0, x1] = cfg.spawn_x_range;
+            // Expand behind advancing bullet front
+            const frontX = THREE.MathUtils.lerp(x0 + 0.04, x1, Math.min(1, windowFrac * 1.35));
+            const r = THREE.MathUtils.lerp(cfg.radial_range_m[0], cfg.radial_range_m[1], m.radiusNorm);
+            posArr[i * 3] = THREE.MathUtils.lerp(x0, frontX, m.progress);
+            posArr[i * 3 + 1] = 0.03 + Math.cos(m.angle) * r;
+            posArr[i * 3 + 2] = Math.sin(m.angle) * r;
+          } else if (cfg.id === 'direct_impingement_gas_tube_stream') {
+            // Flows NEGATIVE along X from Gas Port (0.39) -> Gas Key (0.01) at Y = 0.056!
+            const [xStart, xEnd] = cfg.spawn_x_range; // [0.39, 0.01]
+            const yCenter = cfg.y_axis_center_m;
+            const r = THREE.MathUtils.lerp(cfg.radial_range_m[0], cfg.radial_range_m[1], m.radiusNorm);
+            const flowHead = Math.min(1, windowFrac * 1.6);
+            const tPos = m.progress * flowHead;
+            posArr[i * 3] = THREE.MathUtils.lerp(xStart, xEnd, tPos);
+            posArr[i * 3 + 1] = yCenter + Math.cos(m.angle + state.timeElapsed * 18) * r;
+            posArr[i * 3 + 2] = Math.sin(m.angle + state.timeElapsed * 18) * r;
+          } else if (cfg.id === 'carrier_vent_exhaust') {
+            // Vents sideways out of the 2 BCG side vent holes
+            const bcgOffset = getBcgRecoilOffset(p);
+            const sx = cfg.spawn_position_m[0] + bcgOffset;
+            const sy = cfg.spawn_position_m[1];
+            const sz = cfg.spawn_position_m[2];
+            const t = m.progress;
+            const spread = t * 0.022;
+            posArr[i * 3] = sx + cfg.velocity_vector_mps[0] * t * 0.05 + (Math.cos(m.angle) * spread * 0.4);
+            posArr[i * 3 + 1] = sy + cfg.velocity_vector_mps[1] * t * 0.06 + (Math.sin(m.angle) * spread);
+            posArr[i * 3 + 2] = sz + cfg.velocity_vector_mps[2] * t * 0.055;
+          } else if (cfg.id === 'muzzle_flash_and_smoke') {
+            const [sx, sy, sz] = cfg.spawn_position_m;
+            const spreadRad = THREE.MathUtils.degToRad(cfg.cone_spread_deg) * m.conePitch;
+            const dist = m.progress * 0.19 * (0.65 + env * 0.65);
+            posArr[i * 3] = sx + Math.cos(spreadRad) * dist;
+            posArr[i * 3 + 1] = sy + Math.sin(spreadRad) * Math.cos(m.coneYaw) * dist;
+            posArr[i * 3 + 2] = sz + Math.sin(spreadRad) * Math.sin(m.coneYaw) * dist;
+          }
+
+          tmpColor.copy(ps.cStart).lerp(ps.cEnd, m.progress);
+          colArr[i * 3] = tmpColor.r;
+          colArr[i * 3 + 1] = tmpColor.g;
+          colArr[i * 3 + 2] = tmpColor.b;
+        }
+
+        ps.geo.attributes.position.needsUpdate = true;
+        ps.geo.attributes.color.needsUpdate = true;
+      });
+
+      // Update Heat Mirage Smoke when gas tube temp > 340°C
+      if (heatMirageSystem) {
+        const hotAmt = Math.max(0, (state.gasTubeTemp - 320) / 320);
+        heatMirageSystem.points.visible = state.particlesEnabled && hotAmt > 0.05;
+        if (heatMirageSystem.points.visible) {
+          heatMirageSystem.mat.opacity = Math.min(0.55, hotAmt * 0.55);
+          const posArr = heatMirageSystem.geo.attributes.position.array;
+          for (let i = 0; i < heatMirageSystem.meta.length; i++) {
+            const m = heatMirageSystem.meta[i];
+            m.p = (m.p + dt * 0.65) % 1;
+            posArr[i * 3] = m.x + Math.sin(state.timeElapsed * 5 + i) * 0.006;
+            posArr[i * 3 + 1] = 0.056 + m.p * 0.14;
+            posArr[i * 3 + 2] = m.drift * m.p * 4;
+          }
+          heatMirageSystem.geo.attributes.position.needsUpdate = true;
+        }
+      }
+    }
+
+    // =========================================================================
+    // 7. 8-STEP KINEMATICS, PHYSICS & TELEMETRY ENGINE
+    // =========================================================================
+
+    /** Computes exact BCG rearward recoil displacement along X (-0.095m to 0.0m) from cycleProgress */
+    function getBcgRecoilOffset(p) {
+      const maxTravel = 0.095;
+      if (p < 0.18) {
+        // Step 1-2: Feeding & Chambering forward travel (-0.045 -> 0)
+        const t = p / 0.18;
+        return -maxTravel * 0.45 * (1 - t);
+      } else if (p < 0.46) {
+        // Step 2-4: Locked completely forward
+        return 0.0;
+      } else if (p < 0.56) {
+        // Step 5: Unlocking cam-track travel (0 -> -0.014)
+        const t = (p - 0.46) / 0.10;
+        return -0.014 * t;
+      } else if (p < 0.84) {
+        // Step 6-7: Full rearward recoil travel (-0.014 -> -0.095)
+        const t = (p - 0.56) / 0.28;
+        return -0.014 - (maxTravel - 0.014) * Math.sin(t * Math.PI * 0.5);
+      } else {
+        // Step 8: Action spring drives BCG forward (-0.095 -> -0.04275 to seamlessly loop into 0.0)
+        const t = (p - 0.84) / 0.16;
+        return -maxTravel + (maxTravel * 0.55) * t;
+      }
+    }
+
+    /** Computes exact 7-Lug Bolt Head rotation in degrees (0° unlocked <-> 22.5° locked) */
+    function getBoltRotationDeg(p) {
+      if (p < 0.14) return 0.0;
+      if (p < 0.22) return 22.5 * ((p - 0.14) / 0.08);
+      if (p < 0.46) return 22.5;
+      if (p < 0.56) return 22.5 * (1 - (p - 0.46) / 0.10);
+      return 0.0;
+    }
+
+    function updateKinematicsAndPhysics(dt) {
+      const phys = RIFLE_CONFIG.physics_and_telemetry_engine;
+      const prevProgress = state.cycleProgress;
+
+      // 1. Advance Operating Cycle if Cycling or Continuous Loop
+      if (state.chargingActive) {
+        // Manual T-Handle Charging Pull animation (clears jams & chambers round!)
+        state.chargingAnim += dt * 2.2;
+        if (state.chargingAnim >= 1.0) {
+          state.chargingActive = false;
+          state.chargingAnim = 0;
+          state.isJammed = false;
+          state.boltLockedBack = false;
+          if (state.currentMalfunctionId === 'failure_to_extract') {
+            applyMalfunctionMode('normal_operation');
+          }
+          state.cycleProgress = 0.22; // Chambered & locked
+        }
+      } else if ((state.isCycling || state.continuousLoop) && !state.isJammed && !state.boltLockedBack) {
+        // Real cycle duration is 0.075s (800 RPM), slowed down by timeScale (0.02x .. 1.0x)
+        const dp = (dt * state.timeScale) / (phys.single_cycle_real_duration_sec * 3.5);
+        state.cycleProgress += dp;
+
+        // Trigger procedural audio on ignition (0.24) and bolt lock (0.98)
+        if (prevProgress < 0.24 && state.cycleProgress >= 0.24 && !state.shotAudioTriggeredThisCycle) {
+          state.shotAudioTriggeredThisCycle = true;
+          playShotAudio();
+          // Heat up gas tube naturally per shot
+          state.gasTubeTemp = Math.min(640, state.gasTubeTemp + 16);
+        }
+
+        // Trigger Brass Shell Ejection at cycleProgress = 0.62
+        const ejectTrigger = RIFLE_CONFIG.gas_dynamics_and_ballistics_particles.ejected_brass_shell_physics.trigger_cycle_progress;
+        if (prevProgress < ejectTrigger && state.cycleProgress >= ejectTrigger && !state.shellEjectedThisCycle) {
+          state.shellEjectedThisCycle = true;
+          if (state.currentMalfunctionId !== 'failure_to_extract') {
+            spawnEjectedBrassShell();
+            playMetallicClick(980, 0.05);
+          }
+        }
+
+        // Check Failure-to-Extract Double Feed Halt at 0.91
+        if (state.currentMalfunctionId === 'failure_to_extract' && state.cycleProgress >= 0.91) {
+          state.cycleProgress = 0.91;
+          state.isJammed = true;
+          state.isCycling = false;
+          state.continuousLoop = false;
+          updateLoopBtnUI();
+          playMetallicClick(320, 0.12);
+        }
+
+        // Handle Full Cycle Completion (1.0 -> 0.0 -> 0.22)
+        if (state.cycleProgress >= 1.0) {
+          state.cycleProgress -= 1.0;
+          state.shellEjectedThisCycle = false;
+          state.shotAudioTriggeredThisCycle = false;
+          state.boltClackTriggeredThisCycle = false;
+
+          if (!state.continuousLoop && state.roundsRemaining > 0) {
+            state.roundsRemaining = Math.max(0, state.roundsRemaining - 1);
+          }
+
+          if (state.roundsRemaining === 0 && !state.continuousLoop) {
+            // Empty Magazine: Lock Bolt Back!
+            state.boltLockedBack = true;
+            state.isCycling = false;
+            state.cycleProgress = 0.84;
+            playMetallicClick(620, 0.08);
+          }
+        }
+
+        // Stop at Chambered & Locked (0.22) after completing 1 SEMI shot
+        if (state.isCycling && !state.continuousLoop && state.fireMode === 'SEMI' && prevProgress < 0.22 && state.cycleProgress >= 0.22) {
+          state.cycleProgress = 0.22;
+          state.isCycling = false;
+          playMetallicClick(740, 0.06);
+        }
+
+        // In AUTO mode, stop at 0.22 once trigger is released
+        if (state.isCycling && !state.continuousLoop && state.fireMode === 'AUTO' && !state.triggerHeld && prevProgress < 0.22 && state.cycleProgress >= 0.22) {
+          state.cycleProgress = 0.22;
+          state.isCycling = false;
+          playMetallicClick(740, 0.06);
+        }
+      }
+
+      const p = state.cycleProgress;
+
+      // 2. Apply Mechanical Part Positions & Rotations
+      let bcgOffset = getBcgRecoilOffset(p);
+      let boltRotDeg = getBoltRotationDeg(p);
+
+      // Manual Charging Handle Override
+      if (state.chargingActive) {
+        const pullWave = Math.sin(state.chargingAnim * Math.PI); // 0 -> 1 -> 0
+        bcgOffset = -0.095 * pullWave;
+        boltRotDeg = 22.5 * (1 - Math.min(1, pullWave * 3));
+        if (dynParts.chargingHandleGroup) {
+          dynParts.chargingHandleGroup.position.x = -0.095 * pullWave;
+        }
+      } else if (dynParts.chargingHandleGroup) {
+        dynParts.chargingHandleGroup.position.x = 0;
+      }
+
+      // BCG Recoil & Bolt Rotation
+      if (dynParts.bcgRoot) {
+        dynParts.bcgRoot.position.x = bcgOffset;
+      }
+      if (dynParts.boltHeadGroup) {
+        dynParts.boltHeadGroup.rotation.x = THREE.MathUtils.degToRad(boltRotDeg);
+      }
+      // Highlight 7 Locking Lugs bright cyan when locked (>18 deg)
+      const isLocked = boltRotDeg >= 18.0;
+      dynParts.boltLugsMeshes.forEach(lug => {
+        if (lug.material && lug.material.emissive) {
+          lug.material.emissiveIntensity = isLocked ? 1.5 : 0.15;
+        }
+      });
+
+      // Firing Pin forward strike at p in [0.23, 0.30]
+      if (dynParts.firingPinMesh) {
+        const strike = (p >= 0.23 && p <= 0.30) ? Math.sin(((p - 0.23) / 0.07) * Math.PI) : 0;
+        dynParts.firingPinMesh.position.x = -0.045 + strike * 0.008;
+      }
+
+      // Cam Pin subtle lateral shift during locking/unlocking
+      if (dynParts.camPinMesh) {
+        dynParts.camPinMesh.position.z = Math.sin(THREE.MathUtils.degToRad(boltRotDeg)) * 0.006;
+      }
+
+      // Rifle Buffer & 38-Coil Action Spring Compression inside Buttstock
+      if (dynParts.bufferGroup && dynParts.actionSpringMesh) {
+        dynParts.bufferGroup.position.x = 0.032 + bcgOffset;
+        const freeLen = 0.24;
+        const compressedScale = Math.max(0.55, (freeLen + bcgOffset) / freeLen);
+        dynParts.actionSpringMesh.scale.x = compressedScale;
+      }
+
+      // Fire Control Group (Hammer, Trigger, Selector)
+      if (dynParts.hammerPivot) {
+        let hammerDeg = -82; // Cocked back
+        if (p >= 0.22 && p < 0.26) {
+          // Hammer snaps forward to strike Firing Pin!
+          hammerDeg = THREE.MathUtils.lerp(-82, 12, (p - 0.22) / 0.04);
+        } else if (p >= 0.26 && p < 0.72) {
+          // Rests forward until BCG pushes it back down
+          hammerDeg = 12;
+        } else if (p >= 0.72 && p < 0.84) {
+          // Step 7: BCG recocks hammer to -82°
+          hammerDeg = THREE.MathUtils.lerp(12, -82, (p - 0.72) / 0.12);
+        }
+        dynParts.hammerPivot.rotation.z = THREE.MathUtils.degToRad(-hammerDeg);
+      }
+
+      if (dynParts.triggerPivot) {
+        const pulled = (p >= 0.21 && p <= 0.32) || state.triggerHeld;
+        dynParts.triggerPivot.rotation.z = pulled ? -0.18 : 0.0;
+      }
+
+      if (dynParts.selectorPivot) {
+        const selMap = RIFLE_CONFIG.mechanical_assemblies[3].procedural_geometry.selector_positions_deg;
+        const deg = selMap[state.fireMode] || 90;
+        dynParts.selectorPivot.rotation.z = THREE.MathUtils.degToRad(deg);
+      }
+
+      // Magazine Stack & Follower height based on roundsRemaining
+      const magFrac = state.roundsRemaining / phys.magazine_capacity;
+      const visibleCount = Math.ceil(magFrac * dynParts.magStackMeshes.length);
+      dynParts.magStackMeshes.forEach((rMesh, idx) => {
+        rMesh.visible = idx < visibleCount;
+      });
+      if (dynParts.magFollowerMesh && dynParts.magSpringMesh) {
+        const lift = (1 - magFrac) * 0.115;
+        dynParts.magFollowerMesh.position.y = -0.132 + lift;
+        dynParts.magSpringMesh.scale.y = 1.0 + lift * 14.0;
+      }
+
+      // Dynamic Live Cartridge, Flying Copper Bullet & Extraction Animation
+      updateActiveCartridgeVisuals(p, bcgOffset);
+
+      // Update Flying Ejected Brass Casings with Gravity & Angular Spin
+      updateFlyingBrassShells(dt);
+
+      // 3. Ballistic Pressure, Velocity & Thermal Telemetry Calculations
+      let chamberPsi = 0;
+      if (p >= 0.23 && p <= 0.40) {
+        const t = (p - 0.23) / 0.17;
+        // Authentic sharp ballistic rise & exponential decay curve
+        chamberPsi = 55000 * Math.pow(Math.sin(t * Math.PI), 0.75) * Math.exp(-t * 1.1) * 1.45;
+        chamberPsi = Math.min(55000, chamberPsi);
+      }
+
+      let gasPortPsi = 0;
+      if (p >= 0.31 && p <= 0.54) {
+        const t = (p - 0.31) / 0.23;
+        gasPortPsi = 14500 * Math.sin(t * Math.PI);
+      }
+
+      let bcgVel = 0;
+      if (p >= 0.46 && p <= 0.84) {
+        const t = (p - 0.46) / 0.38;
+        bcgVel = 6.4 * Math.sin(t * Math.PI);
+      } else if (p > 0.84 || p < 0.18) {
+        bcgVel = 3.8;
+      }
+
+      // Gas Tube Temperature Dynamics
+      const isOverheat = state.currentMalfunctionId === 'gas_tube_overheat';
+      if (isOverheat) {
+        state.gasTubeTemp += (640 - state.gasTubeTemp) * Math.min(1, dt * 3.0);
+      } else {
+        // Gradual ambient cooling
+        state.gasTubeTemp = Math.max(28, state.gasTubeTemp - dt * 6.5);
+      }
+
+      // Apply Thermal Glow to Stainless Gas Tube & Barrel
+      const heatNorm = Math.max(0, (state.gasTubeTemp - 240) / 400);
+      const overheatBoost = isOverheat ? 2.4 : 1.0;
+      if (dynParts.gasTubeMaterial) {
+        dynParts.gasTubeMaterial.emissiveIntensity = Math.min(3.2, heatNorm * 1.6 * overheatBoost);
+      }
+      if (dynParts.barrelThermalMaterial) {
+        dynParts.barrelThermalMaterial.emissiveIntensity = Math.min(1.6, heatNorm * 0.7 * overheatBoost);
+      }
+
+      // Chamber & Muzzle Flash Lighting
+      if (chamberLight) {
+        chamberLight.intensity = (chamberPsi / 55000) * 7.5;
+      }
+      if (muzzleLight && muzzleFlashSprite) {
+        const muzzleWave = (p >= 0.33 && p <= 0.44) ? Math.sin(((p - 0.33) / 0.11) * Math.PI) : 0;
+        muzzleLight.intensity = muzzleWave * 9.0;
+        muzzleFlashSprite.material.opacity = muzzleWave * 0.92;
+        const ms = 0.12 + muzzleWave * 0.14;
+        muzzleFlashSprite.scale.set(ms * 1.4, ms, 1);
+      }
+
+      state.telemetryValues = {
+        chamber_pressure_psi: chamberPsi,
+        gas_port_pressure_psi: gasPortPsi,
+        bcg_velocity_mps: (state.isCycling || state.continuousLoop) ? bcgVel : 0.0,
+        bolt_rotation_deg: boltRotDeg,
+        gas_tube_temp_celsius: state.gasTubeTemp,
+        rounds_remaining: state.roundsRemaining
+      };
+
+      updateParticles(dt);
+      renderTelemetryHUD(p);
+    }
+
+    function updateActiveCartridgeVisuals(p, bcgOffset) {
+      const grp = dynParts.activeCartridgeGroup;
+      const bullet = dynParts.activeBulletMesh;
+      const jammedExtra = dynParts.jammedExtraRound;
+      if (!grp || !bullet) return;
+
+      // Hide during Exploded View so mechanical components stay crystal clear
+      if (state.currentExplode > 0.35 || (state.roundsRemaining === 0 && state.boltLockedBack)) {
+        grp.visible = false;
+        if (jammedExtra) jammedExtra.visible = false;
+        return;
+      }
+
+      grp.visible = true;
+
+      if (state.isJammed) {
+        // Failure-to-Extract Double Feed: Spent casing stuck inside chamber + new round jammed underneath at 28 deg
+        grp.position.set(0.068, 0.03, 0);
+        grp.rotation.z = 0;
+        bullet.visible = false;
+        if (jammedExtra) jammedExtra.visible = true;
+        return;
+      }
+
+      if (jammedExtra) jammedExtra.visible = false;
+
+      if (p < 0.14) {
+        // Step 1: Feeding from top of magazine up feed ramps into chamber
+        const t = p / 0.14;
+        grp.position.set(THREE.MathUtils.lerp(0.008, 0.068, t), THREE.MathUtils.lerp(0.005, 0.03, t), 0);
+        grp.rotation.z = THREE.MathUtils.lerp(0.24, 0.0, t);
+        bullet.visible = true;
+        bullet.position.x = 0;
+        bullet.rotation.x = 0;
+      } else if (p < 0.25) {
+        // Step 2-3: Fully chambered, waiting for ignition
+        grp.position.set(0.068, 0.03, 0);
+        grp.rotation.z = 0;
+        bullet.visible = true;
+        bullet.position.x = 0;
+      } else if (p < 0.38) {
+        // Step 3-4: Copper FMJ Bullet accelerates down 20-inch rifled barrel spinning rapidly!
+        const t = (p - 0.25) / 0.13;
+        grp.position.set(0.068, 0.03, 0);
+        grp.rotation.z = 0;
+        bullet.visible = true;
+        bullet.position.x = t * 0.54; // Travels from chamber through muzzle
+        bullet.rotation.x = t * Math.PI * 18; // 1:7 RH rifling spin
+      } else if (p < 0.56) {
+        // Spent brass casing remains in chamber while unlocking
+        grp.position.set(0.068, 0.03, 0);
+        grp.rotation.z = 0;
+        bullet.visible = false;
+      } else if (p < 0.62) {
+        // Step 6: Extractor pulls spent brass casing rearward with BCG
+        grp.position.set(0.068 + bcgOffset, 0.03, 0);
+        grp.rotation.z = 0;
+        bullet.visible = false;
+      } else if (state.currentMalfunctionId === 'failure_to_extract') {
+        // Malfunction active: Spent case fails to extract and remains stuck inside chamber
+        grp.position.set(0.068, 0.03, 0);
+        grp.rotation.z = 0;
+        bullet.visible = false;
+      } else {
+        // Already ejected into flyingShells! Hide active cartridge until Step 1 feeds next round
+        grp.visible = false;
+      }
+    }
+
+    function updateFlyingBrassShells(dt) {
+      const gravity = RIFLE_CONFIG.gas_dynamics_and_ballistics_particles.ejected_brass_shell_physics.gravity_mps2;
+      const simDt = dt * Math.max(0.2, state.timeScale * 1.4);
+
+      for (let i = flyingShells.length - 1; i >= 0; i--) {
+        const s = flyingShells[i];
+        s.age += simDt;
+        s.vel.y += gravity * simDt;
+        s.mesh.position.addScaledVector(s.vel, simDt);
+        s.mesh.rotation.x += s.angVel.x * simDt;
+        s.mesh.rotation.y += s.angVel.y * simDt;
+        s.mesh.rotation.z += s.angVel.z * simDt;
+
+        // Bounce once off lab floor grid
+        if (s.mesh.position.y < -0.252) {
+          s.mesh.position.y = -0.252;
+          s.vel.y *= -0.35;
+          s.vel.x *= 0.6;
+          s.vel.z *= 0.6;
+        }
+
+        if (s.age >= s.maxLife) {
+          scene.remove(s.mesh);
+          flyingShells.splice(i, 1);
+        }
+      }
+    }
+
+    // =========================================================================
+    // 8. INSPECTION VIEWS, FIELD-STRIP EXPLODED ANIMATION & X-RAY MODE
+    // =========================================================================
+    function applyInspectionView(viewId) {
+      const viewCfg = RIFLE_CONFIG.interactive_modes.inspection_views.find(v => v.id === viewId);
+      if (!viewCfg) return;
+      state.currentViewId = viewId;
+      state.targetExplode = viewCfg.explode_factor || 0.0;
+
+      if (viewCfg.clip_plane_normal) {
+        clipPlane.normal.set(...viewCfg.clip_plane_normal);
+        clipPlane.constant = viewCfg.clip_plane_constant;
+      } else {
+        clipPlane.normal.set(0, 0, -1);
+        clipPlane.constant = viewId === 'field_strip_exploded' ? 0.0 : 5.0;
+      }
+
+      const isXray = viewId === 'xray_hologram';
+      const showCaps = Boolean(viewCfg.highlight_cut_edges) || viewId === 'field_strip_exploded';
+
+      assembliesMap.forEach(entry => {
+        entry.cutawayCaps.forEach(cap => {
+          cap.visible = showCaps && !isXray;
+        });
+
+        entry.meshes.forEach(mesh => {
+          if (entry.cutawayCaps.includes(mesh)) return;
+          if (isXray) {
+            if (mesh.userData.xrayRole === 'gas') {
+              mesh.material = materials.xray_highlight_gas;
+            } else if (mesh.userData.xrayRole === 'bcg') {
+              mesh.material = materials.xray_highlight_bcg;
+            } else {
+              mesh.material = materials.xray_hologram_shell;
+            }
+          } else {
+            mesh.material = entry.originalMaterials.get(mesh);
+          }
+        });
+      });
+
+      document.querySelectorAll('.btn-view-mode').forEach(btn => {
+        const active = btn.dataset.view === viewId;
+        btn.className = active
+          ? 'btn-view-mode px-2 py-1.5 rounded-xl text-[11px] font-semibold bg-sky-500/30 text-sky-200 border border-sky-400 shadow-[0_0_12px_rgba(56,189,248,0.3)] transition truncate'
+          : 'btn-view-mode px-2 py-1.5 rounded-xl text-[11px] font-medium bg-slate-800/75 text-slate-300 border border-slate-700 hover:bg-slate-700/80 transition truncate';
+      });
+    }
+
+    function updateExplodedAnimation(dt) {
+      const diff = state.targetExplode - state.currentExplode;
+      if (Math.abs(diff) > 0.0005) {
+        state.currentExplode += diff * Math.min(1, dt * 4.2);
+      } else {
+        state.currentExplode = state.targetExplode;
+      }
+
+      assembliesMap.forEach(entry => {
+        const targetX = entry.baseX + (entry.config.exploded_offset_x_m || 0) * state.currentExplode;
+        const targetY = entry.baseY + (entry.config.exploded_offset_y_m || 0) * state.currentExplode;
+        entry.group.position.set(targetX, targetY, 0);
+      });
+    }
+
+    // =========================================================================
+    // 9. MALFUNCTION DIAGNOSTIC SIMULATIONS
+    // =========================================================================
+    function applyMalfunctionMode(malfId) {
+      state.currentMalfunctionId = malfId;
+      const cfg = RIFLE_CONFIG.malfunction_simulations.find(m => m.id === malfId);
+      const banner = document.getElementById('hud-alert-banner');
+      const alertText = document.getElementById('hud-alert-text');
+      const alertDesc = document.getElementById('hud-alert-desc');
+      const statusDot = document.getElementById('status-dot');
+
+      if (malfId === 'normal_operation') {
+        state.isJammed = false;
+        banner.classList.add('hidden');
+        statusDot.className = 'w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]';
+      } else {
+        banner.classList.remove('hidden');
+        alertText.textContent = cfg.effects.hud_alert_message;
+        alertDesc.textContent = cfg.description_th;
+        statusDot.className = 'w-2 h-2 rounded-full bg-red-500 shadow-[0_0_10px_#ef4444] animate-ping';
+
+        if (malfId === 'failure_to_extract') {
+          // Immediately trigger a cycle to demonstrate Failure-to-Extract Double Feed
+          state.isJammed = false;
+          state.boltLockedBack = false;
+          if (state.fireMode === 'SAFE') setFireMode('SEMI');
+          state.cycleProgress = 0.22;
+          state.isCycling = true;
+          state.shellEjectedThisCycle = false;
+          state.shotAudioTriggeredThisCycle = false;
+          setCameraPreset('bcg_chamber_closeup');
+        } else if (malfId === 'gas_tube_overheat') {
+          state.isJammed = false;
+          setCameraPreset('gas_system_overview');
+        }
+      }
+
+      document.querySelectorAll('.btn-malfunction').forEach(btn => {
+        const active = btn.dataset.malfunction === malfId;
+        const isDanger = btn.dataset.malfunction !== 'normal_operation';
+        if (active && isDanger) {
+          btn.className = 'btn-malfunction px-2 py-1 rounded-xl text-[11px] font-semibold bg-red-500/30 text-red-200 border border-red-400 shadow-[0_0_12px_rgba(239,68,68,0.35)] transition text-center truncate';
+        } else if (active) {
+          btn.className = 'btn-malfunction px-2 py-1 rounded-xl text-[11px] font-semibold bg-emerald-500/25 text-emerald-200 border border-emerald-400/70 transition text-center truncate';
+        } else {
+          btn.className = 'btn-malfunction px-2 py-1 rounded-xl text-[11px] font-medium bg-slate-800/75 text-slate-300 border border-slate-700 hover:bg-slate-700/80 transition text-center truncate';
+        }
+      });
+    }
+
+    // =========================================================================
+    // 10. CAMERA ORBIT CONTROLLER, PRESETS & 3D RAYCAST INSPECTOR
+    // =========================================================================
+    function setCameraPreset(presetId, immediate = false) {
+      const preset = RIFLE_CONFIG.interactive_modes.camera_presets.find(p => p.id === presetId);
+      if (!preset) return;
+
+      const t = new THREE.Vector3(...preset.target);
+      const pos = new THREE.Vector3(...preset.position);
+      const offset = pos.clone().sub(t);
+      const sph = new THREE.Spherical().setFromVector3(offset);
+
+      camCtrl.desiredTarget.copy(t);
+      camCtrl.desiredSpherical.copy(sph);
+
+      if (immediate) {
+        camCtrl.target.copy(t);
+        camCtrl.spherical.copy(sph);
+        syncCameraFromSpherical(0);
+      }
+
+      document.querySelectorAll('.btn-cam-preset').forEach(btn => {
+        const active = btn.dataset.preset === presetId;
+        btn.className = active
+          ? 'btn-cam-preset px-2 py-1 rounded-xl text-[10px] sm:text-[11px] font-semibold bg-sky-500/25 text-sky-200 border border-sky-400/70 transition truncate'
+          : 'btn-cam-preset px-2 py-1 rounded-xl text-[10px] sm:text-[11px] font-medium bg-slate-800/70 text-slate-300 border border-slate-700 hover:bg-slate-700/80 transition truncate';
+      });
+    }
+
+    function syncCameraFromSpherical(recoilShake = 0) {
+      const offset = new THREE.Vector3().setFromSpherical(camCtrl.spherical);
+      camera.position.copy(camCtrl.target).add(offset);
+      if (recoilShake > 0) {
+        camera.position.x -= recoilShake * 0.008;
+        camera.position.y += (Math.random() - 0.5) * recoilShake * 0.006;
+      }
+      camera.lookAt(camCtrl.target);
+    }
+
+    function updateCamera(dt) {
+      const lerpAlpha = 1 - Math.exp(-dt * 6.8);
+      camCtrl.target.lerp(camCtrl.desiredTarget, lerpAlpha);
+      camCtrl.spherical.radius += (camCtrl.desiredSpherical.radius - camCtrl.spherical.radius) * lerpAlpha;
+      camCtrl.spherical.phi += (camCtrl.desiredSpherical.phi - camCtrl.spherical.phi) * lerpAlpha;
+
+      let dTheta = camCtrl.desiredSpherical.theta - camCtrl.spherical.theta;
+      while (dTheta > Math.PI) dTheta -= Math.PI * 2;
+      while (dTheta < -Math.PI) dTheta += Math.PI * 2;
+      camCtrl.spherical.theta += dTheta * lerpAlpha;
+
+      const chamberFrac = (state.telemetryValues.chamber_pressure_psi || 0) / 55000;
+      const shake = (state.isCycling || state.continuousLoop) ? chamberFrac * 0.8 : 0;
+      syncCameraFromSpherical(shake);
+    }
+
+    function initPointerInteractions() {
+      const el = renderer.domElement;
+      const raycaster = new THREE.Raycaster();
+      const pointer = new THREE.Vector2();
+
+      el.addEventListener('mousedown', e => {
+        camCtrl.isDragging = true;
+        camCtrl.dragMoved = false;
+        camCtrl.lastX = e.clientX;
+        camCtrl.lastY = e.clientY;
+      });
+
+      window.addEventListener('mousemove', e => {
+        if (!camCtrl.isDragging) return;
+        const dx = e.clientX - camCtrl.lastX;
+        const dy = e.clientY - camCtrl.lastY;
+        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) camCtrl.dragMoved = true;
+
+        camCtrl.desiredSpherical.theta -= dx * 0.0075;
+        camCtrl.desiredSpherical.phi = THREE.MathUtils.clamp(
+          camCtrl.desiredSpherical.phi - dy * 0.0075,
+          0.18,
+          Math.PI - 0.18
+        );
+        camCtrl.lastX = e.clientX;
+        camCtrl.lastY = e.clientY;
+      });
+
+      window.addEventListener('mouseup', () => {
+        camCtrl.isDragging = false;
+      });
+
+      el.addEventListener('wheel', e => {
+        e.preventDefault();
+        camCtrl.desiredSpherical.radius = THREE.MathUtils.clamp(
+          camCtrl.desiredSpherical.radius + e.deltaY * 0.0008,
+          camCtrl.minRadius,
+          camCtrl.maxRadius
+        );
+      }, { passive: false });
+
+      // Touch Orbit & Pinch Zoom
+      el.addEventListener('touchstart', e => {
+        if (e.touches.length === 1) {
+          camCtrl.isDragging = true;
+          camCtrl.dragMoved = false;
+          camCtrl.lastX = e.touches[0].clientX;
+          camCtrl.lastY = e.touches[0].clientY;
+        } else if (e.touches.length === 2) {
+          camCtrl.isDragging = false;
+          camCtrl.pinchDist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+          );
+        }
+      }, { passive: true });
+
+      el.addEventListener('touchmove', e => {
+        if (e.touches.length === 1 && camCtrl.isDragging) {
+          const dx = e.touches[0].clientX - camCtrl.lastX;
+          const dy = e.touches[0].clientY - camCtrl.lastY;
+          if (Math.abs(dx) > 4 || Math.abs(dy) > 4) camCtrl.dragMoved = true;
+          camCtrl.desiredSpherical.theta -= dx * 0.0085;
+          camCtrl.desiredSpherical.phi = THREE.MathUtils.clamp(
+            camCtrl.desiredSpherical.phi - dy * 0.0085,
+            0.18,
+            Math.PI - 0.18
+          );
+          camCtrl.lastX = e.touches[0].clientX;
+          camCtrl.lastY = e.touches[0].clientY;
+        } else if (e.touches.length === 2) {
+          const dist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+          );
+          const delta = camCtrl.pinchDist - dist;
+          camCtrl.desiredSpherical.radius = THREE.MathUtils.clamp(
+            camCtrl.desiredSpherical.radius + delta * 0.0028,
+            camCtrl.minRadius,
+            camCtrl.maxRadius
+          );
+          camCtrl.pinchDist = dist;
+        }
+      }, { passive: true });
+
+      el.addEventListener('touchend', () => { camCtrl.isDragging = false; });
+
+      // Click / Tap Raycast to open Component Inspector Drawer
+      el.addEventListener('click', e => {
+        if (camCtrl.dragMoved) return;
+        const rect = el.getBoundingClientRect();
+        pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        raycaster.setFromCamera(pointer, camera);
+
+        const hits = raycaster.intersectObjects(clickableMeshes, false);
+        const validHit = hits.find(h => {
+          const mat = h.object.material;
+          if (mat && mat.clippingPlanes && mat.clippingPlanes.length > 0) {
+            return clipPlane.distanceToPoint(h.point) >= -0.002;
+          }
+          return true;
+        });
+
+        if (validHit && validHit.object.userData.assemblyId) {
+          openComponentInspector(validHit.object.userData.assemblyId);
+        }
+      });
+    }
+
+    // =========================================================================
+    // 11. COMPONENT INSPECTOR DRAWER & 3D FLOATING LABELS
+    // =========================================================================
+    function openComponentInspector(assemblyId) {
+      const entry = assembliesMap.get(assemblyId);
+      if (!entry) return;
+      state.selectedAssemblyId = assemblyId;
+      const cfg = entry.config;
+
+      document.getElementById('insp-stage-code').textContent = cfg.stage_code;
+      const motionLabels = {
+        static_structure: 'STATIC STRUCTURE',
+        reciprocating_recoil: 'INLINE RECOIL SYSTEM',
+        trigger_hammer_kinematics: 'FIRE CONTROL GROUP',
+        magazine_feed_stack: 'DOUBLE-STACK FEED',
+        bcg_reciprocating_and_rotating: '7-LUG ROTATING BCG',
+        manual_charging: 'NON-RECIPROCATING'
+      };
+      document.getElementById('insp-motion-badge').textContent = motionLabels[cfg.motion_group] || cfg.motion_group;
+      document.getElementById('insp-title').textContent = cfg.name_th;
+      document.getElementById('insp-summary').textContent = cfg.education_info.summary;
+      document.getElementById('insp-xpos').textContent = `${cfg.x_position_m.toFixed(3)} m`;
+
+      const metricsEl = document.getElementById('insp-metrics');
+      metricsEl.innerHTML = '';
+      cfg.education_info.key_metrics.forEach(m => {
+        const li = document.createElement('li');
+        li.className = 'flex items-center gap-2 text-xs text-sky-200 bg-slate-800/75 px-2.5 py-1.5 rounded-lg border border-slate-700/70 font-mono-tech';
+        li.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-sky-400 shrink-0"></span><span>${m}</span>`;
+        metricsEl.appendChild(li);
+      });
+
+      document.getElementById('inspector-drawer').classList.remove('translate-x-[125%]');
+    }
+
+    function closeComponentInspector() {
+      state.selectedAssemblyId = null;
+      document.getElementById('inspector-drawer').classList.add('translate-x-[125%]');
+    }
+
+    function initFloatingLabels() {
+      const layer = document.getElementById('labels-layer');
+      layer.innerHTML = '';
+      RIFLE_CONFIG.mechanical_assemblies.forEach(cfg => {
+        const el = document.createElement('button');
+        el.className = 'floating-label hidden px-2 py-1 rounded-lg bg-slate-900/90 border border-sky-400/55 shadow-lg text-left backdrop-blur-md';
+        el.innerHTML = `
+          <div class="font-mono-tech text-[9px] text-sky-400 leading-none">${cfg.stage_code}</div>
+          <div class="text-[10px] sm:text-[11px] font-semibold text-white whitespace-nowrap mt-0.5">${cfg.name_th.split('(')[0].trim()}</div>
+        `;
+        el.addEventListener('click', e => {
+          e.stopPropagation();
+          openComponentInspector(cfg.id);
+        });
+        layer.appendChild(el);
+        floatingLabelEls.set(cfg.id, el);
+      });
+    }
+
+    function updateFloatingLabels() {
+      const showAll = state.labelsForceEnabled || state.currentViewId === 'field_strip_exploded';
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const worldPos = new THREE.Vector3();
+
+      assembliesMap.forEach((entry, id) => {
+        const el = floatingLabelEls.get(id);
+        if (!el) return;
+
+        if (!showAll) {
+          el.classList.add('hidden');
+          return;
+        }
+
+        worldPos.copy(entry.labelAnchor).add(entry.group.position);
+        worldPos.project(camera);
+
+        if (worldPos.z > 1) {
+          el.classList.add('hidden');
+          return;
+        }
+
+        el.classList.remove('hidden');
+        el.style.left = `${(worldPos.x * 0.5 + 0.5) * w}px`;
+        el.style.top = `${(-worldPos.y * 0.5 + 0.5) * h}px`;
+        el.style.borderColor = state.selectedAssemblyId === id ? '#f59e0b' : 'rgba(56, 189, 248, 0.5)';
+      });
+    }
+
+    // =========================================================================
+    // 12. PROCEDURAL WEB AUDIO BALLISTICS & MECHANICAL SYNTHESIZER
+    // =========================================================================
+    function ensureAudioCtx() {
+      if (!state.audioEnabled) return false;
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContextClass();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      return true;
+    }
+
+    function playShotAudio() {
+      if (!ensureAudioCtx()) return;
+      const now = audioCtx.currentTime;
+      const slowStretch = Math.max(1, 0.35 / Math.max(0.05, state.timeScale));
+
+      // Supersonic Crack Noise Burst
+      const dur = Math.min(0.45, 0.14 * slowStretch);
+      const buf = audioCtx.createBuffer(1, Math.floor(audioCtx.sampleRate * dur), audioCtx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < data.length; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (data.length * 0.28));
+      }
+      const noise = audioCtx.createBufferSource();
+      noise.buffer = buf;
+
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(1600 / Math.sqrt(slowStretch), now);
+      filter.frequency.exponentialRampToValueAtTime(180, now + dur);
+
+      const gain = audioCtx.createGain();
+      gain.gain.setValueAtTime(0.32, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
+      noise.connect(filter).connect(gain).connect(audioCtx.destination);
+      noise.start(now);
+
+      // Low-end Chamber Thump
+      const osc = audioCtx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(150 / Math.sqrt(slowStretch), now);
+      osc.frequency.exponentialRampToValueAtTime(36, now + dur * 0.8);
+      const oGain = audioCtx.createGain();
+      oGain.gain.setValueAtTime(0.28, now);
+      oGain.gain.exponentialRampToValueAtTime(0.001, now + dur * 0.8);
+      osc.connect(oGain).connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + dur);
+    }
+
+    function playMetallicClick(freq = 820, dur = 0.06) {
+      if (!ensureAudioCtx()) return;
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(freq, now);
+      osc.frequency.exponentialRampToValueAtTime(freq * 0.45, now + dur);
+      const gain = audioCtx.createGain();
+      gain.gain.setValueAtTime(0.09, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + dur);
+    }
+
+    // =========================================================================
+    // 13. FIRE CONTROLS, STEPPER & UI HUD BINDINGS
+    // =========================================================================
+    function setFireMode(mode) {
+      state.fireMode = mode;
+      playMetallicClick(1100, 0.03);
+      document.querySelectorAll('.btn-fire-mode').forEach(btn => {
+        const active = btn.dataset.mode === mode;
+        if (active) {
+          btn.className = mode === 'SAFE'
+            ? 'btn-fire-mode px-2 py-1 rounded-lg font-mono-tech text-[10px] font-bold bg-slate-600 text-white transition'
+            : mode === 'AUTO'
+              ? 'btn-fire-mode px-2 py-1 rounded-lg font-mono-tech text-[10px] font-bold bg-red-500/80 text-white transition'
+              : 'btn-fire-mode px-2 py-1 rounded-lg font-mono-tech text-[10px] font-bold bg-amber-500 text-slate-950 transition';
+        } else {
+          btn.className = 'btn-fire-mode px-2 py-1 rounded-lg font-mono-tech text-[10px] font-bold text-slate-400 hover:text-slate-200 transition';
+        }
+      });
+
+      const triggerBtn = document.getElementById('btn-trigger-fire');
+      const triggerText = document.getElementById('trigger-btn-text');
+      if (mode === 'SAFE') {
+        triggerBtn.classList.add('opacity-50');
+        triggerText.textContent = 'นิรภัย (SAFE)';
+      } else {
+        triggerBtn.classList.remove('opacity-50');
+        triggerText.textContent = mode === 'AUTO' ? 'กดค้าง (AUTO)' : 'ลั่นไก (SEMI)';
+      }
+    }
+
+    function pullTrigger() {
+      if (state.fireMode === 'SAFE') {
+        playMetallicClick(450, 0.03);
+        return;
+      }
+      if (state.isJammed || state.boltLockedBack || state.roundsRemaining <= 0) {
+        playMetallicClick(320, 0.04);
+        return;
+      }
+      if (!state.isCycling) {
+        state.continuousLoop = false;
+        updateLoopBtnUI();
+        state.cycleProgress = 0.22;
+        state.isCycling = true;
+        state.shellEjectedThisCycle = false;
+        state.shotAudioTriggeredThisCycle = false;
+      }
+    }
+
+    function pullChargingHandle() {
+      state.isCycling = false;
+      state.continuousLoop = false;
+      updateLoopBtnUI();
+      state.chargingActive = true;
+      state.chargingAnim = 0;
+      playMetallicClick(680, 0.09);
+      setTimeout(() => playMetallicClick(920, 0.07), 240);
+    }
+
+    function reloadMagazine() {
+      state.roundsRemaining = RIFLE_CONFIG.physics_and_telemetry_engine.magazine_capacity;
+      state.boltLockedBack = false;
+      state.isJammed = false;
+      state.cycleProgress = 0.22;
+      if (state.currentMalfunctionId === 'failure_to_extract') {
+        applyMalfunctionMode('normal_operation');
+      }
+      playMetallicClick(540, 0.08);
+      setTimeout(() => playMetallicClick(880, 0.06), 160);
+    }
+
+    function jumpToCycleStep(stepIdx) {
+      const steps = RIFLE_CONFIG.project_meta.operating_cycle_8_steps;
+      const wrapped = ((stepIdx % steps.length) + steps.length) % steps.length;
+      const step = steps[wrapped];
+      state.activeStepIndex = wrapped;
+      state.isCycling = false;
+      state.continuousLoop = false;
+      state.isJammed = false;
+      state.boltLockedBack = false;
+      updateLoopBtnUI();
+
+      // Jump cleanly into the middle of the step so particles & bolt angle are clearly visible!
+      const [r0, r1] = step.cycle_progress_range;
+      state.cycleProgress = r0 + (r1 - r0) * 0.52;
+      playMetallicClick(1040, 0.03);
+
+      // Auto-focus relevant camera for maximum educational clarity
+      if (step.id === 'direct_impingement_gas') setCameraPreset('gas_system_overview');
+      else if (step.id === 'cocking_and_buffering' || step.id === 'cycle_reset') setCameraPreset('buffer_tube_recoil');
+      else if (step.id === 'firing') setCameraPreset('trigger_fcg_closeup');
+      else setCameraPreset('bcg_chamber_closeup');
+    }
+
+    function updateLoopBtnUI() {
+      const btn = document.getElementById('btn-loop-toggle');
+      if (state.continuousLoop) {
+        btn.textContent = '⏸ PAUSE';
+        btn.className = 'shrink-0 px-2 py-1 rounded-lg bg-sky-500/30 text-sky-200 border border-sky-400 font-mono-tech text-[10px] font-bold transition';
+      } else {
+        btn.textContent = '▶ LOOP';
+        btn.className = 'shrink-0 px-2 py-1 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-600/70 font-mono-tech text-[10px] font-semibold transition';
+      }
+    }
+
+    function initHUD() {
+      // 1. Telemetry Grid
+      const grid = document.getElementById('telemetry-grid');
+      RIFLE_CONFIG.physics_and_telemetry_engine.telemetry_channels.forEach(ch => {
+        const card = document.createElement('div');
+        card.className = 'bg-slate-900/75 border border-slate-700/70 rounded-xl px-2.5 py-1.5';
+        card.innerHTML = `
+          <div class="text-[9px] sm:text-[10px] text-slate-400 truncate">${ch.label_th}</div>
+          <div class="flex items-baseline justify-between gap-1 mt-0.5">
+            <span id="val-${ch.key}" class="font-mono-tech text-xs sm:text-sm font-bold text-slate-100">0</span>
+            <span class="font-mono-tech text-[9px] text-slate-500">${ch.unit}</span>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+
+      // 2. Camera Presets
+      const camBox = document.getElementById('camera-presets-container');
+      RIFLE_CONFIG.interactive_modes.camera_presets.forEach(p => {
+        const btn = document.createElement('button');
+        btn.dataset.preset = p.id;
+        btn.textContent = p.label_th;
+        btn.className = 'btn-cam-preset px-2 py-1 rounded-xl text-[10px] sm:text-[11px] font-medium bg-slate-800/70 text-slate-300 border border-slate-700 transition truncate';
+        btn.addEventListener('click', () => setCameraPreset(p.id, false));
+        camBox.appendChild(btn);
+      });
+
+      // 3. 8-Step Cycle Stepper Buttons
+      const stepBox = document.getElementById('cycle-steps-container');
+      RIFLE_CONFIG.project_meta.operating_cycle_8_steps.forEach((st, idx) => {
+        const btn = document.createElement('button');
+        btn.dataset.stepIdx = idx;
+        btn.textContent = st.label_th;
+        btn.className = 'btn-cycle-step px-2 py-1 rounded-lg text-[10px] font-medium bg-slate-800/70 text-slate-300 border border-slate-700 hover:bg-slate-700/80 transition truncate text-left';
+        btn.addEventListener('click', () => jumpToCycleStep(idx));
+        stepBox.appendChild(btn);
+      });
+
+      document.getElementById('btn-step-prev').addEventListener('click', () => jumpToCycleStep(state.activeStepIndex - 1));
+      document.getElementById('btn-step-next').addEventListener('click', () => jumpToCycleStep(state.activeStepIndex + 1));
+      document.getElementById('btn-mobile-step').addEventListener('click', () => jumpToCycleStep(state.activeStepIndex + 1));
+
+      // 4. Inspection Views
+      const viewBox = document.getElementById('inspection-views-container');
+      RIFLE_CONFIG.interactive_modes.inspection_views.forEach(v => {
+        const btn = document.createElement('button');
+        btn.dataset.view = v.id;
+        btn.textContent = v.label_th;
+        btn.className = 'btn-view-mode px-2 py-1.5 rounded-xl text-[11px] font-medium bg-slate-800/75 text-slate-300 border border-slate-700 transition truncate';
+        btn.addEventListener('click', () => applyInspectionView(v.id));
+        viewBox.appendChild(btn);
+      });
+
+      // 5. Malfunction Selector
+      const malfBox = document.getElementById('malfunction-selector-container');
+      RIFLE_CONFIG.malfunction_simulations.forEach(m => {
+        const btn = document.createElement('button');
+        btn.dataset.malfunction = m.id;
+        btn.textContent = m.label_th;
+        btn.className = 'btn-malfunction px-2 py-1 rounded-xl text-[11px] font-medium bg-slate-800/75 text-slate-300 border border-slate-700 transition truncate';
+        btn.addEventListener('click', () => applyMalfunctionMode(m.id));
+        malfBox.appendChild(btn);
+      });
+
+      // 6. Fire Selector & Trigger Controls
+      document.querySelectorAll('.btn-fire-mode').forEach(btn => {
+        btn.addEventListener('click', () => setFireMode(btn.dataset.mode));
+      });
+
+      const trigBtn = document.getElementById('btn-trigger-fire');
+      const startFire = (e) => { e.preventDefault(); state.triggerHeld = true; pullTrigger(); };
+      const stopFire = () => { state.triggerHeld = false; };
+      trigBtn.addEventListener('mousedown', startFire);
+      trigBtn.addEventListener('touchstart', startFire, { passive: false });
+      window.addEventListener('mouseup', stopFire);
+      window.addEventListener('touchend', stopFire);
+
+      // Spacebar shortcut for firing
+      window.addEventListener('keydown', e => {
+        if (e.code === 'Space' && !e.repeat) {
+          e.preventDefault();
+          state.triggerHeld = true;
+          pullTrigger();
+        }
+      });
+      window.addEventListener('keyup', e => {
+        if (e.code === 'Space') state.triggerHeld = false;
+      });
+
+      document.getElementById('btn-charging-handle').addEventListener('click', pullChargingHandle);
+      document.getElementById('btn-reload-mag').addEventListener('click', reloadMagazine);
+
+      // Continuous Slow-Motion Loop Button
+      document.getElementById('btn-loop-toggle').addEventListener('click', () => {
+        state.continuousLoop = !state.continuousLoop;
+        if (state.continuousLoop) {
+          state.isJammed = false;
+          state.boltLockedBack = false;
+          if (state.fireMode === 'SAFE') setFireMode('AUTO');
+        }
+        updateLoopBtnUI();
+      });
+
+      // Slow-Motion Time Scale Slider
+      const tsSlider = document.getElementById('timescale-slider');
+      tsSlider.addEventListener('input', e => {
+        state.timeScale = parseFloat(e.target.value);
+        document.getElementById('timescale-display').textContent = `${state.timeScale.toFixed(2)}x`;
+      });
+
+      // Quick Toggles (Particles, Audio, Labels)
+      document.getElementById('btn-toggle-particles').addEventListener('click', () => {
+        state.particlesEnabled = !state.particlesEnabled;
+        const btn = document.getElementById('btn-toggle-particles');
+        btn.className = state.particlesEnabled
+          ? 'px-2.5 py-1.5 rounded-xl text-[11px] font-medium flex items-center gap-1.5 bg-sky-500/20 text-sky-300 border border-sky-400/40 hover:bg-sky-500/30 transition'
+          : 'px-2.5 py-1.5 rounded-xl text-[11px] font-medium flex items-center gap-1.5 bg-slate-800/80 text-slate-400 border border-slate-600/50 hover:bg-slate-700/80 transition';
+      });
+
+      document.getElementById('btn-toggle-audio').addEventListener('click', () => {
+        state.audioEnabled = !state.audioEnabled;
+        document.getElementById('icon-audio-off').classList.toggle('hidden', state.audioEnabled);
+        document.getElementById('icon-audio-on').classList.toggle('hidden', !state.audioEnabled);
+        const btn = document.getElementById('btn-toggle-audio');
+        btn.className = state.audioEnabled
+          ? 'px-2.5 py-1.5 rounded-xl text-[11px] font-medium flex items-center gap-1.5 bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 transition'
+          : 'px-2.5 py-1.5 rounded-xl text-[11px] font-medium flex items-center gap-1.5 bg-slate-800/80 text-slate-300 border border-slate-600/50 hover:bg-slate-700/80 transition';
+        if (state.audioEnabled) playMetallicClick(900, 0.04);
+      });
+
+      document.getElementById('btn-toggle-labels').addEventListener('click', () => {
+        state.labelsForceEnabled = !state.labelsForceEnabled;
+        const btn = document.getElementById('btn-toggle-labels');
+        btn.className = state.labelsForceEnabled
+          ? 'px-2.5 py-1.5 rounded-xl text-[11px] font-medium flex items-center gap-1.5 bg-sky-500/20 text-sky-300 border border-sky-400/40 hover:bg-sky-500/30 transition'
+          : 'px-2.5 py-1.5 rounded-xl text-[11px] font-medium flex items-center gap-1.5 bg-slate-800/80 text-slate-300 border border-slate-600/50 hover:bg-slate-700/80 transition';
+      });
+
+      // Inspector Drawer buttons
+      document.getElementById('btn-close-inspector').addEventListener('click', closeComponentInspector);
+      document.getElementById('btn-focus-selected').addEventListener('click', () => {
+        if (!state.selectedAssemblyId) return;
+        const entry = assembliesMap.get(state.selectedAssemblyId);
+        if (!entry) return;
+        camCtrl.desiredTarget.set(entry.group.position.x, entry.group.position.y + 0.02, 0);
+        camCtrl.desiredSpherical.radius = 0.36;
+      });
+
+      // Collapsible Telemetry Panel
+      let telemetryExpanded = true;
+      document.getElementById('btn-toggle-telemetry').addEventListener('click', () => {
+        telemetryExpanded = !telemetryExpanded;
+        document.getElementById('telemetry-body').classList.toggle('hidden', !telemetryExpanded);
+        document.getElementById('icon-telemetry-chevron').style.transform = telemetryExpanded ? 'rotate(0deg)' : 'rotate(-90deg)';
+      });
+
+      if (window.innerWidth < 520) {
+        telemetryExpanded = false;
+        document.getElementById('telemetry-body').classList.add('hidden');
+        document.getElementById('icon-telemetry-chevron').style.transform = 'rotate(-90deg)';
+      }
+
+      initFloatingLabels();
+      setFireMode(RIFLE_CONFIG.physics_and_telemetry_engine.default_fire_mode);
+      applyInspectionView('cutaway_180');
+      applyMalfunctionMode('normal_operation');
+      setCameraPreset('iso_hero', true);
+    }
+
+    function renderTelemetryHUD(p) {
+      // Update 6 Channels
+      RIFLE_CONFIG.physics_and_telemetry_engine.telemetry_channels.forEach(ch => {
+        const val = state.telemetryValues[ch.key] ?? 0;
+        const el = document.getElementById(`val-${ch.key}`);
+        if (!el) return;
+        el.textContent = ch.decimals > 0 ? val.toFixed(ch.decimals) : Math.round(val).toLocaleString();
+        const isWarn = ch.warn_below ? val <= ch.warning_threshold : val >= ch.warning_threshold;
+        el.classList.toggle('telemetry-warning', isWarn);
+      });
+
+      // Identify current step in 8-step cycle
+      const steps = RIFLE_CONFIG.project_meta.operating_cycle_8_steps;
+      let currentIdx = 0;
+      for (let i = 0; i < steps.length; i++) {
+        const [r0, r1] = steps[i].cycle_progress_range;
+        if (p >= r0 && p <= r1) { currentIdx = i; break; }
+      }
+      state.activeStepIndex = currentIdx;
+
+      const stepLabelEl = document.getElementById('active-step-label');
+      if (state.isJammed) {
+        stepLabelEl.textContent = '⚠ ปลอกติดรังเพลิง (DOUBLE FEED JAM)';
+      } else if (state.boltLockedBack) {
+        stepLabelEl.textContent = 'ลูกเลื่อนค้างท้าย (EMPTY MAG — กดเติมซอง)';
+      } else {
+        stepLabelEl.textContent = steps[currentIdx].label_th;
+      }
+
+      document.getElementById('cycle-pct-label').textContent = `${Math.round(p * 100)}%`;
+      document.getElementById('cycle-progress-fill').style.width = `${Math.round(p * 100)}%`;
+
+      document.querySelectorAll('.btn-cycle-step').forEach(btn => {
+        const active = parseInt(btn.dataset.stepIdx, 10) === currentIdx;
+        btn.className = active
+          ? 'btn-cycle-step px-2 py-1 rounded-lg text-[10px] font-semibold bg-amber-500/25 text-amber-200 border border-amber-400/80 transition truncate text-left'
+          : 'btn-cycle-step px-2 py-1 rounded-lg text-[10px] font-medium bg-slate-800/70 text-slate-300 border border-slate-700 hover:bg-slate-700/80 transition truncate text-left';
+      });
+    }
+
+    // =========================================================================
+    // 14. MAIN ANIMATION LOOP & RESIZE HANDLER
+    // =========================================================================
+    function handleResize() {
+      const container = document.getElementById('canvas-container');
+      if (!container || !camera || !renderer) return;
+      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(container.clientWidth, container.clientHeight);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = Math.min(clock.getDelta(), 0.05);
+      state.timeElapsed += dt;
+
+      updateKinematicsAndPhysics(dt);
+      updateExplodedAnimation(dt);
+      updateCamera(dt);
+      updateFloatingLabels();
+
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', handleResize);
+
+    window.onload = function () {
+      try {
+        initThreeScene();
+        initPointerInteractions();
+        initHUD();
+        animate();
+      } catch (err) {
+        console.error('Failed to initialize 3D M16A4 Simulator:', err);
+      }
+    };
+  </script>
+</body>
+</html>

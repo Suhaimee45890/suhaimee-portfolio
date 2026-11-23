@@ -1,0 +1,3075 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SUHAIME JEHHAE — 3D / Engineering Archive</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Three.js ES Modules Import Map -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+    }
+  }
+  </script>
+
+  <!-- Architectural Typography: Space Grotesk, Inter, JetBrains Mono & Noto Sans Thai -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+Thai:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    /* =========================================================================
+       DESIGN TOKENS: MATTE CARBON DARK (DEFAULT) & ARCHITECTURAL LIGHT
+       ========================================================================= */
+    :root,
+    [data-theme="dark"] {
+      --bg: #0E0F11;
+      --surface: #15171B;
+      --surface-2: #1C1F24;
+      --ink: #F2F2EE;
+      --ink-muted: #8D9096;
+      --border: #262930;
+      --border-strong: #3E444F;
+      --accent: #E6481E;
+      --accent-glow: rgba(230, 72, 30, 0.55);
+      --accent-soft: rgba(230, 72, 30, 0.16);
+      --glass: rgba(14, 15, 17, 0.86);
+      --cad-bg: #111317;
+      --cad-stroke: #E6E6E0;
+      --cad-grid: rgba(242, 242, 238, 0.06);
+      --shadow-subtle: 0 2px 6px rgba(0, 0, 0, 0.34);
+      --shadow-hover: 0 26px 52px -16px rgba(0, 0, 0, 0.72), 0 0 0 1px rgba(230, 72, 30, 0.22);
+      --card-sheen: rgba(255, 255, 255, 0.055);
+      --card-hover-bg: linear-gradient(155deg, #242936 0%, #1B1F28 58%, #281C18 100%);
+      --card-hover-ink: #FFFFFF;
+      --card-hover-muted: #C3C8D4;
+      --card-hover-border: #E6481E;
+      --card-hover-divider: rgba(230, 72, 30, 0.28);
+      --card-hover-tag-bg: rgba(230, 72, 30, 0.16);
+      --card-hover-tag-ink: #FFB39B;
+      --card-hover-tag-border: rgba(230, 72, 30, 0.38);
+      --card-hover-shadow: 0 28px 56px -14px rgba(0, 0, 0, 0.82), 0 0 0 1px rgba(230, 72, 30, 0.55), 0 12px 30px -10px rgba(230, 72, 30, 0.24);
+    }
+
+    [data-theme="light"] {
+      --bg: #F4F4F0;
+      --surface: #FFFFFF;
+      --surface-2: #EAEAE4;
+      --ink: #111111;
+      --ink-muted: #5A5A54;
+      --border: #D6D6CE;
+      --border-strong: #B8B8AE;
+      --accent: #E6481E;
+      --accent-glow: rgba(230, 72, 30, 0.42);
+      --accent-soft: rgba(230, 72, 30, 0.10);
+      --glass: rgba(244, 244, 240, 0.86);
+      --cad-bg: #EFEFEA;
+      --cad-stroke: #1A1A1D;
+      --cad-grid: rgba(17, 17, 17, 0.065);
+      --shadow-subtle: 0 1px 2px rgba(17, 17, 17, 0.04);
+      --shadow-hover: 0 22px 44px -16px rgba(17, 17, 17, 0.18), 0 0 0 1px rgba(230, 72, 30, 0.18);
+      --card-sheen: rgba(255, 255, 255, 0.08);
+      --card-hover-bg: linear-gradient(155deg, #1E2128 0%, #15171C 62%, #231917 100%);
+      --card-hover-ink: #F5F5F1;
+      --card-hover-muted: #B2B6C0;
+      --card-hover-border: #E6481E;
+      --card-hover-divider: rgba(255, 255, 255, 0.12);
+      --card-hover-tag-bg: rgba(255, 255, 255, 0.08);
+      --card-hover-tag-ink: #E5E7EB;
+      --card-hover-tag-border: rgba(255, 255, 255, 0.16);
+      --card-hover-shadow: 0 28px 52px -14px rgba(15, 18, 26, 0.36), 0 0 0 1.5px rgba(230, 72, 30, 0.65), 0 10px 26px -10px rgba(230, 72, 30, 0.22);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    /* Synchronized Smooth Theme Transition (prevents jitter when switching CARBON <-> LIGHT) */
+    html.theme-transitioning,
+    html.theme-transitioning body,
+    html.theme-transitioning header,
+    html.theme-transitioning footer,
+    html.theme-transitioning section,
+    html.theme-transitioning .bg-surface,
+    html.theme-transitioning .bg-surface-2,
+    html.theme-transitioning .bg-canvas,
+    html.theme-transitioning .bg-glass,
+    html.theme-transitioning .cad-stage,
+    html.theme-transitioning .work-card,
+    html.theme-transitioning .swiss-search,
+    html.theme-transitioning .hero-switch,
+    html.theme-transitioning .magnetic-pill {
+      transition: background-color 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+                  color 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+                  border-color 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+                  box-shadow 0.42s cubic-bezier(0.22, 1, 0.36, 1) !important;
+    }
+
+    body {
+      margin: 0;
+      background-color: var(--bg);
+      color: var(--ink);
+      font-family: 'Inter', 'Noto Sans Thai', -apple-system, BlinkMacSystemFont, sans-serif;
+      transition: background-color 0.38s cubic-bezier(0.22, 1, 0.36, 1), color 0.34s ease;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    .font-display {
+      font-family: 'Space Grotesk', 'Noto Sans Thai', sans-serif;
+      letter-spacing: -0.028em;
+    }
+
+    .font-mono-tech {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Semantic Surface & Ink Helpers */
+    .bg-canvas { background-color: var(--bg); }
+    .bg-surface { background-color: var(--surface); }
+    .bg-surface-2 { background-color: var(--surface-2); }
+    .bg-glass {
+      background-color: var(--glass);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+    .border-hairline { border-color: var(--border); }
+    .text-ink { color: var(--ink); }
+    .text-muted { color: var(--ink-muted); }
+    .text-accent { color: var(--accent); }
+    .bg-accent { background-color: var(--accent); }
+
+    /* =========================================================================
+       ARCHITECTURAL CAD GRID, POP-OUT 3D TILT CARDS & CONTRASTING HOVER STATE
+       ========================================================================= */
+    .cad-stage {
+      background-color: var(--cad-bg);
+      background-image:
+        linear-gradient(to right, var(--cad-grid) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--cad-grid) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+
+    .works-grid {
+      perspective: 1200px;
+    }
+
+    /* Gentle eye-friendly focus dimming on non-hovered cards so active card stands out */
+    @media (hover: hover) {
+      .works-grid:has(.work-card:hover) .work-card:not(:hover) {
+        opacity: 0.78;
+        transform: scale(0.988);
+      }
+    }
+
+    .work-card {
+      position: relative;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-subtle);
+      transform-style: preserve-3d;
+      will-change: transform, box-shadow, opacity;
+      transition: transform 0.44s cubic-bezier(0.22, 1, 0.36, 1),
+                  opacity 0.32s ease,
+                  border-color 0.28s ease,
+                  box-shadow 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+                  background 0.32s ease;
+    }
+
+    /* Contrasting Hover Surface Layer (smooth crossfade without CSS gradient snap) */
+    .work-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: var(--card-hover-bg);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+      z-index: 0;
+    }
+
+    /* Animated Orange Top Accent Strip on Hover */
+    .work-card .card-top-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), #FF7A4D, var(--accent));
+      transform: scaleX(0);
+      transform-origin: left center;
+      transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+      z-index: 6;
+      pointer-events: none;
+    }
+
+    .work-card:hover .card-top-bar {
+      transform: scaleX(1);
+    }
+
+    .work-card.is-tilting {
+      transition: transform 0.14s cubic-bezier(0.22, 1, 0.36, 1),
+                  opacity 0.32s ease,
+                  border-color 0.28s ease,
+                  box-shadow 0.34s ease;
+    }
+
+    .work-card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      opacity: 0;
+      background: radial-gradient(
+        460px circle at var(--mx, 50%) var(--my, 50%),
+        var(--card-sheen),
+        transparent 62%
+      );
+      transition: opacity 0.28s ease;
+      z-index: 2;
+    }
+
+    .work-card:hover {
+      z-index: 8;
+      border-color: var(--card-hover-border);
+      box-shadow: var(--card-hover-shadow);
+      transform: translateY(-9px) scale(1.028);
+    }
+
+    .work-card:hover::before,
+    .work-card:hover::after {
+      opacity: 1;
+    }
+
+    /* High-contrast readable typography inside hovered card */
+    .work-card .card-title,
+    .work-card .card-summary,
+    .work-card .card-meta-cat,
+    .work-card .card-meta-idx,
+    .work-card .card-footer-line,
+    .work-card .card-tag {
+      transition: color 0.26s ease, background-color 0.26s ease, border-color 0.26s ease;
+    }
+
+    .work-card:hover .card-title {
+      color: var(--card-hover-ink);
+    }
+
+    .work-card:hover .card-summary {
+      color: var(--card-hover-muted);
+    }
+
+    .work-card:hover .card-meta-cat {
+      color: var(--accent);
+    }
+
+    .work-card:hover .card-meta-idx {
+      color: var(--card-hover-muted);
+    }
+
+    .work-card:hover .card-footer-line {
+      border-color: var(--card-hover-divider);
+    }
+
+    .work-card:hover .card-tag {
+      background-color: var(--card-hover-tag-bg);
+      color: var(--card-hover-tag-ink);
+      border-color: var(--card-hover-tag-border);
+    }
+
+    .work-card .cad-stage {
+      position: relative;
+      z-index: 1;
+    }
+
+    .work-card .cad-svg,
+    .work-card .card-cover-img {
+      transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1), filter 0.32s ease;
+    }
+
+    .work-card:hover .cad-svg,
+    .work-card:hover .card-cover-img {
+      transform: scale(1.045);
+    }
+
+    /* Brighten orange CAD highlights on hover */
+    .work-card .cad-svg [stroke="var(--accent)"],
+    .work-card .cad-svg [fill="var(--accent)"] {
+      transition: filter 0.25s ease, stroke-width 0.25s ease;
+    }
+
+    .work-card:hover .cad-svg [stroke="var(--accent)"],
+    .work-card:hover .cad-svg [fill="var(--accent)"] {
+      filter: drop-shadow(0 0 6px var(--accent-glow));
+    }
+
+    /* Auto-invert embedded light CAD blueprints in CARBON dark mode */
+    img[src^="data:image/"] {
+      transition: filter 0.35s ease, transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    [data-theme="dark"] img[src^="data:image/"] {
+      filter: invert(0.95) hue-rotate(180deg) contrast(1.15) brightness(0.88);
+    }
+
+    [data-theme="dark"] .work-card:hover img[src^="data:image/"] {
+      filter: invert(0.95) hue-rotate(180deg) contrast(1.22) brightness(0.96);
+    }
+
+    /* Smooth View Mode Switch Fade */
+    @keyframes viewStageFade {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .view-stage-enter {
+      animation: viewStageFade 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    /* Telemetry Status Pulse */
+    @keyframes telemetryPulse {
+      0%, 100% {
+        box-shadow: 0 0 0 0 rgba(230, 72, 30, 0.55);
+        opacity: 1;
+      }
+      55% {
+        box-shadow: 0 0 0 6px rgba(230, 72, 30, 0);
+        opacity: 0.72;
+      }
+    }
+
+    .pulse-dot {
+      animation: telemetryPulse 2.1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    /* Smooth Masked Word Glide for Hero Headline */
+    .hero-word-mask {
+      display: inline-block;
+      overflow: hidden;
+      vertical-align: bottom;
+      padding: 0.04em 0 0.08em;
+      margin: -0.04em 0 -0.08em;
+    }
+
+    .hero-word-inner {
+      display: inline-block;
+      transform: translateY(112%);
+      opacity: 0;
+      filter: blur(5px);
+      animation: heroWordGlide 0.72s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      animation-delay: var(--word-delay, 0ms);
+    }
+
+    @keyframes heroWordGlide {
+      0% {
+        transform: translateY(112%);
+        opacity: 0;
+        filter: blur(5px);
+      }
+      100% {
+        transform: translateY(0%);
+        opacity: 1;
+        filter: blur(0px);
+      }
+    }
+
+    /* Card & Index Row Entrance */
+    @keyframes revealItemIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .reveal-item {
+      animation: revealItemIn 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    /* Search Input & Index Table Rows */
+    .swiss-search {
+      background-color: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--ink);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    }
+
+    .swiss-search::placeholder {
+      color: var(--ink-muted);
+    }
+
+    .swiss-search:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    .index-row {
+      border-bottom: 1px solid var(--border);
+      transition: background-color 0.2s ease;
+    }
+
+    .index-row:last-child {
+      border-bottom: none;
+    }
+
+    .index-row:hover {
+      background-color: var(--surface);
+    }
+    }
+
+    .pulse-dot {
+      animation: telemetryPulse 2.1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    /* =========================================================================
+       TACTILE MECHANICAL PRESS (ALL INTERACTIVE BUTTONS)
+       ========================================================================= */
+    .mech-btn {
+      position: relative;
+      transition: transform 0.12s cubic-bezier(0.22, 1, 0.36, 1),
+                  border-color 0.18s ease,
+                  box-shadow 0.18s ease,
+                  color 0.2s ease,
+                  background-color 0.2s ease;
+    }
+
+    .mech-btn:active {
+      transform: scale(0.96) !important;
+      border-color: var(--accent) !important;
+      box-shadow: 0 0 0 2px var(--accent-soft), 0 0 12px rgba(230, 72, 30, 0.25);
+    }
+
+    /* =========================================================================
+       SHUTTER WIPE FILL (HIGH-SPEED DIAGONAL SHUTTER BLADE)
+       ========================================================================= */
+    .shutter-btn {
+      position: relative;
+      overflow: hidden;
+      isolation: isolate;
+    }
+
+    .shutter-btn::before {
+      content: "";
+      position: absolute;
+      inset: -2px;
+      background-color: var(--accent);
+      transform: skewX(-18deg) translateX(-118%);
+      transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+      z-index: -1;
+    }
+
+    .shutter-btn:hover::before {
+      transform: skewX(-18deg) translateX(0%) scaleX(1.22);
+    }
+
+    .shutter-btn:hover {
+      color: #FFFFFF !important;
+      border-color: var(--accent) !important;
+    }
+
+    .shutter-btn-contrast::before {
+      background-color: var(--ink);
+    }
+
+    .shutter-btn-contrast:hover {
+      color: var(--bg) !important;
+      border-color: var(--ink) !important;
+    }
+
+    /* =========================================================================
+       SLIDING MAGNETIC PILL (SPRING PHYSICS INDICATOR)
+       ========================================================================= */
+    .magnetic-track {
+      position: relative;
+    }
+
+    .magnetic-pill {
+      position: absolute;
+      top: 0;
+      left: 0;
+      border-radius: 0.5rem;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0;
+      will-change: transform, width, height;
+      transition:
+        transform 0.42s cubic-bezier(0.34, 1.45, 0.64, 1),
+        width 0.38s cubic-bezier(0.34, 1.45, 0.64, 1),
+        height 0.38s cubic-bezier(0.34, 1.45, 0.64, 1),
+        opacity 0.2s ease;
+    }
+
+    .magnetic-pill-ink {
+      background-color: var(--ink);
+      border: 1px solid var(--ink);
+    }
+
+    .magnetic-pill-surface {
+      background-color: var(--surface);
+      border: 1px solid var(--border-strong);
+      border-radius: 0.375rem;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+    }
+
+    .cat-btn {
+      position: relative;
+      z-index: 1;
+      background-color: transparent;
+      border: 1px solid var(--border);
+      color: var(--ink-muted);
+      transition: color 0.22s ease, border-color 0.22s ease, transform 0.12s ease;
+    }
+
+    .cat-btn:hover:not(.is-active) {
+      color: var(--ink);
+      border-color: var(--border-strong);
+    }
+
+    .cat-btn.is-active {
+      color: var(--bg);
+      border-color: transparent;
+    }
+
+    .view-mode-btn {
+      position: relative;
+      z-index: 1;
+      color: var(--ink-muted);
+      transition: color 0.2s ease, transform 0.12s ease;
+    }
+
+    .view-mode-btn:hover:not(.is-active) {
+      color: var(--ink);
+    }
+
+    .view-mode-btn.is-active {
+      color: var(--ink);
+    }
+
+    /* =========================================================================
+       PRECISION CROSSHAIR LOCK-ON ([  ] ORANGE CORNER BRACKETS ON INSPECT)
+       ========================================================================= */
+    .crosshair-btn {
+      position: relative;
+      padding: 5px 10px;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .crosshair-btn .ch-corner {
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      border-color: var(--accent);
+      border-style: solid;
+      border-width: 0;
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 0.24s cubic-bezier(0.22, 1.35, 0.36, 1), opacity 0.18s ease;
+    }
+
+    .crosshair-btn .ch-tl { top: 0; left: 0; border-top-width: 1.5px; border-left-width: 1.5px; transform: translate(-4px, -4px); }
+    .crosshair-btn .ch-tr { top: 0; right: 0; border-top-width: 1.5px; border-right-width: 1.5px; transform: translate(4px, -4px); }
+    .crosshair-btn .ch-bl { bottom: 0; left: 0; border-bottom-width: 1.5px; border-left-width: 1.5px; transform: translate(-4px, 4px); }
+    .crosshair-btn .ch-br { bottom: 0; right: 0; border-bottom-width: 1.5px; border-right-width: 1.5px; transform: translate(4px, 4px); }
+
+    .work-card:hover .crosshair-btn .ch-corner,
+    .index-row:hover .crosshair-btn .ch-corner,
+    .crosshair-btn:hover .ch-corner {
+      opacity: 1;
+      transform: translate(0, 0);
+    }
+
+    .crosshair-btn .ch-arrow {
+      display: inline-block;
+      transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), color 0.18s ease;
+    }
+
+    .work-card:hover .crosshair-btn,
+    .index-row:hover .crosshair-btn {
+      color: var(--accent);
+    }
+
+    .work-card:hover .crosshair-btn .ch-arrow,
+    .index-row:hover .crosshair-btn .ch-arrow {
+      transform: translate(3px, -3px);
+    }
+
+    /* =========================================================================
+       HERO 3D INSTRUMENT SWITCHES (EXPLODE / WIREFRAME / OVERDRIVE)
+       ========================================================================= */
+    .hero-switch {
+      background: rgba(21, 23, 27, 0.78);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid var(--border-strong);
+      color: var(--ink-muted);
+      transition: all 0.18s ease;
+    }
+
+    [data-theme="light"] .hero-switch {
+      background: rgba(255, 255, 255, 0.85);
+    }
+
+    .hero-switch:hover {
+      color: var(--ink);
+      border-color: var(--ink);
+    }
+
+    .hero-switch.is-engaged {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--ink);
+      box-shadow: 0 0 16px rgba(230, 72, 30, 0.28);
+    }
+
+    .hero-switch .switch-led {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background-color: var(--border-strong);
+      transition: background-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .hero-switch.is-engaged .switch-led {
+      background-color: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+    }
+
+    /* Modal Backdrop & Cinematic Dossier Entrance */
+    .dossier-backdrop {
+      background: rgba(8, 9, 12, 0.72);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      opacity: 0;
+      transition: opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .dossier-backdrop.is-open {
+      opacity: 1;
+    }
+
+    .dossier-panel {
+      transform: translateY(22px) scale(0.965);
+      opacity: 0;
+      transition: transform 0.38s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.28s ease;
+    }
+
+    .dossier-backdrop.is-open .dossier-panel {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+    }
+
+    /* Exciting Dossier Typography Stagger & Scanline Accent */
+    .dossier-word-mask {
+      display: inline-block;
+      overflow: hidden;
+      vertical-align: bottom;
+      padding: 0.04em 0 0.08em;
+      margin: -0.04em 0 -0.08em;
+    }
+
+    .dossier-word-inner {
+      display: inline-block;
+      transform: translateY(115%) skewY(3deg);
+      opacity: 0;
+      filter: blur(5px);
+      animation: dossierWordRise 0.62s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      animation-delay: var(--d-delay, 0ms);
+    }
+
+    @keyframes dossierWordRise {
+      0% {
+        transform: translateY(115%) skewY(3deg);
+        opacity: 0;
+        filter: blur(5px);
+      }
+      100% {
+        transform: translateY(0%) skewY(0deg);
+        opacity: 1;
+        filter: blur(0px);
+      }
+    }
+
+    .dossier-title-bar {
+      height: 2px;
+      width: 100%;
+      background: linear-gradient(90deg, var(--accent) 0%, rgba(230, 72, 30, 0.45) 45%, transparent 100%);
+      transform: scaleX(0);
+      transform-origin: left center;
+    }
+
+    .dossier-title-bar.is-sweeping {
+      animation: dossierBarSweep 0.72s cubic-bezier(0.16, 1, 0.3, 1) 0.14s forwards;
+    }
+
+    @keyframes dossierBarSweep {
+      0% { transform: scaleX(0); opacity: 0.4; }
+      100% { transform: scaleX(1); opacity: 1; }
+    }
+
+    .dossier-summary-reveal {
+      opacity: 0;
+      transform: translateY(10px);
+      filter: blur(3px);
+      animation: dossierSummaryIn 0.56s cubic-bezier(0.16, 1, 0.3, 1) 0.24s forwards;
+    }
+
+    @keyframes dossierSummaryIn {
+      0% { opacity: 0; transform: translateY(10px); filter: blur(3px); }
+      100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+    }
+
+    .dossier-tag-reveal {
+      opacity: 0;
+      transform: translateY(8px) scale(0.92);
+      animation: dossierTagPop 0.42s cubic-bezier(0.22, 1.3, 0.36, 1) forwards;
+      animation-delay: var(--tag-delay, 260ms);
+    }
+
+    @keyframes dossierTagPop {
+      0% { opacity: 0; transform: translateY(8px) scale(0.92); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* Launch Button Kinetic Light Sweep */
+    .dossier-cta-btn {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .dossier-cta-btn::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: -130%;
+      width: 65%;
+      height: 100%;
+      background: linear-gradient(105deg, transparent 0%, rgba(255, 255, 255, 0.28) 50%, transparent 100%);
+      pointer-events: none;
+    }
+
+    .dossier-cta-btn.is-primed::after {
+      animation: ctaShineSweep 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.38s 1;
+    }
+
+    @keyframes ctaShineSweep {
+      0% { left: -130%; }
+      100% { left: 165%; }
+    }
+
+    /* Hide Horizontal Scrollbar on Mobile Filter Pills */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    /* Crisp Custom Scrollbar */
+    ::-webkit-scrollbar { width: 7px; height: 7px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
+
+/* ภาพ CAD เคลื่อนไหวมีชีวิตชีวา */
+@keyframes cadPulse {
+  0%, 100% { opacity: 0.85; filter: drop-shadow(0 0 2px rgba(230, 72, 30, 0.2)); }
+  50% { opacity: 1; filter: drop-shadow(0 0 8px rgba(230, 72, 30, 0.6)); }
+}
+@keyframes juriWave {
+  0%, 100% { transform: scaleY(0.35); }
+  50% { transform: scaleY(1.35); }
+}
+.work-card svg, .cad-stage svg {
+  animation: cadPulse 3.5s ease-in-out infinite;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.work-card:hover svg {
+  transform: scale(1.04);
+}
+
+/* ปุ่ม JURI บนการ์ดและ Header */
+.btn-juri-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-family: monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  border: 1px solid rgba(230, 72, 30, 0.5);
+  background: rgba(230, 72, 30, 0.12);
+  color: #ff6b42;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-juri-pill:hover {
+  background: #e6481e;
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(230, 72, 30, 0.55);
+}
+
+/* หน้าต่าง JURI AI Terminal */
+#juri-terminal {
+  position: fixed;
+  bottom: 18px;
+  right: 18px;
+  width: min(370px, calc(100vw - 32px));
+  background: rgba(15, 15, 18, 0.96);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(230, 72, 30, 0.55);
+  border-radius: 14px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 20px rgba(230, 72, 30, 0.15);
+  z-index: 9999;
+  color: #f4f4f5;
+  overflow: hidden;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+#juri-terminal.juri-hidden {
+  transform: translateY(120%);
+  opacity: 0;
+  pointer-events: none;
+}
+.juri-bars span {
+  display: inline-block;
+  width: 3px;
+  height: 11px;
+  background: #e6481e;
+  border-radius: 2px;
+  margin: 0 1px;
+}
+.juri-speaking .juri-bars span:nth-child(1) { animation: juriWave 0.45s infinite 0.0s; }
+.juri-speaking .juri-bars span:nth-child(2) { animation: juriWave 0.45s infinite 0.15s; }
+.juri-speaking .juri-bars span:nth-child(3) { animation: juriWave 0.45s infinite 0.3s; }
+.juri-speaking .juri-bars span:nth-child(4) { animation: juriWave 0.45s infinite 0.1s; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-[#E6481E] selection:text-white">
+
+  <!-- =========================================================================
+       PORTFOLIO DATA PAYLOAD (CLEAN JSON FOR EXTERNAL PARSING / UPDATES)
+       ========================================================================= -->
+  <script id="suhaime-portfolio-data" type="application/json">
+  {
+    "profile": {
+      "name": "SUHAIME JEHHAE",
+      "archiveSubtitle": "3D / ENGINEERING ARCHIVE",
+      "heroBadge": "00 — PORTFOLIO",
+      "heroHeadline": "INTERACTIVE 3D ENGINEERING & VISUAL SYSTEMS",
+      "heroIntro": "Designing real-time 3D mechanical simulations, cutaway industrial architectures, and precision interactive web engineering tools built for clarity, tactile exploration, and technical rigor.",
+      "aboutHeading": "Precision 3D Visualization for Complex Engineering Systems",
+      "aboutStatement": "SUHAIME JEHHAE focuses on translating mechanical, industrial, automotive, and biomedical systems into real-time WebGL experiences. Each simulation pairs procedural CAD geometry and physically based materials with live telemetry so complex internal dynamics can be inspected directly in the browser.",
+      "disciplines": [
+        "Three.js / WebGL 2.0",
+        "PBR Cutaway Systems",
+        "Real-Time Kinematics",
+        "Fluid & Gas Particles",
+        "Procedural CAD Geometry",
+        "Industrial Telemetry UI"
+      ],
+      "location": "Bangkok, Thailand",
+      "availability": "Open for Technical Commissions & 3D Web Systems",
+      "email": "contact@suhaimejehhae.studio",
+      "links": [
+        {
+          "label": "EMAIL",
+          "display": "contact@suhaimejehhae.studio",
+          "href": "mailto:contact@suhaimejehhae.studio"
+        },
+        {
+          "label": "GITHUB",
+          "display": "github.com/suhaimejehhae",
+          "href": "https://github.com/suhaimejehhae"
+        },
+        {
+          "label": "LINKEDIN",
+          "display": "linkedin.com/in/suhaimejehhae",
+          "href": "https://linkedin.com/in/suhaimejehhae"
+        }
+      ],
+      "copyright": "© 2026 SUHAIME JEHHAE"
+    },
+    "works": [
+      {
+        "id": "turbofan-sim",
+        "index": "01",
+        "title": "High-Bypass Turbofan Engine",
+        "category": "PROPULSION",
+        "year": "2026",
+        "status": "LIVE",
+        "url": "turbofan_simulator.html",
+        "visualType": "turbofan",
+        "customImage": "",
+        "tags": [
+          "Three.js",
+          "Dual-Spool N1/N2",
+          "4,500 Particles",
+          "PBR Cutaway"
+        ],
+        "summary": "Interactive 3D cutaway commercial turbofan simulator featuring real-time N1/N2 spool inertia, aerodynamic particle streams, and compressor stall diagnostics."
+      },
+      {
+        "id": "m16a4-sim",
+        "index": "02",
+        "title": "M16A4 Direct Impingement System",
+        "category": "MECHANICAL",
+        "year": "2026",
+        "status": "LIVE",
+        "url": "m16a4_simulator.html",
+        "visualType": "m16",
+        "customImage": "",
+        "tags": [
+          "8-Step Cycle",
+          "7-Lug Bolt",
+          "Slow-Motion",
+          "Field-Strip"
+        ],
+        "summary": "Precision mechanical cutaway demonstrating the 8-step operating cycle, 22.5° rotating bolt lockup, direct gas impingement flow, and full field-strip exploded view."
+      },
+      {
+        "id": "reev-sim",
+        "index": "03",
+        "title": "REEV Powertrain Architecture",
+        "category": "AUTOMOTIVE",
+        "year": "2026",
+        "status": "PROTOTYPE",
+        "url": "reev_simulator.html",
+        "visualType": "reev",
+        "customImage": "",
+        "tags": [
+          "Series Hybrid",
+          "Energy Flow",
+          "Ghost Shell",
+          "Regen Braking"
+        ],
+        "summary": "Translucent EV chassis visualization mapping high-voltage energy routing between battery pack, range-extender generator, inverter, and drive axles."
+      },
+      {
+        "id": "robotics-6axis",
+        "index": "04",
+        "title": "6-Axis Industrial Robotics Cell",
+        "category": "ROBOTICS",
+        "year": "2026",
+        "status": "CONCEPT",
+        "url": "robotics_cell.html",
+        "visualType": "robotics",
+        "customImage": "",
+        "tags": [
+          "Inverse Kinematics",
+          "Smart Factory",
+          "Joint Telemetry"
+        ],
+        "summary": "Six-degree-of-freedom articulated robot arm simulation engineered for automated manufacturing lines, workspace envelope analysis, and exploded joint inspection."
+      },
+      {
+        "id": "bio-cardiopulm",
+        "index": "05",
+        "title": "Cardiopulmonary Bio-System",
+        "category": "BIOMEDICAL",
+        "year": "2026",
+        "status": "CONCEPT",
+        "url": "bio_system.html",
+        "visualType": "biomedical",
+        "customImage": "",
+        "tags": [
+          "Hemodynamics",
+          "Live ECG",
+          "Multi-Layer Cutaway"
+        ],
+        "summary": "Multi-layer anatomical cutaway modeling synchronized cardiac valve cycles, pulmonary gas exchange particles, and physiological telemetry."
+      },
+      {
+        "id": "water_filter.html",
+        "index": "06",
+        "title": "4-Layer Multi-Media Water Filter Simulator",
+        "category": "INDUSTRY",
+        "year": "2026",
+        "status": "LIVE",
+        "url": "water_filter.html",
+        "visualType": "generic_cad",
+        "customImage": "data:image/webp;base64,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",
+        "tags": [
+          "Three.js 4-Layer Filtration Backwash Cycle 120x40 Vessel"
+        ],
+        "summary": "แบบจำลอง 3 มิติถังกรองน้ำแรงดันสูงขนาด 120×40 ซม. แสดงโครงสร้างผ่าครึ่งชั้นสารกรอง 4 ชนิด ระบบวาล์วควบคุมการไหลของน้ำ และโหมดล้างย้อนกลับ (Backwash)"
+      }
+    ]
+  }
+  </script>
+
+  <!-- =========================================================================
+       1. MINIMAL ARCHITECTURAL HEADER (1PX BOTTOM BORDER)
+       ========================================================================= -->
+  <header class="sticky top-0 z-40 bg-glass border-b border-hairline">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      <!-- Left: Bold Wordmark + Mono Archive Index -->
+      <a href="#top" class="flex items-center gap-3 min-w-0 group">
+        <span class="w-2 h-2 rounded-full bg-accent pulse-dot shrink-0"></span>
+        <div class="flex flex-col sm:flex-row sm:items-baseline sm:gap-3 min-w-0">
+          <span id="brand-name" class="font-display font-bold text-sm sm:text-base tracking-tight text-ink truncate">SUHAIME JEHHAE</span>
+          <span id="brand-subtitle" class="font-mono-tech text-[10px] tracking-[0.14em] uppercase text-muted truncate">3D / ENGINEERING ARCHIVE</span>
+        </div>
+      </a>
+
+      <!-- Right: Kinetic Scramble Nav + Mechanical Audio Toggle + Shutter Theme Toggle -->
+      <div class="flex items-center gap-2.5 sm:gap-5">
+        <nav aria-label="Primary navigation" class="hidden md:flex items-center gap-6 font-mono-tech text-[11px] tracking-[0.12em] text-muted mr-1">
+          <a href="#works" data-scramble="WORKS" class="nav-scramble hover:text-ink transition-colors">WORKS</a>
+          <a href="#about" data-scramble="ABOUT" class="nav-scramble hover:text-ink transition-colors">ABOUT</a>
+          <a href="#contact" data-scramble="CONTACT" class="nav-scramble hover:text-ink transition-colors">CONTACT</a>
+        </nav>
+
+        <!-- Tactile Mechanical Sound Toggle -->
+        <button id="btn-sfx-toggle" type="button" aria-label="Toggle tactile mechanical UI sound" title="Toggle Mechanical SFX"
+          class="mech-btn shutter-btn shutter-btn-contrast h-9 px-2.5 sm:px-3 rounded-lg border border-hairline bg-surface text-ink flex items-center gap-1.5 font-mono-tech text-[10px] tracking-wider">
+          <svg id="icon-sfx-on" class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5L6 9H3v6h3l5 4V5z"></path>
+            <path stroke-linecap="round" d="M15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14"></path>
+          </svg>
+          <svg id="icon-sfx-off" class="w-3.5 h-3.5 shrink-0 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5L6 9H3v6h3l5 4V5z"></path>
+            <path stroke-linecap="round" d="M22 9l-6 6M16 9l6 6"></path>
+          </svg>
+          <span id="sfx-label" class="hidden sm:inline">SFX</span>
+        </button>
+
+        <!-- Shutter Wipe Light / Carbon Theme Toggle -->
+        <button id="btn-theme-toggle" type="button" aria-label="Toggle Light and Matte Carbon Dark mode"
+          class="mech-btn shutter-btn h-9 px-3 rounded-lg border border-hairline bg-surface text-ink flex items-center gap-2 font-mono-tech text-[11px] tracking-wider">
+          <svg id="icon-light" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path stroke-linecap="round" d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32l1.41-1.41"></path>
+          </svg>
+          <svg id="icon-carbon" class="w-3.5 h-3.5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"></path>
+          </svg>
+          <span id="theme-label">CARBON</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- =========================================================================
+       2. SPLIT EDITORIAL HERO SECTION + INTERACTIVE THREE.JS GYROSCOPE
+       ========================================================================= -->
+  <section id="top" class="border-b border-hairline">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 lg:py-16">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-stretch">
+
+        <!-- Left Editorial Column (7 Columns) -->
+        <div class="lg:col-span-7 flex flex-col justify-between gap-10">
+          <div class="space-y-6">
+            <div class="inline-flex items-center gap-2.5 px-3 py-1 rounded-md bg-surface border border-hairline font-mono-tech text-[11px] tracking-[0.14em] text-muted">
+              <span class="w-1.5 h-1.5 rounded-full bg-accent pulse-dot"></span>
+              <span id="hero-badge">00 — PORTFOLIO</span>
+            </div>
+
+            <h1 id="hero-headline" class="font-display font-bold text-4xl sm:text-5xl lg:text-[3.7rem] leading-[1.01] text-ink uppercase">
+              INTERACTIVE 3D ENGINEERING &amp; VISUAL SYSTEMS
+            </h1>
+
+            <p id="hero-intro" class="text-sm sm:text-base text-muted max-w-xl leading-relaxed">
+              Designing real-time 3D mechanical simulations, cutaway industrial architectures, and precision interactive web engineering tools built for clarity, tactile exploration, and technical rigor.
+            </p>
+
+            <div class="pt-1 flex flex-wrap items-center gap-3">
+              <a href="#works" id="btn-explore-archive"
+                class="mech-btn shutter-btn h-11 px-6 rounded-xl bg-[var(--ink)] text-[var(--bg)] border border-[var(--ink)] font-mono-tech text-xs font-medium tracking-[0.12em] inline-flex items-center gap-2.5">
+                <span data-scramble="EXPLORE ARCHIVE" class="explore-scramble">EXPLORE ARCHIVE</span>
+                <span>↓</span>
+              </a>
+            </div>
+          </div>
+
+          <!-- Key Technical Stats Bar -->
+          <div class="grid grid-cols-3 border-t border-hairline pt-6 gap-4">
+            <div>
+              <div class="font-mono-tech text-[10px] uppercase tracking-[0.14em] text-muted">TOTAL WORKS</div>
+              <div id="stat-works" class="font-display font-bold text-2xl sm:text-3xl text-ink mt-1 font-mono-tech">00</div>
+            </div>
+            <div class="border-l border-hairline pl-4">
+              <div class="font-mono-tech text-[10px] uppercase tracking-[0.14em] text-muted">DISCIPLINES</div>
+              <div id="stat-disciplines" class="font-display font-bold text-2xl sm:text-3xl text-ink mt-1 font-mono-tech">00</div>
+            </div>
+            <div class="border-l border-hairline pl-4">
+              <div class="font-mono-tech text-[10px] uppercase tracking-[0.14em] text-muted">RUNTIME</div>
+              <div class="font-display font-bold text-lg sm:text-2xl text-ink mt-1.5 flex items-center gap-2">
+                <span>WebGL 2.0</span>
+                <span class="w-2 h-2 rounded-full bg-accent pulse-dot shrink-0"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Interactive Three.js Kinetic Sculpture Viewport (5 Columns) -->
+        <div class="lg:col-span-5">
+          <div id="hero-viewport-frame"
+            class="relative w-full h-[360px] sm:h-[420px] lg:h-full min-h-[380px] rounded-2xl border border-hairline bg-surface overflow-hidden select-none">
+
+            <!-- Ultra-Minimal Top Corner Technical Readouts -->
+            <div class="pointer-events-none absolute top-0 inset-x-0 z-10 flex items-center justify-between p-4 font-mono-tech text-[10px] tracking-[0.12em] text-muted">
+              <span class="inline-flex items-center gap-2">
+                <span id="gyro-status-dot" class="w-1.5 h-1.5 rounded-full bg-accent pulse-dot"></span>
+                <span id="gyro-mode-readout">GYROSCOPIC ASSEMBLY // 00</span>
+              </span>
+              <span id="hud-fps" class="text-ink">60 FPS</span>
+            </div>
+
+            <!-- Subtle Center Architectural Reticle Hairlines -->
+            <div class="pointer-events-none absolute inset-0 z-[5] flex items-center justify-center opacity-20">
+              <div class="w-full h-px bg-[var(--border-strong)]"></div>
+            </div>
+            <div class="pointer-events-none absolute inset-0 z-[5] flex items-center justify-center opacity-20">
+              <div class="h-full w-px bg-[var(--border-strong)]"></div>
+            </div>
+
+            <!-- WebGL Canvas Mount -->
+            <div id="hero-canvas-host" class="w-full h-full cursor-grab active:cursor-grabbing touch-none"></div>
+
+            <!-- Bottom HUD + Interactive 3D Instrument Switches -->
+            <div class="pointer-events-none absolute bottom-0 inset-x-0 z-10 p-3.5 sm:p-4 flex flex-col gap-2.5">
+              <div class="flex items-center justify-between font-mono-tech text-[10px] tracking-[0.12em] text-muted">
+                <span id="hud-pointer" class="text-ink">X +0.00 / Y +0.00</span>
+                <span>DRAG TO ORBIT</span>
+              </div>
+
+              <!-- Interactive Hero 3D Controls -->
+              <div class="pointer-events-auto flex flex-wrap items-center gap-1.5">
+                <button id="btn-hero-explode" type="button"
+                  class="mech-btn hero-switch flex-1 min-w-[92px] h-8 px-2.5 rounded-lg font-mono-tech text-[10px] tracking-[0.1em] inline-flex items-center justify-center gap-1.5">
+                  <span class="switch-led"></span>
+                  <span>EXPLODE</span>
+                </button>
+                <button id="btn-hero-wireframe" type="button"
+                  class="mech-btn hero-switch flex-1 min-w-[98px] h-8 px-2.5 rounded-lg font-mono-tech text-[10px] tracking-[0.1em] inline-flex items-center justify-center gap-1.5">
+                  <span class="switch-led"></span>
+                  <span>WIREFRAME</span>
+                </button>
+                <button id="btn-hero-overdrive" type="button"
+                  class="mech-btn hero-switch flex-1 min-w-[98px] h-8 px-2.5 rounded-lg font-mono-tech text-[10px] tracking-[0.1em] inline-flex items-center justify-center gap-1.5">
+                  <span class="switch-led"></span>
+                  <span>OVERDRIVE</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       3. WORKS / ARCHIVE FILTER TOOLBAR (STICKY + SLIDING MAGNETIC PILLS)
+       ========================================================================= -->
+  <section id="works" class="sticky top-16 z-30 bg-glass border-b border-hairline">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+
+        <!-- Dynamic Category Filter Pills with Sliding Magnetic Indicator -->
+        <div class="overflow-x-auto no-scrollbar pb-0.5 md:pb-0">
+          <div id="category-filter-bar" class="magnetic-track inline-flex items-center gap-1.5">
+            <div id="cat-magnetic-pill" class="magnetic-pill magnetic-pill-ink"></div>
+          </div>
+        </div>
+
+        <!-- Search Input + View Switcher (GRID / INDEX with Sliding Magnetic Pill) -->
+        <div class="flex items-center gap-2 shrink-0">
+          <div class="relative flex-1 md:w-60">
+            <svg class="w-3.5 h-3.5 text-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="7"></circle>
+              <path stroke-linecap="round" d="M21 21l-4.35-4.35"></path>
+            </svg>
+            <input id="archive-search" type="search" placeholder="Search works, systems, tags..."
+              class="swiss-search w-full h-9 pl-8 pr-3 rounded-lg text-xs" />
+          </div>
+
+          <div id="view-mode-track" class="magnetic-track inline-flex p-0.5 rounded-lg bg-surface-2 border border-hairline" role="group" aria-label="View mode">
+            <div id="view-magnetic-pill" class="magnetic-pill magnetic-pill-surface"></div>
+            <button id="btn-mode-grid" type="button"
+              class="mech-btn view-mode-btn h-8 px-2.5 rounded-md font-mono-tech text-[11px] tracking-wider flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9">
+                <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+                <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+                <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+                <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+              </svg>
+              <span>GRID</span>
+            </button>
+            <button id="btn-mode-index" type="button"
+              class="mech-btn view-mode-btn h-8 px-2.5 rounded-md font-mono-tech text-[11px] tracking-wider flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9">
+                <path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"></path>
+              </svg>
+              <span>INDEX</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       4. ARCHIVE CONTENT AREA (3D TILT EDITORIAL GRID OR SWISS INDEX TABLE)
+       ========================================================================= -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-9 sm:py-12">
+    <div class="flex items-center justify-between mb-6">
+      <div class="font-mono-tech text-[11px] uppercase tracking-[0.14em] text-muted">
+        ARCHIVE INDEX — <span id="count-visible" class="text-ink font-semibold">0</span> / <span id="count-total" class="text-ink font-semibold">0</span> SYSTEMS
+      </div>
+      <button id="btn-reset-filters" type="button"
+        class="mech-btn hidden font-mono-tech text-[11px] tracking-wider text-accent hover:underline px-2 py-1 rounded">
+        RESET FILTER ×
+      </button>
+    </div>
+
+    <!-- Works Render Container -->
+    <div id="works-mount"></div>
+
+    <!-- Empty Search Results State -->
+    <div id="empty-results" class="hidden py-20 px-6 text-center rounded-2xl border border-hairline bg-surface">
+      <div class="font-mono-tech text-xs tracking-widest text-muted uppercase">NO MATCHING SYSTEMS</div>
+      <p class="font-display font-bold text-lg text-ink mt-2">No archive entries match your current filter.</p>
+      <button id="btn-empty-clear" type="button"
+        class="mech-btn shutter-btn mt-5 h-9 px-4 rounded-lg border border-hairline bg-canvas font-mono-tech text-xs text-ink">
+        SHOW ALL WORKS
+      </button>
+    </div>
+  </main>
+
+  <!-- =========================================================================
+       5. ABOUT & CONTACT FOOTER (SWISS 12-COLUMN ARCHITECTURAL GRID)
+       ========================================================================= -->
+  <footer id="about" class="border-t border-hairline bg-surface mt-auto">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-16">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12">
+
+        <!-- ABOUT Column (7 cols) -->
+        <div class="lg:col-span-7 space-y-5">
+          <div class="font-mono-tech text-[11px] uppercase tracking-[0.16em] text-accent">01 — ABOUT</div>
+          <h2 id="about-heading" class="font-display font-bold text-2xl sm:text-3xl text-ink leading-tight max-w-xl">
+            Precision 3D Visualization for Complex Engineering Systems
+          </h2>
+          <p id="about-statement" class="text-sm text-muted leading-relaxed max-w-2xl"></p>
+
+          <!-- Technical Stack Tags -->
+          <div class="pt-2">
+            <div class="font-mono-tech text-[10px] uppercase tracking-[0.14em] text-muted mb-2.5">CORE DISCIPLINES &amp; STACK</div>
+            <div id="about-disciplines" class="flex flex-wrap gap-2"></div>
+          </div>
+        </div>
+
+        <!-- CONTACT Column (5 cols) -->
+        <div id="contact" class="lg:col-span-5 lg:border-l lg:border-hairline lg:pl-10 flex flex-col justify-between gap-8">
+          <div class="space-y-5">
+            <div class="font-mono-tech text-[11px] uppercase tracking-[0.16em] text-accent">02 — CONTACT</div>
+            <div class="space-y-1">
+              <div id="contact-availability" class="font-display font-semibold text-base text-ink"></div>
+              <div id="contact-location" class="font-mono-tech text-xs text-muted"></div>
+            </div>
+
+            <!-- Contact Channels Driven by JSON Profile -->
+            <div id="contact-links" class="divide-y divide-[var(--border)] border-t border-b border-hairline"></div>
+          </div>
+
+          <div class="flex items-center justify-between font-mono-tech text-[11px] text-muted pt-2">
+            <span id="footer-copyright">© 2026 SUHAIME JEHHAE</span>
+            <a href="#top" data-scramble="TOP ↑" class="nav-scramble hover:text-ink transition-colors">TOP ↑</a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </footer>
+
+  <!-- =========================================================================
+       6. PROJECT DOSSIER MODAL (REFINED SWISS EDITORIAL DETAIL VIEW)
+       ========================================================================= -->
+  <div id="dossier-modal" class="hidden fixed inset-0 z-50 dossier-backdrop flex items-center justify-center p-3 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="dossier-title">
+    <div class="dossier-panel bg-surface border border-hairline rounded-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden shadow-2xl">
+
+      <!-- Dossier Top Bar -->
+      <div class="px-5 sm:px-6 py-4 border-b border-hairline flex items-center justify-between gap-4">
+        <div class="flex items-center gap-2.5 min-w-0 font-mono-tech text-[11px]">
+          <span id="dossier-index" class="text-muted font-semibold">01</span>
+          <span class="text-muted">/</span>
+          <span id="dossier-category" class="text-ink uppercase tracking-wider font-medium">PROPULSION</span>
+          <span class="text-muted hidden sm:inline">•</span>
+          <span id="dossier-year" class="text-muted hidden sm:inline">2026</span>
+        </div>
+        <button id="btn-close-dossier" type="button" aria-label="Close dossier"
+          class="mech-btn w-9 h-9 rounded-lg border border-hairline bg-canvas hover:border-[var(--ink)] text-ink flex items-center justify-center font-mono-tech text-sm shrink-0">
+          ✕
+        </button>
+      </div>
+
+      <!-- Dossier Body -->
+      <div class="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
+        <!-- Large CAD Blueprint or Custom Image -->
+        <div id="dossier-visual" class="w-full aspect-[16/9] rounded-xl border border-hairline cad-stage overflow-hidden"></div>
+
+        <!-- Metadata, Summary & Launch CTA -->
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+          <div class="md:col-span-8 space-y-3.5">
+            <div class="flex flex-wrap items-center gap-2.5">
+              <span id="dossier-status"></span>
+              <span id="dossier-year-mobile" class="sm:hidden font-mono-tech text-xs text-muted">2026</span>
+            </div>
+            <div class="space-y-2.5">
+              <h3 id="dossier-title" class="font-display font-bold text-2xl sm:text-3xl text-ink leading-tight">Project Title</h3>
+              <div id="dossier-title-bar" class="dossier-title-bar"></div>
+            </div>
+            <p id="dossier-summary" class="text-sm sm:text-[15px] text-muted leading-relaxed"></p>
+            <div id="dossier-tags" class="flex flex-wrap gap-1.5 pt-1"></div>
+          </div>
+
+          <div class="md:col-span-4 flex flex-col gap-3 md:pt-1">
+            <a id="dossier-launch" href="#" target="_blank" rel="noopener noreferrer"
+              class="mech-btn shutter-btn dossier-cta-btn h-12 px-5 rounded-xl bg-[var(--ink)] text-[var(--bg)] border border-[var(--ink)] font-mono-tech text-xs font-semibold tracking-[0.1em] flex items-center justify-center gap-2 text-center">
+              <span id="dossier-launch-text">OPEN INTERACTIVE 3D</span>
+              <span>↗</span>
+            </a>
+
+            <div class="rounded-xl border border-hairline bg-canvas p-3.5 space-y-2 font-mono-tech text-[11px]">
+              <div class="flex justify-between gap-2">
+                <span class="text-muted">SYSTEM ID</span>
+                <span id="dossier-id" class="text-ink truncate">turbofan-sim</span>
+              </div>
+              <div class="flex justify-between gap-2">
+                <span class="text-muted">DISCIPLINE</span>
+                <span id="dossier-cat-meta" class="text-ink">PROPULSION</span>
+              </div>
+              <div class="flex justify-between gap-2">
+                <span class="text-muted">ENGINE</span>
+                <span class="text-ink">Three.js / WebGL</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       APPLICATION MODULE (THREE.JS + TACTILE SFX + KINETIC UI + CAD ENGINE)
+       ========================================================================= -->
+  <script type="module">
+    import * as THREE from 'three';
+
+    // -------------------------------------------------------------------------
+    // 1. DATA PAYLOAD INITIALIZATION & APPLICATION STATE
+    // -------------------------------------------------------------------------
+    const THEME_STORAGE_KEY = 'suhaime_archive_theme_v2';
+    const SFX_STORAGE_KEY = 'suhaime_archive_sfx_v2';
+
+    let payload = { profile: {}, works: [] };
+    try {
+      const rawJson = document.getElementById('suhaime-portfolio-data')?.textContent || '{}';
+      payload = JSON.parse(rawJson);
+    } catch (err) {
+      console.error('Failed to parse portfolio data payload:', err);
+    }
+
+    const profile = payload.profile || {};
+    const worksList = Array.isArray(payload.works) ? payload.works : [];
+
+    const state = {
+      theme: 'dark',
+      sfxEnabled: true,
+      activeCategory: 'ALL',
+      searchQuery: '',
+      viewMode: 'grid',
+      activeDossierId: null
+    };
+
+    // -------------------------------------------------------------------------
+    // 2. AUTHENTIC MOUSE MICRO-SWITCH CLICK SYNTHESIZER (WEB AUDIO API)
+    // -------------------------------------------------------------------------
+    const sfx = {
+      ctx: null,
+      noiseBuffer: null,
+      lastHoverStamp: 0,
+      ensureContext() {
+        if (!state.sfxEnabled) return null;
+        try {
+          if (!this.ctx) {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return null;
+            this.ctx = new AudioCtx();
+          }
+          if (this.ctx.state === 'suspended') {
+            this.ctx.resume().catch(() => {});
+          }
+          if (!this.noiseBuffer && this.ctx) {
+            const sampleRate = this.ctx.sampleRate;
+            const len = Math.floor(sampleRate * 0.04);
+            const buf = this.ctx.createBuffer(1, len, sampleRate);
+            const data = buf.getChannelData(0);
+            for (let i = 0; i < len; i++) {
+              // Fast exponential decay noise burst for realistic micro-switch snap
+              data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (sampleRate * 0.004));
+            }
+            this.noiseBuffer = buf;
+          }
+          return this.ctx;
+        } catch (_) {
+          return null;
+        }
+      },
+      // Internal helper: realistic short filtered mouse micro-switch click
+      _playMouseClick(volume = 0.24, centerFreq = 3200, q = 1.6, duration = 0.014, delay = 0) {
+        const ctx = this.ensureContext();
+        if (!ctx || !this.noiseBuffer) return;
+        try {
+          const t = ctx.currentTime + delay;
+
+          // 1. Tactile micro-switch leaf-spring snap (bandpass filtered noise impulse)
+          const src = ctx.createBufferSource();
+          src.buffer = this.noiseBuffer;
+
+          const bp = ctx.createBiquadFilter();
+          bp.type = 'bandpass';
+          bp.frequency.setValueAtTime(centerFreq, t);
+          bp.Q.setValueAtTime(q, t);
+
+          const hp = ctx.createBiquadFilter();
+          hp.type = 'highpass';
+          hp.frequency.setValueAtTime(1100, t);
+
+          const gain = ctx.createGain();
+          gain.gain.setValueAtTime(0.0001, t);
+          gain.gain.linearRampToValueAtTime(volume, t + 0.0012);
+          gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+
+          src.connect(bp);
+          bp.connect(hp);
+          hp.connect(gain);
+          gain.connect(ctx.destination);
+          src.start(t);
+          src.stop(t + duration + 0.004);
+
+          // 2. Subtle mouse-shell plastic acoustic body tap (ultra-short damped pulse)
+          const body = ctx.createOscillator();
+          const bodyGain = ctx.createGain();
+          body.type = 'triangle';
+          body.frequency.setValueAtTime(420, t);
+          body.frequency.exponentialRampToValueAtTime(140, t + 0.009);
+          bodyGain.gain.setValueAtTime(volume * 0.22, t);
+          bodyGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.01);
+          body.connect(bodyGain);
+          bodyGain.connect(ctx.destination);
+          body.start(t);
+          body.stop(t + 0.012);
+        } catch (_) {}
+      },
+      // Soft feather-light mouse wheel/hover tick
+      hoverTick() {
+        const nowMs = performance.now();
+        if (nowMs - this.lastHoverStamp < 55) return;
+        this.lastHoverStamp = nowMs;
+        const ctx = this.ensureContext();
+        if (!ctx || ctx.state !== 'running') return;
+        this._playMouseClick(0.075, 4200, 2.2, 0.007, 0);
+      },
+      // Crisp authentic left-mouse-button micro-switch click
+      clickSwitch(pitch = 1.0) {
+        const freq = Math.round(3100 * Math.max(0.75, Math.min(1.35, pitch)));
+        this._playMouseClick(0.28, freq, 1.55, 0.013, 0);
+        // Subtle micro-switch rebound click ~24ms later
+        this._playMouseClick(0.10, freq + 900, 2.0, 0.008, 0.024);
+      },
+      // Mouse click toggle for mode / 3D switches
+      toggleRelay(engaged) {
+        this.clickSwitch(engaged ? 1.12 : 0.92);
+      }
+    };
+
+    function applySfxState(enabled) {
+      state.sfxEnabled = Boolean(enabled);
+      try { localStorage.setItem(SFX_STORAGE_KEY, state.sfxEnabled ? '1' : '0'); } catch (_) {}
+      document.getElementById('icon-sfx-on').classList.toggle('hidden', !state.sfxEnabled);
+      document.getElementById('icon-sfx-off').classList.toggle('hidden', state.sfxEnabled);
+      document.getElementById('sfx-label').textContent = state.sfxEnabled ? 'SFX' : 'MUTE';
+    }
+
+    // -------------------------------------------------------------------------
+    // 3. KINETIC TEXT SCRAMBLE & BOOT TELEMETRY ANIMATIONS
+    // -------------------------------------------------------------------------
+    const SCRAMBLE_CHARS = '0123456789ABCDEF#$%/_-X';
+    const activeScrambles = new WeakMap();
+
+    function scrambleText(el, targetText, durationMs = 170) {
+      if (!el) return;
+      const finalStr = String(targetText ?? el.dataset.scramble ?? el.textContent);
+      if (activeScrambles.has(el)) {
+        cancelAnimationFrame(activeScrambles.get(el));
+      }
+      const start = performance.now();
+      const len = finalStr.length;
+
+      const step = (now) => {
+        const progress = Math.min(1, (now - start) / durationMs);
+        const revealCount = Math.floor(progress * len);
+        let out = '';
+        for (let i = 0; i < len; i++) {
+          const ch = finalStr[i];
+          if (ch === ' ' || ch === '\n' || i < revealCount) {
+            out += ch;
+          } else {
+            out += SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)];
+          }
+        }
+        el.textContent = out;
+        if (progress < 1) {
+          activeScrambles.set(el, requestAnimationFrame(step));
+        } else {
+          el.textContent = finalStr;
+          activeScrambles.delete(el);
+        }
+      };
+
+      activeScrambles.set(el, requestAnimationFrame(step));
+    }
+
+    function animateTelemetryCounter(el, targetNum, durationMs = 780) {
+      if (!el) return;
+      const start = performance.now();
+      const step = (now) => {
+        const progress = Math.min(1, (now - start) / durationMs);
+        if (progress < 0.72) {
+          const rnd = Math.floor(Math.random() * 99);
+          el.textContent = String(rnd).padStart(2, '0');
+          requestAnimationFrame(step);
+        } else {
+          const eased = (progress - 0.72) / 0.28;
+          const val = Math.round(targetNum * eased);
+          el.textContent = String(val).padStart(2, '0');
+          if (progress < 1) requestAnimationFrame(step);
+          else el.textContent = String(targetNum).padStart(2, '0');
+        }
+      };
+      requestAnimationFrame(step);
+    }
+
+    function bindScrambleHover(el, durationMs = 165) {
+      if (!el) return;
+      const original = el.dataset.scramble || el.textContent.trim();
+      el.dataset.scramble = original;
+      el.addEventListener('mouseenter', () => {
+        sfx.hoverTick();
+        scrambleText(el, original, durationMs);
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // 4. SLIDING MAGNETIC PILL POSITIONING ENGINE
+    // -------------------------------------------------------------------------
+    function moveMagneticPill(trackEl, pillEl, targetBtn) {
+      if (!trackEl || !pillEl || !targetBtn) return;
+      const left = targetBtn.offsetLeft;
+      const top = targetBtn.offsetTop;
+      const width = targetBtn.offsetWidth;
+      const height = targetBtn.offsetHeight;
+      if (width === 0 || height === 0) return;
+
+      pillEl.style.width = `${width}px`;
+      pillEl.style.height = `${height}px`;
+      pillEl.style.transform = `translate3d(${left}px, ${top}px, 0)`;
+      pillEl.style.opacity = '1';
+    }
+
+    function syncAllMagneticPills() {
+      const catBar = document.getElementById('category-filter-bar');
+      const catPill = document.getElementById('cat-magnetic-pill');
+      const activeCatBtn = catBar?.querySelector('.cat-btn.is-active');
+      if (activeCatBtn) moveMagneticPill(catBar, catPill, activeCatBtn);
+
+      const viewTrack = document.getElementById('view-mode-track');
+      const viewPill = document.getElementById('view-magnetic-pill');
+      const activeViewBtn = viewTrack?.querySelector('.view-mode-btn.is-active');
+      if (activeViewBtn) moveMagneticPill(viewTrack, viewPill, activeViewBtn);
+    }
+
+    // -------------------------------------------------------------------------
+    // 5. HTML ESCAPE & CAD BLUEPRINT SVG LIBRARY
+    // -------------------------------------------------------------------------
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function getCadBlueprintSVG(visualType, labelFallback = 'CAD') {
+      const key = String(visualType || 'generic_cad').toLowerCase();
+      const s = 'var(--cad-stroke)';
+      const a = 'var(--accent)';
+
+      const templates = {
+        turbofan: `
+          <svg class="cad-svg w-full h-full" viewBox="0 0 480 270" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <line x1="28" y1="135" x2="452" y2="135" stroke="${s}" stroke-opacity="0.28" stroke-dasharray="6 4" stroke-width="1"/>
+            <path d="M104 56 C144 42, 294 44, 366 72 L358 86 C290 64, 158 62, 114 74 Z" stroke="${s}" stroke-width="1.45"/>
+            <path d="M104 214 C144 228, 294 226, 366 198 L358 184 C290 206, 158 208, 114 196 Z" stroke="${s}" stroke-width="1.45"/>
+            <path d="M68 135 L126 110 L126 160 Z" stroke="${s}" stroke-width="1.4" fill="var(--surface)" fill-opacity="0.5"/>
+            <rect x="126" y="75" width="18" height="120" rx="2" stroke="${s}" stroke-width="1.4"/>
+            <line x1="126" y1="96" x2="144" y2="100" stroke="${s}" stroke-width="1"/>
+            <line x1="126" y1="174" x2="144" y2="170" stroke="${s}" stroke-width="1"/>
+            <path d="M158 102 L262 114 L262 156 L158 168 Z" stroke="${s}" stroke-width="1.35"/>
+            <line x1="174" y1="104" x2="174" y2="166" stroke="${s}" stroke-width="1"/>
+            <line x1="190" y1="106" x2="190" y2="164" stroke="${s}" stroke-width="1"/>
+            <line x1="206" y1="108" x2="206" y2="162" stroke="${s}" stroke-width="1"/>
+            <line x1="222" y1="110" x2="222" y2="160" stroke="${s}" stroke-width="1"/>
+            <line x1="238" y1="112" x2="238" y2="158" stroke="${s}" stroke-width="1"/>
+            <line x1="252" y1="113" x2="252" y2="157" stroke="${s}" stroke-width="1"/>
+            <rect x="268" y="108" width="42" height="54" rx="5" stroke="${a}" stroke-width="1.65"/>
+            <circle cx="289" cy="122" r="3.5" fill="${a}"/>
+            <circle cx="289" cy="148" r="3.5" fill="${a}"/>
+            <path d="M316 112 L374 98 L374 172 L316 158 Z" stroke="${s}" stroke-width="1.35"/>
+            <line x1="334" y1="108" x2="334" y2="162" stroke="${s}" stroke-width="1"/>
+            <line x1="354" y1="103" x2="354" y2="167" stroke="${s}" stroke-width="1"/>
+            <path d="M374 114 L430 135 L374 156" stroke="${s}" stroke-width="1.35"/>
+            <line x1="126" y1="135" x2="374" y2="135" stroke="${a}" stroke-width="2.2"/>
+            <line x1="190" y1="130" x2="334" y2="130" stroke="${s}" stroke-width="1.2"/>
+            <line x1="190" y1="140" x2="334" y2="140" stroke="${s}" stroke-width="1.2"/>
+            <text x="26" y="30" fill="${s}" fill-opacity="0.55" font-family="JetBrains Mono" font-size="10">DWG 01 // DUAL-SPOOL TURBOFAN</text>
+            <text x="364" y="248" fill="${s}" fill-opacity="0.55" font-family="JetBrains Mono" font-size="10">BPR 10.5 : 1</text>
+          </svg>`,
+
+        m16: `
+          <svg class="cad-svg w-full h-full" viewBox="0 0 480 270" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="34" y="108" width="118" height="36" rx="2" stroke="${s}" stroke-width="1.35"/>
+            <path d="M44 126 L51 114 L58 138 L65 114 L72 138 L79 114 L86 138 L93 114 L100 138 L107 114 L114 138 L121 114 L128 138 L135 126" stroke="${s}" stroke-width="1.2"/>
+            <path d="M152 96 L274 96 L274 148 L248 148 L248 196 L212 196 L212 168 L152 168 Z" stroke="${s}" stroke-width="1.4"/>
+            <rect x="162" y="110" width="84" height="30" rx="2" stroke="${s}" stroke-width="1.45" fill="var(--surface)" fill-opacity="0.55"/>
+            <rect x="246" y="116" width="28" height="18" stroke="${a}" stroke-width="1.7"/>
+            <line x1="252" y1="116" x2="252" y2="134" stroke="${a}" stroke-width="1"/>
+            <line x1="266" y1="116" x2="266" y2="134" stroke="${a}" stroke-width="1"/>
+            <path d="M394 123 L394 86 L234 86 L234 110" stroke="${a}" stroke-width="2" stroke-linejoin="round"/>
+            <circle cx="394" cy="123" r="3.5" fill="${a}"/>
+            <rect x="274" y="117" width="166" height="16" stroke="${s}" stroke-width="1.35"/>
+            <path d="M382 117 L390 70 L398 70 L406 117" stroke="${s}" stroke-width="1.35"/>
+            <path d="M214 196 L246 196 L258 244 L224 248 Z" stroke="${s}" stroke-width="1.3"/>
+            <circle cx="260" cy="125" r="22" stroke="${s}" stroke-opacity="0.32" stroke-dasharray="3 3"/>
+            <text x="26" y="30" fill="${s}" fill-opacity="0.55" font-family="JetBrains Mono" font-size="10">DWG 02 // DIRECT IMPINGEMENT 22.5°</text>
+            <text x="348" y="248" fill="${s}" fill-opacity="0.55" font-family="JetBrains Mono" font-size="10">55,000 PSI PEAK</text>
+          </svg>`,
+
+        reev: `
+          <svg class="cad-svg w-full h-full" viewBox="0 0 480 270" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="74" y="64" width="332" height="142" rx="42" stroke="${s}" stroke-width="1.4"/>
+            <rect x="110" y="48" width="54" height="18" rx="5" stroke="${s}" stroke-width="1.45" fill="var(--surface)"/>
+            <rect x="316" y="48" width="54" height="18" rx="5" stroke="${s}" stroke-width="1.45" fill="var(--surface)"/>
+            <rect x="110" y="204" width="54" height="18" rx="5" stroke="${s}" stroke-width="1.45" fill="var(--surface)"/>
+            <rect x="316" y="204" width="54" height="18" rx="5" stroke="${s}" stroke-width="1.45" fill="var(--surface)"/>
+            <line x1="137" y1="66" x2="137" y2="204" stroke="${s}" stroke-width="1.35"/>
+            <line x1="343" y1="66" x2="343" y2="204" stroke="${s}" stroke-width="1.35"/>
+            <rect x="114" y="104" width="46" height="62" rx="5" stroke="${s}" stroke-width="1.4" fill="var(--surface)"/>
+            <rect x="186" y="88" width="110" height="94" rx="6" stroke="${a}" stroke-width="1.7"/>
+            <line x1="214" y1="88" x2="214" y2="182" stroke="${a}" stroke-opacity="0.45" stroke-width="1"/>
+            <line x1="241" y1="88" x2="241" y2="182" stroke="${a}" stroke-opacity="0.45" stroke-width="1"/>
+            <line x1="268" y1="88" x2="268" y2="182" stroke="${a}" stroke-opacity="0.45" stroke-width="1"/>
+            <circle cx="343" cy="135" r="24" stroke="${s}" stroke-width="1.45" fill="var(--surface)"/>
+            <circle cx="343" cy="135" r="7" fill="${a}"/>
+            <line x1="160" y1="135" x2="186" y2="135" stroke="${a}" stroke-width="2.2"/>
+            <line x1="296" y1="135" x2="319" y2="135" stroke="${a}" stroke-width="2.2"/>
+            <text x="26" y="30" fill="${s}" fill-opacity="0.55" font-family="JetBrains Mono" font-size="10">DWG 03 // REEV SERIES ARCHITECTURE</text>
+            <text x="356" y="248" fill="${s}" fill-opacity="0.55" font-family="JetBrains Mono" font-size="10">400V HV BUS</text>
+          </svg>`,
+
+        robotics: `
+          <svg class="cad-svg w-full h-full" viewBox="0 0 480 270" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M126 220 A148 148 0 0 1 392 164" stroke="${s}" stroke-opacity="0.28" stroke-dasharray="5 4" stroke-width="1.15"/>
+            <line x1="56" y1="224" x2="424" y2="224" stroke="${s}" stroke-opacity="0.35" stroke-width="1"/>
+            <path d="M98 224 L184 224 L172 194 L110 194 Z" stroke="${s}" stroke-width="1.45"/>
+            <line x1="141" y1="194" x2="196" y2="98" stroke="${s}" stroke-width="16" stroke-linecap="round" stroke-opacity="0.12"/>
+            <line x1="141" y1="194" x2="196" y2="98" stroke="${s}" stroke-width="2"/>
+            <line x1="196" y1="98" x2="322" y2="88" stroke="${s}" stroke-width="12" stroke-linecap="round" stroke-opacity="0.12"/>
+            <line x1="196" y1="98" x2="322" y2="88" stroke="${s}" stroke-width="2"/>
+            <line x1="322" y1="88" x2="356" y2="144" stroke="${s}" stroke-width="1.8"/>
+            <path d="M346 144 L366 144 L362 162 M350 162 L346 144" stroke="${a}" stroke-width="1.8"/>
+            <circle cx="141" cy="194" r="12" stroke="${s}" stroke-width="1.45" fill="var(--surface)"/>
+            <circle cx="196" cy="98" r="13" stroke="${s}" stroke-width="1.45" fill="var(--surface)"/>
+            <circle cx="322" cy="88" r="9.5" stroke="${a}" stroke-width="1.7" fill="var(--surface)"/>
+            <circle cx="196" cy="98" r="3.5" fill="${a}"/>
+            <rect x="328" y="182" width="74" height="42" rx="3" stroke="${s}" stroke-width="1.35"/>
+            <line x1="356" y1="162" x2="356" y2="182" stroke="${a}" stroke-dasharray="3 2" stroke-width="1.3"/>
+            <text x="26" y="30" fill="${s}" fill-opacity="0.55" font-family="JetBrains Mono" font-size="10">DWG 04 // 6-DOF IK ROBOTICS CELL</text>
+            <text x="348" y="248" fill="${s}" fill-opacity="0.55" font-family="JetBrains Mono" font-size="10">REPEAT ±0.02MM</text>
+          </svg>`,
+
+        biomedical: `
+          <svg class="cad-svg w-full h-full" viewBox="0 0 480 270" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M235 42 L235 88 L206 106 M245 42 L245 88 L274 106" stroke="${s}" stroke-width="1.4"/>
+            <path d="M226 74 C186 68, 150 106, 148 166 C147 192, 176 200, 222 184 Z" stroke="${s}" stroke-width="1.3" stroke-opacity="0.65"/>
+            <path d="M254 74 C294 68, 330 106, 332 166 C333 192, 304 200, 258 184 Z" stroke="${s}" stroke-width="1.3" stroke-opacity="0.65"/>
+            <path d="M240 110 C218 100, 208 124, 218 148 C225 166, 240 178, 248 180 C260 172, 270 154, 267 130 C264 112, 252 106, 240 110 Z" stroke="${a}" stroke-width="1.8" fill="var(--surface)" fill-opacity="0.78"/>
+            <line x1="220" y1="140" x2="265" y2="140" stroke="${a}" stroke-opacity="0.55" stroke-width="1.1"/>
+            <line x1="242" y1="112" x2="242" y2="176" stroke="${a}" stroke-opacity="0.55" stroke-width="1.1"/>
+            <path d="M36 220 L144 220 L156 208 L166 228 L176 184 L186 240 L196 220 L284 220 L296 208 L306 228 L316 184 L326 240 L336 220 L444 220" stroke="${a}" stroke-width="1.6" stroke-linejoin="round"/>
+            <text x="26" y="30" fill="${s}" fill-opacity="0.55" font-family="JetBrains Mono" font-size="10">DWG 05 // CARDIOPULMONARY FLOW</text>
+            <text x="352" y="254" fill="${s}" fill-opacity="0.55" font-family="JetBrains Mono" font-size="10">72 BPM / 99% O2</text>
+          </svg>`,
+
+        architecture: `
+          <svg class="cad-svg w-full h-full" viewBox="0 0 480 270" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <line x1="48" y1="216" x2="432" y2="216" stroke="${s}" stroke-width="1.2"/>
+            <polygon points="120,216 120,96 240,56 360,96 360,216" stroke="${s}" stroke-width="1.45"/>
+            <line x1="240" y1="56" x2="240" y2="216" stroke="${s}" stroke-width="1.25"/>
+            <line x1="120" y1="136" x2="360" y2="136" stroke="${s}" stroke-opacity="0.5" stroke-width="1"/>
+            <line x1="120" y1="176" x2="360" y2="176" stroke="${s}" stroke-opacity="0.5" stroke-width="1"/>
+            <rect x="206" y="136" width="68" height="80" stroke="${a}" stroke-width="1.6"/>
+            <circle cx="240" cy="96" r="14" stroke="${a}" stroke-width="1.5"/>
+            <text x="26" y="30" fill="${s}" fill-opacity="0.55" font-family="JetBrains Mono" font-size="10">DWG // ARCHITECTURAL ELEVATION</text>
+            <text x="364" y="248" fill="${s}" fill-opacity="0.55" font-family="JetBrains Mono" font-size="10">SCALE 1:100</text>
+          </svg>`,
+
+        network: `
+          <svg class="cad-svg w-full h-full" viewBox="0 0 480 270" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <line x1="112" y1="135" x2="240" y2="74" stroke="${s}" stroke-width="1.2"/>
+            <line x1="112" y1="135" x2="240" y2="196" stroke="${s}" stroke-width="1.2"/>
+            <line x1="240" y1="74" x2="368" y2="135" stroke="${a}" stroke-width="1.6"/>
+            <line x1="240" y1="196" x2="368" y2="135" stroke="${s}" stroke-width="1.2"/>
+            <line x1="240" y1="74" x2="240" y2="196" stroke="${s}" stroke-dasharray="4 3" stroke-width="1.1"/>
+            <line x1="112" y1="135" x2="368" y2="135" stroke="${a}" stroke-width="1.6"/>
+            <circle cx="112" cy="135" r="16" stroke="${s}" stroke-width="1.45" fill="var(--surface)"/>
+            <circle cx="240" cy="74" r="16" stroke="${a}" stroke-width="1.6" fill="var(--surface)"/>
+            <circle cx="240" cy="196" r="16" stroke="${s}" stroke-width="1.45" fill="var(--surface)"/>
+            <circle cx="368" cy="135" r="16" stroke="${a}" stroke-width="1.6" fill="var(--surface)"/>
+            <circle cx="240" cy="135" r="7" fill="${a}"/>
+            <text x="26" y="30" fill="${s}" fill-opacity="0.55" font-family="JetBrains Mono" font-size="10">DWG // SYSTEM TOPOLOGY GRAPH</text>
+            <text x="364" y="248" fill="${s}" fill-opacity="0.55" font-family="JetBrains Mono" font-size="10">NODE MATRIX</text>
+          </svg>`,
+
+        generic_cad: `
+          <svg class="cad-svg w-full h-full" viewBox="0 0 480 270" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="240" cy="135" r="76" stroke="${s}" stroke-width="1.3" stroke-dasharray="6 4"/>
+            <circle cx="240" cy="135" r="50" stroke="${s}" stroke-width="1.5"/>
+            <polygon points="240,68 298,101.5 298,168.5 240,202 182,168.5 182,101.5" stroke="${s}" stroke-width="1.3"/>
+            <line x1="240" y1="42" x2="240" y2="228" stroke="${s}" stroke-opacity="0.28" stroke-width="1"/>
+            <line x1="136" y1="135" x2="344" y2="135" stroke="${s}" stroke-opacity="0.28" stroke-width="1"/>
+            <circle cx="240" cy="135" r="6" fill="${a}"/>
+            <text x="26" y="30" fill="${s}" fill-opacity="0.55" font-family="JetBrains Mono" font-size="10">DWG // ${escapeHtml(String(labelFallback).toUpperCase())}</text>
+            <text x="364" y="248" fill="${s}" fill-opacity="0.55" font-family="JetBrains Mono" font-size="10">3D WEBGL SPEC</text>
+          </svg>`
+      };
+
+      return templates[key] || templates.generic_cad;
+    }
+
+    function renderVisualBlock(work) {
+      const svgFallback = getCadBlueprintSVG(work.visualType, work.category);
+      if (work.customImage && work.customImage.trim()) {
+        return `
+          <img src="${escapeHtml(work.customImage)}" alt="${escapeHtml(work.title)}"
+            class="card-cover-img w-full h-full object-cover"
+            onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+          <div style="display:none" class="w-full h-full">${svgFallback}</div>
+        `;
+      }
+      return svgFallback;
+    }
+
+    // -------------------------------------------------------------------------
+    // 6. STATUS BADGE RENDERER
+    // -------------------------------------------------------------------------
+    function renderStatusBadge(status) {
+      const st = String(status || 'LIVE').toUpperCase();
+      if (st === 'LIVE') {
+        return `<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded font-mono-tech text-[10px] font-medium tracking-wider bg-[var(--accent-soft)] text-accent border border-[#E6481E]/30">
+          <span class="w-1.5 h-1.5 rounded-full bg-accent pulse-dot"></span>LIVE
+        </span>`;
+      }
+      if (st === 'PROTOTYPE') {
+        return `<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded font-mono-tech text-[10px] font-medium tracking-wider bg-surface-2 text-ink border border-hairline">
+          <span class="w-1.5 h-1.5 rounded-full bg-[var(--ink)]"></span>PROTOTYPE
+        </span>`;
+      }
+      return `<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded font-mono-tech text-[10px] font-medium tracking-wider bg-transparent text-muted border border-hairline">
+        ${escapeHtml(st)}
+      </span>`;
+    }
+
+    // -------------------------------------------------------------------------
+    // 7. THREE.JS KINETIC GYROSCOPE SCULPTURE + EXPLODE / WIREFRAME / OVERDRIVE
+    // -------------------------------------------------------------------------
+    const heroScene = {
+      scene: null,
+      camera: null,
+      renderer: null,
+      assembly: null,
+      outerRing: null,
+      middleRing: null,
+      innerRing: null,
+      coreGroup: null,
+      parts: {},
+      mats: {},
+      lights: {},
+      // Interactive Instrument Controls State
+      exploded: false,
+      explodeMix: 0,
+      wireframe: false,
+      overdrive: false,
+      overdriveMix: 0,
+      simTime: 0,
+      lastFrameTime: performance.now(),
+      // Pointer / Orbit State
+      pointerX: 0,
+      pointerY: 0,
+      dragRotX: 0.28,
+      dragRotY: 0.42,
+      isDragging: false,
+      lastClientX: 0,
+      lastClientY: 0,
+      frames: 0,
+      fpsStamp: performance.now(),
+      // Smooth Theme Color & Light Interpolation Targets
+      themeTargets: {
+        bg: new THREE.Color('#15171B'),
+        steel: new THREE.Color(0xc8ccd4),
+        graphite: new THREE.Color(0x3a3e48),
+        core: new THREE.Color(0x282c34),
+        ambient: 0.65,
+        key: 2.4,
+        rim: 1.65
+      },
+      ready: false
+    };
+
+    function createMachinedRing(radius, tube, notchCount, ringMat, notchMat, accentMat) {
+      const group = new THREE.Group();
+      const torus = new THREE.Mesh(new THREE.TorusGeometry(radius, tube, 28, 96), ringMat);
+      group.add(torus);
+
+      const notchGeo = new THREE.BoxGeometry(tube * 0.72, tube * 2.35, tube * 0.85);
+      for (let i = 0; i < notchCount; i++) {
+        const angle = (i / notchCount) * Math.PI * 2;
+        const mat = i === 0 && accentMat ? accentMat : notchMat;
+        const notch = new THREE.Mesh(notchGeo, mat);
+        notch.position.set(
+          Math.cos(angle) * (radius + tube * 1.15),
+          Math.sin(angle) * (radius + tube * 1.15),
+          0
+        );
+        notch.rotation.z = angle + Math.PI / 2;
+        group.add(notch);
+      }
+      return group;
+    }
+
+    function initHeroGyroscope() {
+      const host = document.getElementById('hero-canvas-host');
+      if (!host) return;
+
+      try {
+        const width = host.clientWidth || 440;
+        const height = host.clientHeight || 380;
+
+        heroScene.scene = new THREE.Scene();
+        heroScene.camera = new THREE.PerspectiveCamera(36, width / height, 0.1, 100);
+        heroScene.camera.position.set(0, 0, 5.7);
+
+        heroScene.renderer = new THREE.WebGLRenderer({
+          antialias: true,
+          alpha: false,
+          powerPreference: 'high-performance'
+        });
+        heroScene.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        heroScene.renderer.setSize(width, height);
+        heroScene.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        heroScene.renderer.toneMappingExposure = 1.1;
+        host.innerHTML = '';
+        host.appendChild(heroScene.renderer.domElement);
+
+        // Studio Lighting + Core Overdrive PointLight
+        heroScene.lights.ambient = new THREE.AmbientLight(0xffffff, 0.65);
+        heroScene.scene.add(heroScene.lights.ambient);
+
+        heroScene.lights.key = new THREE.DirectionalLight(0xffffff, 2.4);
+        heroScene.lights.key.position.set(4.5, 5.5, 6.0);
+        heroScene.scene.add(heroScene.lights.key);
+
+        heroScene.lights.fill = new THREE.DirectionalLight(0xeaeae4, 0.85);
+        heroScene.lights.fill.position.set(-4.0, -2.5, 3.0);
+        heroScene.scene.add(heroScene.lights.fill);
+
+        heroScene.lights.rim = new THREE.DirectionalLight(0xd6dbe4, 1.65);
+        heroScene.lights.rim.position.set(-4.5, 3.0, -5.0);
+        heroScene.scene.add(heroScene.lights.rim);
+
+        heroScene.lights.coreGlow = new THREE.PointLight(0xe6481e, 0, 7.5);
+        heroScene.lights.coreGlow.position.set(0, 0, 0);
+        heroScene.scene.add(heroScene.lights.coreGlow);
+
+        // Precision PBR Materials
+        heroScene.mats.steel = new THREE.MeshPhysicalMaterial({
+          color: 0xc8ccd4,
+          metalness: 0.8,
+          roughness: 0.22,
+          clearcoat: 0.28,
+          clearcoatRoughness: 0.18
+        });
+
+        heroScene.mats.graphite = new THREE.MeshStandardMaterial({
+          color: 0x3a3e48,
+          metalness: 0.48,
+          roughness: 0.44
+        });
+
+        heroScene.mats.core = new THREE.MeshPhysicalMaterial({
+          color: 0x282c34,
+          metalness: 0.62,
+          roughness: 0.28,
+          clearcoat: 0.45,
+          emissive: new THREE.Color(0xe6481e),
+          emissiveIntensity: 0
+        });
+
+        heroScene.mats.wire = new THREE.LineBasicMaterial({
+          color: 0xf2f2ee,
+          transparent: true,
+          opacity: 0.24
+        });
+
+        heroScene.mats.accent = new THREE.MeshStandardMaterial({
+          color: 0xe6481e,
+          metalness: 0.2,
+          roughness: 0.34,
+          emissive: new THREE.Color(0xe6481e),
+          emissiveIntensity: 0.15
+        });
+
+        // Root Gyroscope Assembly
+        heroScene.assembly = new THREE.Group();
+        heroScene.scene.add(heroScene.assembly);
+
+        // 1. Outer Machined Gimbal Ring
+        heroScene.outerRing = createMachinedRing(
+          1.56, 0.056, 16,
+          heroScene.mats.steel,
+          heroScene.mats.graphite,
+          heroScene.mats.accent
+        );
+
+        const pinGeo = new THREE.CylinderGeometry(0.032, 0.032, 0.34, 18);
+        const pinTop = new THREE.Mesh(pinGeo, heroScene.mats.steel);
+        pinTop.position.set(0, 1.38, 0);
+        const pinBot = pinTop.clone();
+        pinBot.position.set(0, -1.38, 0);
+        heroScene.outerRing.add(pinTop, pinBot);
+        heroScene.parts.pinTop = pinTop;
+        heroScene.parts.pinBot = pinBot;
+        heroScene.assembly.add(heroScene.outerRing);
+
+        // 2. Middle Graphite Gimbal Ring
+        heroScene.middleRing = createMachinedRing(
+          1.20, 0.048, 12,
+          heroScene.mats.graphite,
+          heroScene.mats.steel,
+          null
+        );
+        const pinLeft = new THREE.Mesh(pinGeo, heroScene.mats.steel);
+        pinLeft.rotation.z = Math.PI / 2;
+        pinLeft.position.set(-1.02, 0, 0);
+        const pinRight = pinLeft.clone();
+        pinRight.position.set(1.02, 0, 0);
+        heroScene.middleRing.add(pinLeft, pinRight);
+        heroScene.parts.pinLeft = pinLeft;
+        heroScene.parts.pinRight = pinRight;
+        heroScene.assembly.add(heroScene.middleRing);
+
+        // 3. Inner Precision Ring + Orange Datum Pin
+        heroScene.innerRing = createMachinedRing(
+          0.86, 0.034, 8,
+          heroScene.mats.steel,
+          heroScene.mats.graphite,
+          heroScene.mats.accent
+        );
+        const datumPin = new THREE.Mesh(new THREE.SphereGeometry(0.068, 22, 22), heroScene.mats.accent);
+        datumPin.position.set(0.86, 0, 0);
+        heroScene.innerRing.add(datumPin);
+        heroScene.assembly.add(heroScene.innerRing);
+
+        // 4. Central Gyroscopic Core, Geodesic Wire Cage & Spindle
+        heroScene.coreGroup = new THREE.Group();
+
+        const solidCore = new THREE.Mesh(new THREE.SphereGeometry(0.42, 32, 32), heroScene.mats.core);
+        const wireGeo = new THREE.WireframeGeometry(new THREE.IcosahedronGeometry(0.56, 1));
+        const wireCage = new THREE.LineSegments(wireGeo, heroScene.mats.wire);
+        const spindle = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 1.56, 16), heroScene.mats.steel);
+
+        heroScene.parts.solidCore = solidCore;
+        heroScene.parts.wireCage = wireCage;
+        heroScene.parts.spindle = spindle;
+
+        heroScene.coreGroup.add(solidCore, wireCage, spindle);
+        heroScene.assembly.add(heroScene.coreGroup);
+
+        syncHeroSceneTheme(state.theme, true);
+        bindHeroInteractions(host);
+        heroScene.ready = true;
+      } catch (err) {
+        console.warn('WebGL Hero initialization skipped:', err);
+        host.innerHTML = `<div class="w-full h-full cad-stage p-6 flex items-center justify-center">${getCadBlueprintSVG('generic_cad', 'GYROSCOPIC CORE')}</div>`;
+      }
+    }
+
+    function syncHeroSceneTheme(theme, immediate = false) {
+      if (!heroScene.scene || !heroScene.mats.steel) return;
+      const tt = heroScene.themeTargets;
+
+      if (theme === 'dark') {
+        tt.bg.set('#15171B');
+        tt.steel.setHex(0xc8ccd4);
+        tt.graphite.setHex(0x3a3e48);
+        tt.core.setHex(0x282c34);
+        tt.ambient = 0.65;
+        tt.key = 2.4;
+        tt.rim = 1.65;
+      } else {
+        tt.bg.set('#FFFFFF');
+        tt.steel.setHex(0x9a9c97);
+        tt.graphite.setHex(0x222327);
+        tt.core.setHex(0x16171a);
+        tt.ambient = 0.85;
+        tt.key = 2.1;
+        tt.rim = 1.2;
+      }
+
+      if (immediate || !heroScene.scene.background) {
+        heroScene.scene.background = tt.bg.clone();
+        heroScene.mats.steel.color.copy(tt.steel);
+        heroScene.mats.graphite.color.copy(tt.graphite);
+        heroScene.mats.core.color.copy(tt.core);
+        heroScene.lights.ambient.intensity = tt.ambient;
+        heroScene.lights.key.intensity = tt.key;
+        heroScene.lights.rim.intensity = tt.rim;
+      }
+      updateHeroWireframeAppearance();
+    }
+
+    function updateHeroWireframeAppearance() {
+      if (!heroScene.mats.steel) return;
+      const wf = heroScene.wireframe;
+      heroScene.mats.steel.wireframe = wf;
+      heroScene.mats.graphite.wireframe = wf;
+      heroScene.mats.core.wireframe = wf;
+      heroScene.mats.accent.wireframe = wf;
+      heroScene.mats.wire.opacity = wf ? 0.65 : 0.24;
+    }
+
+    function updateGyroModeReadout() {
+      const readout = document.getElementById('gyro-mode-readout');
+      if (!readout) return;
+      const modes = [];
+      if (heroScene.exploded) modes.push('EXPLODED');
+      if (heroScene.wireframe) modes.push('WIREFRAME');
+      if (heroScene.overdrive) modes.push('OVERDRIVE');
+      const text = modes.length ? `GYRO // ${modes.join(' + ')}` : 'GYROSCOPIC ASSEMBLY // 00';
+      scrambleText(readout, text, 190);
+    }
+
+    function bindHeroInteractions(host) {
+      const pointerHud = document.getElementById('hud-pointer');
+
+      const setPointerNormalized = (clientX, clientY) => {
+        const rect = host.getBoundingClientRect();
+        const nx = Math.max(-1, Math.min(1, ((clientX - rect.left) / rect.width) * 2 - 1));
+        const ny = Math.max(-1, Math.min(1, -(((clientY - rect.top) / rect.height) * 2 - 1)));
+        heroScene.pointerX = nx;
+        heroScene.pointerY = ny;
+        if (pointerHud) {
+          const sx = `${nx >= 0 ? '+' : ''}${nx.toFixed(2)}`;
+          const sy = `${ny >= 0 ? '+' : ''}${ny.toFixed(2)}`;
+          pointerHud.textContent = `X ${sx} / Y ${sy}`;
+        }
+      };
+
+      window.addEventListener('pointermove', (e) => {
+        setPointerNormalized(e.clientX, e.clientY);
+        if (heroScene.isDragging) {
+          const dx = e.clientX - heroScene.lastClientX;
+          const dy = e.clientY - heroScene.lastClientY;
+          heroScene.dragRotY += dx * 0.009;
+          heroScene.dragRotX = Math.max(-1.2, Math.min(1.2, heroScene.dragRotX + dy * 0.009));
+          heroScene.lastClientX = e.clientX;
+          heroScene.lastClientY = e.clientY;
+        }
+      });
+
+      host.addEventListener('pointerdown', (e) => {
+        heroScene.isDragging = true;
+        heroScene.lastClientX = e.clientX;
+        heroScene.lastClientY = e.clientY;
+        try { host.setPointerCapture(e.pointerId); } catch (_) {}
+      });
+
+      window.addEventListener('pointerup', () => {
+        heroScene.isDragging = false;
+      });
+
+      // Instrument Switch Bindings
+      const btnExplode = document.getElementById('btn-hero-explode');
+      const btnWire = document.getElementById('btn-hero-wireframe');
+      const btnOverdrive = document.getElementById('btn-hero-overdrive');
+
+      btnExplode?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        heroScene.exploded = !heroScene.exploded;
+        btnExplode.classList.toggle('is-engaged', heroScene.exploded);
+        sfx.toggleRelay(heroScene.exploded);
+        updateGyroModeReadout();
+      });
+
+      btnWire?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        heroScene.wireframe = !heroScene.wireframe;
+        btnWire.classList.toggle('is-engaged', heroScene.wireframe);
+        updateHeroWireframeAppearance();
+        sfx.toggleRelay(heroScene.wireframe);
+        updateGyroModeReadout();
+      });
+
+      btnOverdrive?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        heroScene.overdrive = !heroScene.overdrive;
+        btnOverdrive.classList.toggle('is-engaged', heroScene.overdrive);
+        sfx.toggleRelay(heroScene.overdrive);
+        updateGyroModeReadout();
+      });
+
+      [btnExplode, btnWire, btnOverdrive].forEach(b => {
+        b?.addEventListener('mouseenter', () => sfx.hoverTick());
+      });
+
+      const resizeCanvas = () => {
+        if (!heroScene.renderer || !heroScene.camera) return;
+        const w = host.clientWidth;
+        const h = host.clientHeight;
+        if (w > 0 && h > 0) {
+          heroScene.camera.aspect = w / h;
+          heroScene.camera.updateProjectionMatrix();
+          heroScene.renderer.setSize(w, h);
+        }
+      };
+
+      window.addEventListener('resize', resizeCanvas);
+      if (typeof ResizeObserver !== 'undefined') {
+        new ResizeObserver(resizeCanvas).observe(host);
+      }
+    }
+
+    const colorDarkWire = new THREE.Color(0xf2f2ee);
+    const colorLightWire = new THREE.Color(0x111111);
+    const colorAccentOrange = new THREE.Color(0xe6481e);
+
+    function animateHero() {
+      requestAnimationFrame(animateHero);
+      if (!heroScene.ready) return;
+
+      const now = performance.now();
+      const dt = Math.min(0.05, (now - heroScene.lastFrameTime) * 0.001);
+      heroScene.lastFrameTime = now;
+
+      // Smoothly interpolate EXPLODE and OVERDRIVE states
+      const targetExplode = heroScene.exploded ? 1 : 0;
+      heroScene.explodeMix += (targetExplode - heroScene.explodeMix) * Math.min(1, dt * 6.5);
+
+      const targetOverdrive = heroScene.overdrive ? 1 : 0;
+      heroScene.overdriveMix += (targetOverdrive - heroScene.overdriveMix) * Math.min(1, dt * 5.0);
+
+      // Integrate simulation time smoothly (no jump when toggling overdrive)
+      const speedMult = 1.0 + heroScene.overdriveMix * 4.2;
+      heroScene.simTime += dt * speedMult;
+      const t = heroScene.simTime;
+
+      // Apply Exploded Assembly Offsets
+      const e = heroScene.explodeMix;
+      heroScene.outerRing.position.z = -0.62 * e;
+      heroScene.outerRing.scale.setScalar(1 + 0.08 * e);
+      heroScene.middleRing.position.z = 0.04 * e;
+      heroScene.innerRing.position.z = 0.62 * e;
+      heroScene.coreGroup.position.z = 0.12 * e;
+
+      if (heroScene.parts.pinTop) {
+        heroScene.parts.pinTop.position.y = 1.38 + 0.28 * e;
+        heroScene.parts.pinBot.position.y = -1.38 - 0.28 * e;
+        heroScene.parts.pinLeft.position.x = -1.02 - 0.26 * e;
+        heroScene.parts.pinRight.position.x = 1.02 + 0.26 * e;
+        heroScene.parts.solidCore.scale.setScalar(1 - 0.10 * e);
+        heroScene.parts.wireCage.scale.setScalar(1 + 0.42 * e);
+        heroScene.parts.spindle.scale.y = 1 + 0.62 * e;
+      }
+
+      // Smooth camera pull-back slightly when exploded
+      heroScene.camera.position.z = 5.7 + 0.85 * e;
+
+      // Apply Overdrive Glowing Orange Core & Dynamic Wireframe Color
+      const pulse = 0.85 + Math.sin(now * 0.012) * 0.15;
+      heroScene.mats.core.emissiveIntensity = heroScene.overdriveMix * 2.1 * pulse;
+      heroScene.mats.accent.emissiveIntensity = 0.15 + heroScene.overdriveMix * 1.45 * pulse;
+      heroScene.lights.coreGlow.intensity = heroScene.overdriveMix * 5.2 * pulse;
+
+      // Smoothly crossfade 3D scene background, materials & lights during theme switch
+      const themeLerp = Math.min(1, dt * 8.5);
+      const tt = heroScene.themeTargets;
+      if (heroScene.scene.background && heroScene.scene.background.isColor) {
+        heroScene.scene.background.lerp(tt.bg, themeLerp);
+      }
+      heroScene.mats.steel.color.lerp(tt.steel, themeLerp);
+      heroScene.mats.graphite.color.lerp(tt.graphite, themeLerp);
+      heroScene.mats.core.color.lerp(tt.core, themeLerp);
+      heroScene.lights.ambient.intensity += (tt.ambient - heroScene.lights.ambient.intensity) * themeLerp;
+      heroScene.lights.key.intensity += (tt.key - heroScene.lights.key.intensity) * themeLerp;
+      heroScene.lights.rim.intensity += (tt.rim - heroScene.lights.rim.intensity) * themeLerp;
+
+      const baseWire = state.theme === 'dark' ? colorDarkWire : colorLightWire;
+      heroScene.mats.wire.color.lerp(
+        baseWire.clone().lerp(colorAccentOrange, heroScene.overdriveMix * 0.85),
+        themeLerp
+      );
+
+      // Smooth Gimbal & Pointer Orbit Kinematics
+      const targetRotX = heroScene.dragRotX + heroScene.pointerY * 0.22;
+      const targetRotY = heroScene.dragRotY + heroScene.pointerX * 0.28;
+      heroScene.assembly.rotation.x += (targetRotX - heroScene.assembly.rotation.x) * Math.min(1, dt * 6.0);
+      heroScene.assembly.rotation.y += (targetRotY - heroScene.assembly.rotation.y) * Math.min(1, dt * 6.0);
+
+      heroScene.outerRing.rotation.y = t * 0.18;
+      heroScene.middleRing.rotation.x = t * 0.34;
+      heroScene.innerRing.rotation.z = -t * 0.52;
+      heroScene.coreGroup.rotation.y = t * 0.48;
+      heroScene.coreGroup.rotation.x = Math.sin(t * 0.56) * 0.38;
+
+      heroScene.renderer.render(heroScene.scene, heroScene.camera);
+
+      // Update live FPS indicator once per second
+      heroScene.frames += 1;
+      if (now - heroScene.fpsStamp >= 1000) {
+        const fpsEl = document.getElementById('hud-fps');
+        if (fpsEl) fpsEl.textContent = `${heroScene.frames} FPS`;
+        heroScene.frames = 0;
+        heroScene.fpsStamp = now;
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // 8. POPULATE PROFILE, STATS & FOOTER FROM JSON
+    // -------------------------------------------------------------------------
+    function renderProfileContent() {
+      if (profile.name) document.getElementById('brand-name').textContent = profile.name;
+      if (profile.archiveSubtitle) document.getElementById('brand-subtitle').textContent = profile.archiveSubtitle;
+      if (profile.heroBadge) document.getElementById('hero-badge').textContent = profile.heroBadge;
+      if (profile.heroHeadline) document.getElementById('hero-headline').textContent = profile.heroHeadline;
+      if (profile.heroIntro) document.getElementById('hero-intro').textContent = profile.heroIntro;
+      if (profile.aboutHeading) document.getElementById('about-heading').textContent = profile.aboutHeading;
+      if (profile.aboutStatement) document.getElementById('about-statement').textContent = profile.aboutStatement;
+      if (profile.availability) document.getElementById('contact-availability').textContent = profile.availability;
+      if (profile.location) document.getElementById('contact-location').textContent = profile.location;
+      if (profile.copyright) document.getElementById('footer-copyright').textContent = profile.copyright;
+
+      const discWrap = document.getElementById('about-disciplines');
+      const disciplines = Array.isArray(profile.disciplines) ? profile.disciplines : [];
+      discWrap.innerHTML = disciplines.map(item =>
+        `<span class="font-mono-tech text-[11px] px-2.5 py-1 rounded-md bg-canvas border border-hairline text-ink">${escapeHtml(item)}</span>`
+      ).join('');
+
+      const linksWrap = document.getElementById('contact-links');
+      const links = Array.isArray(profile.links) ? profile.links : [];
+      linksWrap.innerHTML = links.map(link => {
+        const isMail = String(link.href || '').startsWith('mailto:');
+        const targetAttrs = isMail ? '' : 'target="_blank" rel="noopener noreferrer"';
+        return `
+          <a href="${escapeHtml(link.href)}" ${targetAttrs}
+            class="contact-link py-3 flex items-center justify-between gap-3 group text-xs transition-colors">
+            <span class="font-mono-tech text-[10px] tracking-[0.14em] text-muted">${escapeHtml(link.label)}</span>
+            <span class="font-mono-tech text-ink group-hover:text-accent transition-colors inline-flex items-center gap-1.5 truncate">
+              <span class="truncate">${escapeHtml(link.display)}</span>
+              <span class="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5">↗</span>
+            </span>
+          </a>`;
+      }).join('');
+
+      linksWrap.querySelectorAll('.contact-link').forEach(a => {
+        a.addEventListener('mouseenter', () => sfx.hoverTick());
+        a.addEventListener('click', () => sfx.clickSwitch(1.05));
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // 9. ARCHIVE FILTERING, PERSISTENT MAGNETIC PILLS, 3D TILT GRID & INDEX
+    // -------------------------------------------------------------------------
+    function getCategoryCounts() {
+      const map = new Map();
+      worksList.forEach(w => {
+        const cat = String(w.category || 'UNCATEGORIZED').toUpperCase();
+        map.set(cat, (map.get(cat) || 0) + 1);
+      });
+      return Array.from(map.entries());
+    }
+
+    function getFilteredWorks() {
+      const q = state.searchQuery.trim().toLowerCase();
+      return worksList.filter(item => {
+        const cat = String(item.category || '').toUpperCase();
+        if (state.activeCategory !== 'ALL' && cat !== state.activeCategory) return false;
+        if (!q) return true;
+        const searchable = [
+          item.title,
+          item.summary,
+          item.category,
+          item.year,
+          item.status,
+          ...(item.tags || [])
+        ].join(' ').toLowerCase();
+        return searchable.includes(q);
+      });
+    }
+
+    function initCategoryPillsOnce() {
+      const categories = getCategoryCounts();
+      const filterBar = document.getElementById('category-filter-bar');
+      const pills = [['ALL', worksList.length], ...categories];
+
+      // Remove old buttons while preserving #cat-magnetic-pill
+      filterBar.querySelectorAll('.cat-btn').forEach(b => b.remove());
+
+      pills.forEach(([cat, count]) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.dataset.category = cat;
+        btn.className = 'mech-btn cat-btn shrink-0 h-8 px-3 rounded-lg font-mono-tech text-[11px] tracking-wider inline-flex items-center gap-1.5';
+        btn.innerHTML = `<span>${escapeHtml(cat)}</span><span class="text-[10px] opacity-65">${count}</span>`;
+
+        btn.addEventListener('mouseenter', () => sfx.hoverTick());
+        btn.addEventListener('click', () => {
+          if (state.activeCategory === cat) return;
+          sfx.clickSwitch(1.1);
+          state.activeCategory = cat;
+          renderArchive();
+        });
+
+        filterBar.appendChild(btn);
+      });
+    }
+
+    function renderArchive() {
+      // Sync Category Active State & Slide Magnetic Pill smoothly
+      const filterBar = document.getElementById('category-filter-bar');
+      const catPill = document.getElementById('cat-magnetic-pill');
+      let activeCatBtn = null;
+      filterBar.querySelectorAll('.cat-btn').forEach(btn => {
+        const isActive = btn.dataset.category === state.activeCategory;
+        btn.classList.toggle('is-active', isActive);
+        if (isActive) activeCatBtn = btn;
+      });
+      if (activeCatBtn) {
+        requestAnimationFrame(() => moveMagneticPill(filterBar, catPill, activeCatBtn));
+      }
+
+      // Sync View Switcher Active State & Slide Magnetic Pill smoothly
+      const viewTrack = document.getElementById('view-mode-track');
+      const viewPill = document.getElementById('view-magnetic-pill');
+      const btnGrid = document.getElementById('btn-mode-grid');
+      const btnIndex = document.getElementById('btn-mode-index');
+      btnGrid.classList.toggle('is-active', state.viewMode === 'grid');
+      btnIndex.classList.toggle('is-active', state.viewMode === 'index');
+      requestAnimationFrame(() => {
+        moveMagneticPill(viewTrack, viewPill, state.viewMode === 'grid' ? btnGrid : btnIndex);
+      });
+
+      // Render Filtered Works
+      const filtered = getFilteredWorks();
+      document.getElementById('count-visible').textContent = filtered.length;
+      document.getElementById('count-total').textContent = worksList.length;
+
+      const hasActiveFilter = state.activeCategory !== 'ALL' || state.searchQuery.trim() !== '';
+      document.getElementById('btn-reset-filters').classList.toggle('hidden', !hasActiveFilter);
+
+      const mount = document.getElementById('works-mount');
+      const emptyEl = document.getElementById('empty-results');
+
+      if (filtered.length === 0) {
+        mount.innerHTML = '';
+        emptyEl.classList.remove('hidden');
+        return;
+      }
+
+      emptyEl.classList.add('hidden');
+
+      if (state.viewMode === 'grid') {
+        renderGridCards(mount, filtered);
+      } else {
+        renderSwissIndexTable(mount, filtered);
+      }
+    }
+
+    function renderCrosshairLabel(labelText) {
+      return `
+        <span class="crosshair-btn shrink-0 font-mono-tech text-[11px] font-semibold text-ink">
+          <span class="ch-corner ch-tl"></span>
+          <span class="ch-corner ch-tr"></span>
+          <span class="ch-corner ch-bl"></span>
+          <span class="ch-corner ch-br"></span>
+          <span class="inspect-label" data-scramble="${escapeHtml(labelText)}">${escapeHtml(labelText)}</span>
+          <span class="ch-arrow">↗</span>
+        </span>`;
+    }
+
+    function renderGridCards(mount, items) {
+      mount.className = 'works-grid view-stage-enter grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6';
+      mount.innerHTML = items.map((item, i) => {
+        const idxLabel = item.index || String(i + 1).padStart(2, '0');
+        const tagsHtml = (item.tags || []).slice(0, 4).map(tag =>
+          `<span class="card-tag font-mono-tech text-[10px] px-2 py-0.5 rounded bg-surface-2 text-muted border border-hairline">${escapeHtml(tag)}</span>`
+        ).join('');
+
+        return `
+          <article data-work-id="${escapeHtml(item.id)}" tabindex="0" role="button" style="animation-delay:${i * 42}ms"
+            class="work-card reveal-item rounded-2xl overflow-hidden flex flex-col cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#E6481E]">
+            <span class="card-top-bar"></span>
+            <div class="relative w-full aspect-[16/9] cad-stage border-b border-hairline overflow-hidden">
+              ${renderVisualBlock(item)}
+            </div>
+
+            <div class="p-5 flex-1 flex flex-col justify-between gap-4 relative z-[3]">
+              <div class="space-y-2.5">
+                <div class="flex items-center justify-between gap-2">
+                  <div class="flex items-center gap-2 font-mono-tech text-[11px]">
+                    <span class="card-meta-idx text-muted">${escapeHtml(idxLabel)}</span>
+                    <span class="card-meta-idx text-muted">/</span>
+                    <span class="card-meta-cat text-ink font-medium tracking-wider uppercase">${escapeHtml(item.category)}</span>
+                  </div>
+                  ${renderStatusBadge(item.status)}
+                </div>
+
+                <h3 class="card-title font-display font-bold text-lg text-ink leading-snug">
+                  ${escapeHtml(item.title)}
+                </h3>
+
+                <p class="card-summary text-xs sm:text-[13px] text-muted leading-relaxed">
+                  ${escapeHtml(item.summary)}
+                </p>
+              </div>
+
+              <div class="card-footer-line pt-3.5 border-t border-hairline flex items-center justify-between gap-2">
+                <div class="flex flex-wrap gap-1.5">${tagsHtml}</div>
+                ${renderCrosshairLabel('INSPECT')}
+              </div>
+            </div>
+          </article>`;
+      }).join('');
+
+      attachWorkItemListeners(mount);
+      attach3DTiltToCards(mount);
+    }
+
+    function renderSwissIndexTable(mount, items) {
+      mount.className = 'view-stage-enter rounded-2xl border border-hairline bg-canvas overflow-hidden';
+      const header = `
+        <div class="hidden md:grid md:grid-cols-12 gap-4 px-5 py-3 border-b border-hairline bg-surface-2 font-mono-tech text-[10px] uppercase tracking-[0.14em] text-muted">
+          <div class="col-span-1">IDX</div>
+          <div class="col-span-4">SYSTEM / SUMMARY</div>
+          <div class="col-span-2">DISCIPLINE</div>
+          <div class="col-span-2">STATUS</div>
+          <div class="col-span-2">YEAR / TAGS</div>
+          <div class="col-span-1 text-right">OPEN</div>
+        </div>`;
+
+      const rows = items.map((item, i) => {
+        const idxLabel = item.index || String(i + 1).padStart(2, '0');
+        const firstTag = (item.tags && item.tags[0]) ? item.tags[0] : '';
+        return `
+          <div data-work-id="${escapeHtml(item.id)}" tabindex="0" role="button" style="animation-delay:${i * 28}ms"
+            class="index-row reveal-item grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-4 px-5 py-4 items-center cursor-pointer focus:outline-none focus:bg-surface">
+            <div class="md:col-span-1 flex items-center justify-between md:block font-mono-tech text-xs text-muted">
+              <span>${escapeHtml(idxLabel)}</span>
+              <span class="md:hidden">${renderStatusBadge(item.status)}</span>
+            </div>
+            <div class="md:col-span-4 min-w-0">
+              <div class="font-display font-bold text-base text-ink truncate">${escapeHtml(item.title)}</div>
+              <div class="text-xs text-muted truncate mt-0.5">${escapeHtml(item.summary)}</div>
+            </div>
+            <div class="md:col-span-2 font-mono-tech text-[11px] tracking-wider text-ink uppercase">
+              ${escapeHtml(item.category)}
+            </div>
+            <div class="hidden md:block md:col-span-2">
+              ${renderStatusBadge(item.status)}
+            </div>
+            <div class="md:col-span-2 flex items-center gap-2 font-mono-tech text-[11px] text-muted">
+              <span>${escapeHtml(item.year || '2026')}</span>
+              ${firstTag ? `<span class="px-1.5 py-0.5 rounded bg-surface-2 border border-hairline text-[10px] truncate">${escapeHtml(firstTag)}</span>` : ''}
+            </div>
+            <div class="md:col-span-1 md:text-right">
+              ${renderCrosshairLabel('INSPECT')}
+            </div>
+          </div>`;
+      }).join('');
+
+      mount.innerHTML = header + rows;
+      attachWorkItemListeners(mount);
+    }
+
+    function attach3DTiltToCards(mount) {
+      if (!window.matchMedia('(hover: hover)').matches) return;
+      mount.querySelectorAll('.work-card').forEach(card => {
+        card.addEventListener('pointermove', (e) => {
+          const rect = card.getBoundingClientRect();
+          const px = (e.clientX - rect.left) / rect.width;
+          const py = (e.clientY - rect.top) / rect.height;
+          // Comfortable, eye-friendly buoyant 3D pop-out with gentle tilt
+          const rotY = (px - 0.5) * 5.2;
+          const rotX = (0.5 - py) * 4.4;
+          card.classList.add('is-tilting');
+          card.style.setProperty('--mx', `${(px * 100).toFixed(1)}%`);
+          card.style.setProperty('--my', `${(py * 100).toFixed(1)}%`);
+          card.style.transform = `perspective(1050px) translateY(-9px) scale(1.028) rotateX(${rotX.toFixed(2)}deg) rotateY(${rotY.toFixed(2)}deg)`;
+        });
+
+        card.addEventListener('pointerleave', () => {
+          card.classList.remove('is-tilting');
+          card.style.transform = '';
+        });
+      });
+    }
+
+    function attachWorkItemListeners(mount) {
+      mount.querySelectorAll('[data-work-id]').forEach(el => {
+        const inspectLabel = el.querySelector('.inspect-label');
+        el.addEventListener('mouseenter', () => {
+          sfx.hoverTick();
+          if (inspectLabel) {
+            scrambleText(inspectLabel, inspectLabel.dataset.scramble || 'INSPECT', 160);
+          }
+        });
+        el.addEventListener('click', () => {
+          sfx.clickSwitch(1.0);
+          openDossierModal(el.dataset.workId);
+        });
+        el.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            sfx.clickSwitch(1.0);
+            openDossierModal(el.dataset.workId);
+          }
+        });
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // 10. PROJECT DOSSIER MODAL (CINEMATIC STAGGERED TEXT & LAUNCH SEQUENCE)
+    // -------------------------------------------------------------------------
+    function animateDossierTitle(el, titleText) {
+      if (!el) return;
+      const clean = String(titleText || '').trim();
+      const words = clean.split(/\s+/);
+      el.setAttribute('aria-label', clean);
+      el.innerHTML = words.map((word, i) =>
+        `<span class="dossier-word-mask"><span class="dossier-word-inner" style="--d-delay:${80 + i * 55}ms">${escapeHtml(word)}</span></span>`
+      ).join(' ');
+    }
+
+    let dossierCloseTimer = null;
+
+    function openDossierModal(workId) {
+      const item = worksList.find(w => w.id === workId);
+      if (!item) return;
+
+      if (dossierCloseTimer) {
+        clearTimeout(dossierCloseTimer);
+        dossierCloseTimer = null;
+      }
+
+      state.activeDossierId = workId;
+      const idxEl = document.getElementById('dossier-index');
+      const catEl = document.getElementById('dossier-category');
+      const catMetaEl = document.getElementById('dossier-cat-meta');
+      const idEl = document.getElementById('dossier-id');
+      const titleEl = document.getElementById('dossier-title');
+      const titleBar = document.getElementById('dossier-title-bar');
+      const summaryEl = document.getElementById('dossier-summary');
+      const launchBtn = document.getElementById('dossier-launch');
+      const launchText = document.getElementById('dossier-launch-text');
+
+      const idxStr = item.index || '00';
+      const catStr = String(item.category || '').toUpperCase();
+
+      idxEl.textContent = idxStr;
+      catEl.textContent = catStr;
+      catMetaEl.textContent = catStr;
+      document.getElementById('dossier-year').textContent = item.year || '2026';
+      document.getElementById('dossier-year-mobile').textContent = item.year || '2026';
+      document.getElementById('dossier-status').innerHTML = renderStatusBadge(item.status);
+      document.getElementById('dossier-visual').innerHTML = renderVisualBlock(item);
+
+      // 1. Exciting staggered masked word glide on title + accent scan bar
+      animateDossierTitle(titleEl, item.title);
+      if (titleBar) {
+        titleBar.classList.remove('is-sweeping');
+        void titleBar.offsetWidth;
+        titleBar.classList.add('is-sweeping');
+      }
+
+      // 2. Smooth summary reveal animation
+      summaryEl.textContent = item.summary || '';
+      summaryEl.classList.remove('dossier-summary-reveal');
+      void summaryEl.offsetWidth;
+      summaryEl.classList.add('dossier-summary-reveal');
+
+      // 3. Staggered spec tags wave pop-in
+      const tagsWrap = document.getElementById('dossier-tags');
+      tagsWrap.innerHTML = (item.tags || []).map((tag, i) =>
+        `<span class="dossier-tag-reveal font-mono-tech text-[10px] px-2.5 py-1 rounded-md bg-surface-2 text-ink border border-hairline" style="--tag-delay:${260 + i * 55}ms">${escapeHtml(tag)}</span>`
+      ).join('');
+
+      // 4. Launch CTA link + kinetic shimmer & decode
+      launchBtn.href = item.url || '#';
+      launchBtn.classList.remove('is-primed');
+      void launchBtn.offsetWidth;
+      launchBtn.classList.add('is-primed');
+
+      // 5. Open modal smoothly with spring entrance
+      const modal = document.getElementById('dossier-modal');
+      modal.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+      requestAnimationFrame(() => {
+        modal.classList.add('is-open');
+      });
+
+      // 6. Telemetry decode on dossier header, specs & Launch CTA
+      scrambleText(catEl, catStr, 260);
+      scrambleText(idEl, item.id, 320);
+      scrambleText(catMetaEl, catStr, 300);
+      if (launchText) {
+        scrambleText(launchText, 'OPEN INTERACTIVE 3D', 380);
+      }
+    }
+
+    function closeDossierModal() {
+      sfx.clickSwitch(0.88);
+      const modal = document.getElementById('dossier-modal');
+      modal.classList.remove('is-open');
+      document.body.style.overflow = '';
+      state.activeDossierId = null;
+      dossierCloseTimer = setTimeout(() => {
+        modal.classList.add('hidden');
+        dossierCloseTimer = null;
+      }, 240);
+    }
+
+    // -------------------------------------------------------------------------
+    // 11. THEME CONTROLLER (SMOOTH CROSSFADE: MATTE CARBON <-> LIGHT)
+    // -------------------------------------------------------------------------
+    let themeTransitionTimer = null;
+
+    function applyTheme(nextTheme, immediate = false) {
+      state.theme = nextTheme === 'light' ? 'light' : 'dark';
+
+      if (!immediate) {
+        document.documentElement.classList.add('theme-transitioning');
+        if (themeTransitionTimer) clearTimeout(themeTransitionTimer);
+        themeTransitionTimer = setTimeout(() => {
+          document.documentElement.classList.remove('theme-transitioning');
+        }, 460);
+      }
+
+      document.documentElement.setAttribute('data-theme', state.theme);
+      try { localStorage.setItem(THEME_STORAGE_KEY, state.theme); } catch (_) {}
+
+      const iconLight = document.getElementById('icon-light');
+      const iconCarbon = document.getElementById('icon-carbon');
+      const label = document.getElementById('theme-label');
+
+      if (state.theme === 'dark') {
+        iconLight.classList.remove('hidden');
+        iconCarbon.classList.add('hidden');
+        label.textContent = 'CARBON';
+      } else {
+        iconLight.classList.add('hidden');
+        iconCarbon.classList.remove('hidden');
+        label.textContent = 'LIGHT';
+      }
+
+      syncHeroSceneTheme(state.theme, immediate);
+    }
+
+    // -------------------------------------------------------------------------
+    // 12. EVENT BINDINGS & INITIALIZATION ON WINDOW LOAD
+    // -------------------------------------------------------------------------
+    function bindUIEvents() {
+      // Kinetic Text Scramble on Nav & Explore CTA
+      document.querySelectorAll('.nav-scramble').forEach(el => bindScrambleHover(el, 155));
+      const exploreBtn = document.getElementById('btn-explore-archive');
+      const exploreText = exploreBtn?.querySelector('.explore-scramble');
+      exploreBtn?.addEventListener('mouseenter', () => {
+        sfx.hoverTick();
+        if (exploreText) scrambleText(exploreText, exploreText.dataset.scramble, 170);
+      });
+      exploreBtn?.addEventListener('click', () => sfx.clickSwitch(1.05));
+
+      // Sound Toggle
+      document.getElementById('btn-sfx-toggle').addEventListener('click', () => {
+        const next = !state.sfxEnabled;
+        applySfxState(next);
+        if (next) sfx.toggleRelay(true);
+      });
+
+      // Theme Toggle
+      document.getElementById('btn-theme-toggle').addEventListener('click', () => {
+        const next = state.theme === 'dark' ? 'light' : 'dark';
+        sfx.toggleRelay(next === 'dark');
+        applyTheme(next);
+      });
+
+      document.getElementById('archive-search').addEventListener('input', (e) => {
+        state.searchQuery = e.target.value;
+        renderArchive();
+      });
+
+      document.getElementById('btn-mode-grid').addEventListener('click', () => {
+        if (state.viewMode === 'grid') return;
+        sfx.clickSwitch(1.1);
+        state.viewMode = 'grid';
+        renderArchive();
+      });
+
+      document.getElementById('btn-mode-index').addEventListener('click', () => {
+        if (state.viewMode === 'index') return;
+        sfx.clickSwitch(1.1);
+        state.viewMode = 'index';
+        renderArchive();
+      });
+
+      const resetFilters = () => {
+        sfx.clickSwitch(0.9);
+        state.activeCategory = 'ALL';
+        state.searchQuery = '';
+        document.getElementById('archive-search').value = '';
+        renderArchive();
+      };
+
+      document.getElementById('btn-reset-filters').addEventListener('click', resetFilters);
+      document.getElementById('btn-empty-clear').addEventListener('click', resetFilters);
+
+      document.getElementById('btn-close-dossier').addEventListener('click', closeDossierModal);
+      document.getElementById('dossier-launch').addEventListener('click', () => sfx.clickSwitch(1.15));
+      document.getElementById('dossier-modal').addEventListener('click', (e) => {
+        if (e.target.id === 'dossier-modal') closeDossierModal();
+      });
+
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && state.activeDossierId) {
+          closeDossierModal();
+        }
+      });
+
+      window.addEventListener('resize', () => {
+        syncAllMagneticPills();
+      });
+    }
+
+    function animateHeadlineSmoothReveal(el) {
+      if (!el) return;
+      const rawText = el.textContent.trim();
+      if (!rawText) return;
+      const words = rawText.split(/\s+/);
+      el.setAttribute('aria-label', rawText);
+      el.innerHTML = words.map((word, idx) =>
+        `<span class="hero-word-mask"><span class="hero-word-inner" style="--word-delay:${idx * 65}ms">${escapeHtml(word)}</span></span>`
+      ).join(' ');
+    }
+
+    function runBootTelemetrySequence() {
+      const headline = document.getElementById('hero-headline');
+      if (headline) {
+        animateHeadlineSmoothReveal(headline);
+      }
+      const categories = getCategoryCounts();
+      animateTelemetryCounter(document.getElementById('stat-works'), worksList.length, 760);
+      animateTelemetryCounter(document.getElementById('stat-disciplines'), categories.length, 760);
+    }
+
+    window.addEventListener('load', () => {
+      // Default to CARBON (dark) unless explicitly changed by user
+      let savedTheme = 'dark';
+      try { savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || 'dark'; } catch (_) {}
+      applyTheme(savedTheme, true);
+
+      let savedSfx = true;
+      try {
+        const storedSfx = localStorage.getItem(SFX_STORAGE_KEY);
+        if (storedSfx !== null) savedSfx = storedSfx === '1';
+      } catch (_) {}
+      applySfxState(savedSfx);
+
+      renderProfileContent();
+      initCategoryPillsOnce();
+      bindUIEvents();
+      renderArchive();
+      initHeroGyroscope();
+      animateHero();
+      runBootTelemetrySequence();
+
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(() => syncAllMagneticPills());
+      }
+    });
+  </script>
+
+<!-- หน้าต่าง JURI AI Command Terminal -->
+<div id="juri-terminal" class="juri-hidden">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #27272a;background:rgba(230,72,30,0.08);">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="width:8px;height:8px;border-radius:50%;background:#e6481e;box-shadow:0 0 8px #e6481e;"></span>
+      <span style="font-family:monospace;font-size:11px;font-weight:700;letter-spacing:0.08em;">JURI AI // TACTICAL CORE</span>
+      <div class="juri-bars"><span></span><span></span><span></span><span></span></div>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button id="juri-mute-btn" type="button" title="เปิด/ปิดเสียงพูด" style="background:none;border:none;color:#a1a1aa;cursor:pointer;font-size:13px;">🔊</button>
+      <button id="juri-close-btn" type="button" title="ปิดหน้าต่าง" style="background:none;border:none;color:#a1a1aa;cursor:pointer;font-size:14px;">✕</button>
+    </div>
+  </div>
+
+  <div id="juri-output" style="padding:14px;min-height:90px;max-height:190px;overflow-y:auto;font-size:13px;line-height:1.6;color:#e4e4e7;">
+    ระบบจูรีพร้อมใช้งานครับ กดปุ่ม JURI บนการ์ดผลงานเพื่อฟังคำอธิบาย หรือกดไมค์เพื่อถามข้อมูลได้เลยครับ
+  </div>
+
+  <div style="display:flex;gap:6px;padding:10px;border-top:1px solid #27272a;background:#0c0c0e;">
+    <button id="juri-mic-btn" type="button" title="กดเพื่อพูดถาม" style="padding:0 10px;border-radius:8px;border:1px solid #3f3f46;background:#18181b;color:#fff;cursor:pointer;">🎤</button>
+    <input id="juri-input" type="text" placeholder="พิมพ์หรือกดไมค์ถาม JURI..." style="flex:1;background:#18181b;border:1px solid #27272a;border-radius:8px;padding:7px 10px;color:#fff;font-size:12px;outline:none;" />
+    <button id="juri-send-btn" type="button" style="padding:0 12px;border-radius:8px;border:none;background:#e6481e;color:#fff;font-family:monospace;font-size:11px;font-weight:700;cursor:pointer;">SEND</button>
+  </div>
+</div>
+
+<script>
+(function() {
+  const terminal = document.getElementById('juri-terminal');
+  const outputEl = document.getElementById('juri-output');
+  const inputEl = document.getElementById('juri-input');
+  const micBtn = document.getElementById('juri-mic-btn');
+  const sendBtn = document.getElementById('juri-send-btn');
+  const closeBtn = document.getElementById('juri-close-btn');
+  const muteBtn = document.getElementById('juri-mute-btn');
+  let isMuted = false;
+
+  // 1. สร้างปุ่ม ● JURI AI บนแถบ Header ด้านบนสุด
+  const headerRight = document.querySelector('header nav, header .flex.items-center.gap-2, header .flex.items-center.gap-3');
+  if (headerRight && !document.getElementById('header-juri-btn')) {
+    const btn = document.createElement('button');
+    btn.id = 'header-juri-btn';
+    btn.type = 'button';
+    btn.className = 'btn-juri-pill';
+    btn.style.padding = '5px 12px';
+    btn.style.fontSize = '11px';
+    btn.innerHTML = '● JURI AI';
+    btn.onclick = () => {
+      terminal.classList.toggle('juri-hidden');
+      if (!terminal.classList.contains('juri-hidden')) {
+        const greeting = 'ระบบจูรีออนไลน์ครับ มีข้อมูลส่วนไหนให้ผมช่วยวิเคราะห์ไหมครับ';
+        typeWriter(greeting);
+        speakText(greeting);
+      } else {
+        window.speechSynthesis.cancel();
+      }
+    };
+    headerRight.prepend(btn);
+  }
+
+  // 2. เพิ่มปุ่ม ✦ JURI ข้างป้าย LIVE / CONCEPT (โหมด 0 Token อ่านข้อมูลการ์ดโดยตรง)
+  function injectCardJuriButtons() {
+    document.querySelectorAll('.work-card, article').forEach(card => {
+      if (card.querySelector('.card-juri-btn')) return;
+      const title = card.querySelector('h3, h2')?.innerText?.trim() || 'ผลงานวิศวกรรม';
+      const category = card.querySelector('.font-mono-tech, .uppercase')?.innerText?.trim() || '';
+      const desc = card.querySelector('p')?.innerText?.trim() || '';
+
+      const badge = Array.from(card.querySelectorAll('span, div')).find(el =>
+        /LIVE|PROTOTYPE|CONCEPT/i.test(el.textContent) && el.children.length === 0
+      );
+
+      const juriBtn = document.createElement('button');
+      juriBtn.type = 'button';
+      juriBtn.className = 'btn-juri-pill card-juri-btn';
+      juriBtn.innerHTML = '✦ JURI';
+      juriBtn.title = 'ให้ JURI อธิบายผลงานนี้';
+      juriBtn.onclick = (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        terminal.classList.remove('juri-hidden');
+
+        // สร้างบทพูดอัตโนมัติจากข้อมูลการ์ด (ใช้ 0 Token)
+        const briefText = `กำลังแสดงข้อมูลโปรเจกต์ ${title} หมวดหมู่ ${category} ครับ รายละเอียดระบบคือ ${desc}`;
+        typeWriter(briefText);
+        speakText(briefText);
+      };
+
+      if (badge && badge.parentElement) {
+        badge.parentElement.style.display = 'flex';
+        badge.parentElement.style.alignItems = 'center';
+        badge.parentElement.style.gap = '6px';
+        badge.parentElement.appendChild(juriBtn);
+      }
+    });
+  }
+
+  injectCardJuriButtons();
+  setTimeout(injectCardJuriButtons, 800);
+
+  // 3. ระบบเสียงพูด (Web Speech Synthesis)
+  // โหลดรายการเสียงทั้งหมดของเบราว์เซอร์ไว้ล่วงหน้า
+  let cachedVoices = [];
+  function loadBestVoices() {
+    cachedVoices = window.speechSynthesis.getVoices();
+  }
+  loadBestVoices();
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.onvoiceschanged = loadBestVoices;
+  }
+
+  // ระบบเสียงพูดแบบเลือกเสียง Neural ที่เป็นธรรมชาติที่สุด + เว้นจังหวะหายใจ
+  function speakText(text) {
+    if (isMuted || !('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+
+    const voices = cachedVoices.length ? cachedVoices : window.speechSynthesis.getVoices();
+    const isThai = /[\u0E00-\u0E7F]/.test(text);
+
+    // คัดเลือกเสียงระดับ Natural / Online / Google ก่อนเป็นอันดับแรก
+    let selectedVoice = null;
+    if (isThai) {
+      selectedVoice =
+        voices.find(v => v.lang.includes('th') && /Natural|Online|Google|Premwadee|Niwat/i.test(v.name)) ||
+        voices.find(v => v.lang.includes('th'));
+    } else {
+      selectedVoice =
+        voices.find(v => v.lang.includes('en') && /Natural|Online|Google UK English Male|Daniel|Ryan/i.test(v.name)) ||
+        voices.find(v => v.lang.includes('en'));
+    }
+
+    // แบ่งประโยคตามเครื่องหมายวรรคตอนเพื่อให้มีจังหวะหยุดหายใจเหมือนคนพูดจริง
+    const chunks = text.match(/[^.!?。\n]+[.!?。\n]*/g) || [text];
+    terminal.classList.add('juri-speaking');
+
+    chunks.forEach((chunk, idx) => {
+      const cleanChunk = chunk.trim();
+      if (!cleanChunk) return;
+
+      const utter = new SpeechSynthesisUtterance(cleanChunk);
+      if (selectedVoice) utter.voice = selectedVoice;
+      utter.lang = isThai ? 'th-TH' : 'en-US';
+      utter.rate = isThai ? 1.02 : 0.98;  // ความเร็วพอดีคำ ไม่รัวเกินไป
+      utter.pitch = 0.96;                 // โทนเสียงทุ้มนุ่ม สุขุมขึ้นเล็กน้อย
+
+      if (idx === chunks.length - 1) {
+        utter.onend = () => terminal.classList.remove('juri-speaking');
+        utter.onerror = () => terminal.classList.remove('juri-speaking');
+      }
+      window.speechSynthesis.speak(utter);
+    });
+  }
+
+  function typeWriter(text) {
+    outputEl.textContent = '';
+    let i = 0;
+    const timer = setInterval(() => {
+      outputEl.textContent += text.charAt(i);
+      outputEl.scrollTop = outputEl.scrollHeight;
+      i++;
+      if (i >= text.length) clearInterval(timer);
+    }, 20);
+  }
+
+  // 4. ถาม Gemini API พร้อมระบบ Cache (ถามซ้ำไม่เสีย Token)
+  async function askJuri(promptText) {
+    const cleanPrompt = promptText.trim();
+    if (!cleanPrompt) return;
+
+    const cacheKey = 'juri_cache_' + cleanPrompt.toLowerCase();
+    const cachedReply = sessionStorage.getItem(cacheKey);
+    if (cachedReply) {
+      typeWriter(cachedReply);
+      speakText(cachedReply);
+      return;
+    }
+
+    outputEl.textContent = 'กำลังประมวลผลคำตอบ...';
+    try {
+      const res = await fetch('/.netlify/functions/juri', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: cleanPrompt })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'เชื่อมต่อระบบหลังบ้านไม่สำเร็จ');
+
+      sessionStorage.setItem(cacheKey, data.reply);
+      typeWriter(data.reply);
+      speakText(data.reply);
+    } catch (err) {
+      outputEl.textContent = 'ข้อผิดพลาด: ' + err.message;
+    }
+  }
+
+  // 5. ระบบรับเสียงจากไมโครโฟน (กดเพื่อพูด)
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (SpeechRecognition) {
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'th-TH';
+    recognition.interimResults = false;
+
+    micBtn.onclick = () => {
+      window.speechSynthesis.cancel();
+      recognition.start();
+      micBtn.style.background = '#e6481e';
+      outputEl.textContent = 'กำลังฟังเสียงของคุณ... พูดคำถามได้เลยครับ';
+    };
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      inputEl.value = transcript;
+      askJuri(transcript);
+    };
+
+    recognition.onend = () => { micBtn.style.background = '#18181b'; };
+    recognition.onerror = () => {
+      micBtn.style.background = '#18181b';
+      outputEl.textContent = 'ไม่สามารถเข้าถึงไมโครโฟนได้ กรุณาพิมพ์คำถามแทนครับ';
+    };
+  } else {
+    micBtn.style.display = 'none';
+  }
+
+  sendBtn.onclick = () => {
+    const q = inputEl.value;
+    inputEl.value = '';
+    askJuri(q);
+  };
+  inputEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') sendBtn.click();
+  });
+  closeBtn.onclick = () => {
+    terminal.classList.add('juri-hidden');
+    window.speechSynthesis.cancel();
+  };
+  muteBtn.onclick = () => {
+    isMuted = !isMuted;
+    muteBtn.textContent = isMuted ? '🔇' : '🔊';
+    if (isMuted) window.speechSynthesis.cancel();
+  };
+})();
+</script>
+</body>
+</html>

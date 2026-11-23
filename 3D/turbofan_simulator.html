@@ -1,0 +1,2624 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Interactive 3D High-Bypass Turbofan Engine Simulator</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Three.js r128 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- Google Fonts: Inter & JetBrains Mono & Noto Sans Thai -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-deep: #090d16;
+      --panel-bg: rgba(11, 18, 32, 0.78);
+      --panel-border: rgba(56, 189, 248, 0.24);
+      --accent-cyan: #38bdf8;
+      --accent-amber: #fb923c;
+      --accent-danger: #ef4444;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-deep);
+      color: #e2e8f0;
+      font-family: 'Noto Sans Thai', 'Inter', sans-serif;
+      user-select: none;
+    }
+
+    .font-mono-tech {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Fullscreen 3D Canvas Container */
+    #canvas-container {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      touch-action: none;
+      cursor: grab;
+    }
+
+    #canvas-container:active {
+      cursor: grabbing;
+    }
+
+    /* Glassmorphic Aerospace HUD Panel */
+    .hud-panel {
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--panel-border);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.48), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+
+    /* Custom Aerospace Throttle Range Slider */
+    input[type="range"].throttle-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 10px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #0ea5e9 0%, #22c55e 45%, #f59e0b 78%, #ef4444 100%);
+      outline: none;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.65);
+    }
+
+    input[type="range"].throttle-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 24px;
+      height: 24px;
+      border-radius: 8px;
+      background: linear-gradient(180deg, #f8fafc 0%, #94a3b8 100%);
+      border: 2px solid #0f172a;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.8), 0 3px 8px rgba(0, 0, 0, 0.6);
+      cursor: pointer;
+      transition: transform 0.12s ease;
+    }
+
+    input[type="range"].throttle-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.12);
+    }
+
+    input[type="range"].throttle-slider::-moz-range-thumb {
+      width: 24px;
+      height: 24px;
+      border-radius: 8px;
+      background: linear-gradient(180deg, #f8fafc 0%, #94a3b8 100%);
+      border: 2px solid #0f172a;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.8);
+      cursor: pointer;
+    }
+
+    /* Floating 3D Labels (Exploded View & Highlights) */
+    #labels-layer {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 10;
+      overflow: hidden;
+    }
+
+    .floating-label {
+      position: absolute;
+      transform: translate(-50%, -100%);
+      pointer-events: auto;
+      cursor: pointer;
+      transition: opacity 0.25s ease, transform 0.15s ease;
+    }
+
+    .floating-label:hover {
+      transform: translate(-50%, -105%) scale(1.04);
+      z-index: 25;
+    }
+
+    /* Warning Alert Pulse */
+    @keyframes alertPulse {
+      0%, 100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7), inset 0 0 20px rgba(239, 68, 68, 0.25);
+        border-color: rgba(239, 68, 68, 0.95);
+      }
+      50% {
+        box-shadow: 0 0 24px 4px rgba(239, 68, 68, 0.45), inset 0 0 30px rgba(239, 68, 68, 0.4);
+        border-color: rgba(252, 165, 165, 1);
+      }
+    }
+
+    .alert-banner-active {
+      animation: alertPulse 0.85s infinite ease-in-out;
+    }
+
+    /* Telemetry Value Warning Glow */
+    @keyframes warnText {
+      0%, 100% { color: #f87171; text-shadow: 0 0 10px rgba(239, 68, 68, 0.8); }
+      50% { color: #fef08a; text-shadow: 0 0 14px rgba(250, 204, 21, 0.9); }
+    }
+
+    .telemetry-warning {
+      animation: warnText 0.7s infinite;
+    }
+
+    /* Scrollbar Styling */
+    .custom-scroll::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.4);
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: rgba(56, 189, 248, 0.35);
+      border-radius: 999px;
+    }
+
+    /* Subtle Scanline Overlay */
+    .scanlines {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 2;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(255, 255, 255, 0.012) 0px,
+        rgba(255, 255, 255, 0.012) 1px,
+        transparent 1px,
+        transparent 4px
+      );
+    }
+  </style>
+</head>
+<body class="bg-[#090d16] text-slate-100">
+
+  <!-- 3D WebGL Canvas Mount -->
+  <div id="canvas-container"></div>
+  <div class="scanlines"></div>
+
+  <!-- Floating 3D Component Labels Layer -->
+  <div id="labels-layer"></div>
+
+  <!-- Top Center Alert Banner (Stall / Overheat) -->
+  <div id="hud-alert-banner" class="hidden fixed top-3 left-1/2 -translate-x-1/2 z-40 w-[92%] max-w-xl px-4 py-2.5 rounded-xl bg-red-950/90 border-2 border-red-500 text-center alert-banner-active pointer-events-auto">
+    <div class="flex items-center justify-center gap-2.5">
+      <svg class="w-5 h-5 text-red-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+      </svg>
+      <span id="hud-alert-text" class="font-mono-tech text-xs sm:text-sm font-bold tracking-wider text-red-100 uppercase"></span>
+    </div>
+    <p id="hud-alert-desc" class="text-[11px] sm:text-xs text-red-200/90 mt-1"></p>
+  </div>
+
+  <!-- TOP LEFT: Aerospace Test Cell Header & Telemetry Readout Grid -->
+  <aside id="panel-telemetry" class="fixed top-3 left-3 z-30 w-[230px] sm:w-[290px] md:w-[320px] hud-panel rounded-2xl p-3 transition-all duration-300">
+    <div class="flex items-center justify-between gap-2 pb-2 mb-2 border-b border-slate-700/70">
+      <div class="min-w-0">
+        <div class="flex items-center gap-1.5">
+          <span id="status-dot" class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span>
+          <span class="font-mono-tech text-[10px] tracking-widest text-sky-400 uppercase font-semibold truncate">TEST CELL // DUAL-SPOOL</span>
+        </div>
+        <h1 class="text-xs sm:text-sm font-bold text-white leading-tight truncate mt-0.5">Turbofan Engine Simulator</h1>
+      </div>
+      <button id="btn-toggle-telemetry" title="ย่อ/ขยายแผงวัดค่า" class="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-600/50 transition">
+        <svg id="icon-telemetry-chevron" class="w-4 h-4 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+    </div>
+
+    <div id="telemetry-body" class="space-y-2.5">
+      <!-- Telemetry Grid populated dynamically from JSON -->
+      <div id="telemetry-grid" class="grid grid-cols-2 gap-1.5 sm:gap-2"></div>
+
+      <!-- Dual-Spool N1/N2 Live Bar Indicators -->
+      <div class="pt-1.5 border-t border-slate-700/60 space-y-1.5">
+        <div>
+          <div class="flex justify-between text-[10px] font-mono-tech text-slate-300 mb-0.5">
+            <span>N1 SPOOL (FAN / LPC / LPT)</span>
+            <span id="bar-n1-pct" class="text-sky-400 font-semibold">0%</span>
+          </div>
+          <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+            <div id="bar-n1-fill" class="h-full bg-gradient-to-r from-sky-500 to-cyan-300 rounded-full transition-all duration-75" style="width: 22%"></div>
+          </div>
+        </div>
+        <div>
+          <div class="flex justify-between text-[10px] font-mono-tech text-slate-300 mb-0.5">
+            <span>N2 SPOOL (CORE HPC / HPT)</span>
+            <span id="bar-n2-pct" class="text-amber-400 font-semibold">0%</span>
+          </div>
+          <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+            <div id="bar-n2-fill" class="h-full bg-gradient-to-r from-amber-500 to-orange-400 rounded-full transition-all duration-75" style="width: 58%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Airflow Legend -->
+      <div class="flex flex-wrap items-center justify-between gap-1 pt-1 border-t border-slate-700/50 text-[10px] text-slate-400">
+        <span class="flex items-center gap-1"><i class="w-2 h-2 rounded-full bg-sky-400 inline-block"></i>Bypass 85%</span>
+        <span class="flex items-center gap-1"><i class="w-2 h-2 rounded-full bg-yellow-400 inline-block"></i>อัดอากาศ</span>
+        <span class="flex items-center gap-1"><i class="w-2 h-2 rounded-full bg-orange-500 inline-block"></i>เผาไหม้</span>
+        <span class="flex items-center gap-1"><i class="w-2 h-2 rounded-full bg-purple-400 inline-block"></i>ไอเสีย</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- TOP RIGHT: Camera Presets, Learning Phases & Quick Toggles -->
+  <aside class="fixed top-3 right-3 z-30 flex flex-col items-end gap-2 max-w-[44vw] sm:max-w-[340px]">
+    <!-- Quick Action Row -->
+    <div class="hud-panel rounded-2xl p-1.5 flex items-center gap-1.5">
+      <button id="btn-toggle-particles" class="px-2.5 py-1.5 rounded-xl text-[11px] font-medium flex items-center gap-1.5 bg-sky-500/20 text-sky-300 border border-sky-400/40 hover:bg-sky-500/30 transition" title="เปิด/ปิด อนุภาคกระแสลม">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+        </svg>
+        <span class="hidden sm:inline">กระแสลม</span>
+      </button>
+      <button id="btn-toggle-audio" class="px-2.5 py-1.5 rounded-xl text-[11px] font-medium flex items-center gap-1.5 bg-slate-800/80 text-slate-300 border border-slate-600/50 hover:bg-slate-700/80 transition" title="เปิด/ปิด เสียงสังเคราะห์เครื่องยนต์">
+        <svg id="icon-audio-off" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 9.75L19.5 12m0 0l2.25 2.25M19.5 12l2.25-2.25M19.5 12l-2.25 2.25m-10.5-6l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z" />
+        </svg>
+        <svg id="icon-audio-on" class="w-3.5 h-3.5 hidden text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z" />
+        </svg>
+        <span class="hidden sm:inline" id="label-audio">เสียง</span>
+      </button>
+      <button id="btn-toggle-labels" class="px-2.5 py-1.5 rounded-xl text-[11px] font-medium flex items-center gap-1.5 bg-slate-800/80 text-slate-300 border border-slate-600/50 hover:bg-slate-700/80 transition" title="แสดง/ซ่อน ป้ายชื่อชิ้นส่วน">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+        </svg>
+        <span class="hidden sm:inline">ป้ายชื่อ</span>
+      </button>
+    </div>
+
+    <!-- Camera Presets Panel -->
+    <div class="hud-panel rounded-2xl p-2 w-full">
+      <div class="flex items-center justify-between px-1 mb-1.5">
+        <span class="font-mono-tech text-[10px] tracking-wider text-slate-400 uppercase">มุมกล้อง (CAMERA)</span>
+        <span class="text-[10px] text-slate-500 hidden sm:inline">ลากหมุน / ซูมได้</span>
+      </div>
+      <div id="camera-presets-container" class="grid grid-cols-2 gap-1.5"></div>
+    </div>
+
+    <!-- Learning Cycle Phases (Suck - Squeeze - Bang - Blow) -->
+    <div class="hud-panel rounded-2xl p-2 w-full hidden md:block">
+      <div class="flex items-center justify-between px-1 mb-1.5">
+        <span class="font-mono-tech text-[10px] tracking-wider text-sky-400 uppercase">วัฏจักรการทำงาน (4 PHASES)</span>
+      </div>
+      <div id="learning-phases-container" class="grid grid-cols-2 gap-1.5"></div>
+    </div>
+  </aside>
+
+  <!-- RIGHT DRAWER: Component Inspector Card (Triggered on 3D Assembly Click) -->
+  <section id="inspector-drawer" class="fixed right-3 top-1/2 -translate-y-1/2 z-40 w-[88vw] max-w-[330px] hud-panel rounded-2xl p-4 transform translate-x-[120%] transition-transform duration-300 ease-out border-sky-400/40">
+    <div class="flex items-start justify-between gap-2 pb-2.5 border-b border-slate-700/70">
+      <div>
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <span id="insp-stage-code" class="font-mono-tech text-[10px] px-2 py-0.5 rounded-md bg-sky-500/20 text-sky-300 border border-sky-400/30 font-semibold">STATION</span>
+          <span id="insp-spool-badge" class="font-mono-tech text-[10px] px-2 py-0.5 rounded-md bg-slate-800 text-amber-300 border border-amber-400/30 font-semibold">N1 SPOOL</span>
+        </div>
+        <h2 id="insp-title" class="text-sm sm:text-base font-bold text-white mt-1.5 leading-snug">Component Name</h2>
+      </div>
+      <button id="btn-close-inspector" class="p-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-slate-300 border border-slate-600/50 transition" title="ปิดหน้าต่าง">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <div class="mt-3 space-y-3 max-h-[45vh] overflow-y-auto custom-scroll pr-1">
+      <p id="insp-summary" class="text-xs sm:text-sm text-slate-200 leading-relaxed"></p>
+
+      <div>
+        <div class="font-mono-tech text-[10px] uppercase tracking-wider text-slate-400 mb-1.5">ข้อมูลทางวิศวกรรม (KEY METRICS)</div>
+        <ul id="insp-metrics" class="space-y-1.5"></ul>
+      </div>
+
+      <div class="pt-2 border-t border-slate-700/60 flex items-center justify-between text-[11px] text-slate-400">
+        <span>ตำแหน่งแกน X: <strong id="insp-xpos" class="font-mono-tech text-slate-200">0.00 m</strong></span>
+        <button id="btn-focus-selected" class="px-2.5 py-1 rounded-lg bg-sky-500/20 hover:bg-sky-500/35 text-sky-300 border border-sky-400/40 font-medium transition">
+          ซูมไปที่ชิ้นนี้
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- BOTTOM CENTER: Throttle Lever, Inspection Views & Anomaly Simulations -->
+  <footer class="fixed bottom-3 left-1/2 -translate-x-1/2 z-30 w-[95vw] max-w-4xl hud-panel rounded-2xl p-2.5 sm:p-3.5">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-2.5 sm:gap-3 items-center">
+
+      <!-- Throttle Control (Cols 1-5) -->
+      <div class="lg:col-span-5 flex flex-col gap-1.5">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="font-mono-tech text-[10px] sm:text-xs font-bold tracking-wider text-slate-300 uppercase">คันเร่ง (THROTTLE)</span>
+            <div class="flex gap-1">
+              <button data-throttle="0" class="throttle-preset px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-mono-tech text-slate-300 border border-slate-600/50">IDLE</button>
+              <button data-throttle="55" class="throttle-preset px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-mono-tech text-sky-300 border border-slate-600/50">CRZ</button>
+              <button data-throttle="100" class="throttle-preset px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-mono-tech text-orange-300 border border-slate-600/50">TOGA</button>
+            </div>
+          </div>
+          <span id="throttle-display" class="font-mono-tech text-sm sm:text-base font-bold text-sky-400">35%</span>
+        </div>
+        <input id="throttle-slider" type="range" min="0" max="100" value="35" step="1" class="throttle-slider" />
+      </div>
+
+      <!-- Inspection Views (Cols 6-9) -->
+      <div class="lg:col-span-4 flex flex-col gap-1">
+        <span class="font-mono-tech text-[10px] tracking-wider text-slate-400 uppercase">มุมมองโครงสร้าง (INSPECTION VIEW)</span>
+        <div id="inspection-views-container" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-1"></div>
+      </div>
+
+      <!-- Anomaly Simulations (Cols 10-12) -->
+      <div class="lg:col-span-3 flex flex-col gap-1">
+        <span class="font-mono-tech text-[10px] tracking-wider text-slate-400 uppercase">จำลองเหตุการณ์ (SIMULATION)</span>
+        <div id="anomaly-selector-container" class="grid grid-cols-3 lg:grid-cols-1 gap-1"></div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Subtle Hint Toast (bottom-right on desktop) -->
+  <div id="click-hint" class="hidden xl:flex fixed bottom-4 right-4 z-20 items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/75 border border-slate-700/70 text-[11px] text-slate-300 pointer-events-none">
+    <span class="w-2 h-2 rounded-full bg-sky-400 animate-pulse"></span>
+    คลิกที่ชิ้นส่วน 3 มิติเพื่อดูรายละเอียดเชิงวิศวกรรม
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. MASTER JSON CONFIGURATION (Embedded directly from Blueprint)
+    // =========================================================================
+    const ENGINE_CONFIG = {
+      "project_meta": {
+        "title": "Interactive 3D High-Bypass Turbofan Engine Simulator",
+        "version": "1.0.0",
+        "engine_reference_class": "High-Bypass Dual-Spool Commercial Turbofan",
+        "coordinate_system": {
+          "up_axis": "Y",
+          "longitudinal_flow_axis": "X",
+          "flow_direction": "negative_X_to_positive_X",
+          "unit": "meters"
+        },
+        "learning_cycle_phases": [
+          { "id": "suck", "label_th": "1. ดูดอากาศ (Intake)", "stage_refs": ["intake_nacelle", "spinner_cone", "fan_n1"] },
+          { "id": "squeeze", "label_th": "2. อัดอากาศ (Compression)", "stage_refs": ["lpc_booster", "hpc_core"] },
+          { "id": "bang", "label_th": "3. เผาไหม้ (Combustion)", "stage_refs": ["annular_combustor"] },
+          { "id": "blow", "label_th": "4. คายไอเสียและแรงขับ", "stage_refs": ["hpt_stage", "lpt_stage", "exhaust_nozzle"] }
+        ]
+      },
+      "rendering_and_lighting": {
+        "renderer": {
+          "antialias": true,
+          "tone_mapping": "ACESFilmicToneMapping",
+          "tone_mapping_exposure": 1.15,
+          "shadows_enabled": true,
+          "shadow_map_type": "PCFSoftShadowMap",
+          "local_clipping_enabled": true
+        },
+        "environment": {
+          "background_color": "#090d16",
+          "grid_floor": {
+            "enabled": true,
+            "y_position": -1.45,
+            "color_center": "#1e293b",
+            "color_grid": "#0f172a"
+          }
+        },
+        "lights": [
+          { "id": "key_light", "type": "DirectionalLight", "color": "#ffffff", "intensity": 2.4, "position": [3.5, 5.0, 4.5], "cast_shadow": true },
+          { "id": "rim_light_cool", "type": "DirectionalLight", "color": "#38bdf8", "intensity": 1.6, "position": [-4.0, 2.5, -4.0] },
+          { "id": "fill_light_warm", "type": "PointLight", "color": "#fb923c", "intensity": 1.2, "position": [0.5, -2.0, 3.0] },
+          { "id": "combustor_internal_glow", "type": "PointLight", "color": "#ff6b00", "intensity_base": 0.0, "intensity_at_full_throttle": 8.5, "distance": 2.5, "position": [0.45, 0.0, 0.0] }
+        ]
+      },
+      "pbr_materials_library": {
+        "titanium_fan_blade": { "type": "MeshPhysicalMaterial", "color": "#64748b", "metalness": 0.88, "roughness": 0.24, "clearcoat": 0.2 },
+        "titanium_leading_edge": { "type": "MeshStandardMaterial", "color": "#e2e8f0", "metalness": 0.95, "roughness": 0.12 },
+        "compressor_steel": { "type": "MeshStandardMaterial", "color": "#94a3b8", "metalness": 0.85, "roughness": 0.28 },
+        "inconel_combustor": { "type": "MeshStandardMaterial", "color": "#334155", "metalness": 0.78, "roughness": 0.42, "emissive": "#ff4500", "emissive_intensity_max": 1.8 },
+        "ceramic_turbine_hot": { "type": "MeshStandardMaterial", "color": "#475569", "metalness": 0.82, "roughness": 0.32, "emissive": "#ff2a00", "emissive_intensity_max": 1.4 },
+        "nacelle_composite_gloss": { "type": "MeshPhysicalMaterial", "color": "#f1f5f9", "metalness": 0.15, "roughness": 0.18, "clearcoat": 0.85, "clearcoat_roughness": 0.1 },
+        "shaft_hardened_alloy": { "type": "MeshStandardMaterial", "color": "#cbd5e1", "metalness": 0.92, "roughness": 0.16 },
+        "cutaway_section_cap": { "type": "MeshStandardMaterial", "color": "#ef4444", "metalness": 0.3, "roughness": 0.5, "emissive": "#7f1d1d", "emissive_intensity": 0.35 },
+        "xray_hologram_shell": { "type": "MeshPhysicalMaterial", "color": "#38bdf8", "metalness": 0.1, "roughness": 0.15, "transparent": true, "opacity": 0.14, "depthWrite": false }
+      },
+      "mechanical_assemblies": [
+        {
+          "id": "intake_nacelle",
+          "name_th": "ปลอกรับอากาศเข้า (Intake Cowling & Nacelle)",
+          "stage_code": "STATION 0-1",
+          "spool_group": "static_structure",
+          "cutaway_clippable": true,
+          "x_position_m": -1.35,
+          "exploded_offset_x_m": -0.65,
+          "material_ref": "nacelle_composite_gloss",
+          "procedural_geometry": { "type": "LatheGeometry", "length_m": 2.45, "inlet_lip_radius_m": 0.98, "outer_max_radius_m": 1.15, "exhaust_exit_radius_m": 0.88, "wall_thickness_m": 0.08, "segments": 64 },
+          "education_info": {
+            "summary": "จัดระเบียบกระแสลมที่ไหลเข้าปะทะด้านหน้า ลดความปั่นป่วน (Turbulence) และชะลอความเร็วอากาศให้เหมาะสมก่อนเข้าสู่ใบพัดหน้า",
+            "key_metrics": ["Inlet Capture Area: 3.01 m²", "Anti-Icing Bleed Air Lip", "Acoustic Honeycomb Liner"]
+          }
+        },
+        {
+          "id": "spinner_cone",
+          "name_th": "กรวยรับลมหมุน (Aerodynamic Spinner Cone)",
+          "stage_code": "STATION 1",
+          "spool_group": "N1_low_pressure",
+          "cutaway_clippable": false,
+          "x_position_m": -1.52,
+          "exploded_offset_x_m": -1.15,
+          "material_ref": "inconel_combustor",
+          "procedural_geometry": { "type": "LatheGeometry", "length_m": 0.42, "base_radius_m": 0.28, "tip_radius_m": 0.01, "spiral_stripe": { "enabled": true, "color": "#ffffff", "turns": 1.75 } },
+          "education_info": {
+            "summary": "เบี่ยงกระแสลมตรงจุดศูนย์กลางให้กระจายตัวเข้าสู่โคนใบพัดหน้าอย่างราบรื่น เส้นเกลียวสีขาวใช้เป็นสัญญาณเตือนความปลอดภัยภาคพื้นดินว่าเครื่องยนต์กำลังหมุน",
+            "key_metrics": ["Conical Angle: 34°", "Safety Visual Indicator"]
+          }
+        },
+        {
+          "id": "fan_n1",
+          "name_th": "ชุดใบพัดหน้าขนาดใหญ่ (N1 Front Fan Assembly)",
+          "stage_code": "STATION 2",
+          "spool_group": "N1_low_pressure",
+          "cutaway_clippable": false,
+          "x_position_m": -1.15,
+          "exploded_offset_x_m": -0.85,
+          "material_ref": "titanium_fan_blade",
+          "procedural_geometry": { "type": "InstancedAirfoilBlades", "blade_count": 22, "hub_radius_m": 0.28, "tip_radius_m": 0.94, "chord_length_m": 0.24, "root_twist_deg": 28, "tip_twist_deg": 62, "forward_sweep_deg": 12 },
+          "education_info": {
+            "summary": "สร้างแรงขับหลักกว่า 80-85% ของเครื่องยนต์ทั้งหมด โดยดูดอากาศปริมาณมหาศาลแล้วแบ่งออกเป็น 2 ส่วน คืออากาศอ้อมแกน (Bypass Air) และอากาศเข้าแกนเครื่องยนต์ (Core Air)",
+            "key_metrics": ["Bypass Ratio: 10.5 : 1", "Tip Speed: ~390 m/s", "22 Wide-Chord Titanium Blades"]
+          }
+        },
+        {
+          "id": "lpc_booster",
+          "name_th": "คอมเพรสเซอร์แรงดันต่ำ (Low-Pressure Compressor)",
+          "stage_code": "STATION 2.3",
+          "spool_group": "N1_low_pressure",
+          "cutaway_clippable": true,
+          "x_position_m": -0.78,
+          "exploded_offset_x_m": -0.45,
+          "material_ref": "compressor_steel",
+          "procedural_geometry": { "type": "MultiStageRotorStator", "stages": 3, "stage_spacing_m": 0.11, "hub_radius_start_m": 0.24, "hub_radius_end_m": 0.29, "tip_radius_m": 0.46, "blades_per_stage": [36, 42, 48] },
+          "education_info": {
+            "summary": "อัดอากาศส่วนที่ไหลเข้าแกนกลางในขั้นต้นเพื่อเพิ่มความดันก่อนส่งต่อให้คอมเพรสเซอร์แรงดันสูง หมุนด้วยความเร็วรอบเดียวกับใบพัดหน้า (เพลา N1)",
+            "key_metrics": ["Stages: 3", "Pressure Boost: ~2.4x", "Linked to N1 Shaft"]
+          }
+        },
+        {
+          "id": "hpc_core",
+          "name_th": "คอมเพรสเซอร์แรงดันสูง (High-Pressure Compressor)",
+          "stage_code": "STATION 2.5 - 3",
+          "spool_group": "N2_high_pressure",
+          "cutaway_clippable": true,
+          "x_position_m": -0.22,
+          "exploded_offset_x_m": -0.1,
+          "material_ref": "compressor_steel",
+          "procedural_geometry": { "type": "MultiStageRotorStator", "stages": 8, "stage_spacing_m": 0.065, "hub_radius_start_m": 0.29, "hub_radius_end_m": 0.36, "tip_radius_start_m": 0.44, "tip_radius_end_m": 0.39, "blades_per_stage": [52, 58, 64, 68, 72, 76, 80, 84] },
+          "education_info": {
+            "summary": "บีบอัดอากาศให้ปริมาตรเล็กลงอย่างต่อเนื่องผ่านใบพัด 8 ชั้นที่เรียงถี่ขึ้นเรื่อยๆ ทำให้อากาศมีอุณหภูมิและความดันพุ่งสูงถึงเกือบ 40 เท่าของบรรยากาศ",
+            "key_metrics": ["Stages: 8", "Overall Pressure Ratio: 38.5 : 1", "Exit Temp: ~580 °C"]
+          }
+        },
+        {
+          "id": "annular_combustor",
+          "name_th": "ห้องเผาไหม้แบบวงแหวน (Annular Combustion Chamber)",
+          "stage_code": "STATION 3 - 4",
+          "spool_group": "static_structure",
+          "cutaway_clippable": true,
+          "x_position_m": 0.42,
+          "exploded_offset_x_m": 0.25,
+          "material_ref": "inconel_combustor",
+          "procedural_geometry": { "type": "AnnularChamber", "length_m": 0.38, "inner_radius_m": 0.31, "outer_radius_m": 0.45, "fuel_nozzle_count": 18, "dilution_holes_rows": 4 },
+          "education_info": {
+            "summary": "ฉีดละอองเชื้อเพลิงอากาศยานผสมกับอากาศอัดความดันสูงแล้วจุดระเบิดอย่างต่อเนื่อง สร้างก๊าซร้อนพลังงานสูงโดยมีฟิล์มอากาศเย็นหล่อเลี้ยงผนังโลหะไม่ให้หลอมละลาย",
+            "key_metrics": ["Fuel Nozzles: 18", "Core Flame Temp: ~1,950 °C", "Liner Cooling Film"]
+          }
+        },
+        {
+          "id": "hpt_stage",
+          "name_th": "กังหันเทอร์ไบน์แรงดันสูง (High-Pressure Turbine)",
+          "stage_code": "STATION 4.1",
+          "spool_group": "N2_high_pressure",
+          "cutaway_clippable": true,
+          "thermal_glow_reactive": true,
+          "x_position_m": 0.72,
+          "exploded_offset_x_m": 0.55,
+          "material_ref": "ceramic_turbine_hot",
+          "procedural_geometry": { "type": "MultiStageRotorStator", "stages": 2, "stage_spacing_m": 0.08, "hub_radius_m": 0.31, "tip_radius_m": 0.43, "blades_per_stage": [64, 60] },
+          "education_info": {
+            "summary": "รับแรงปะทะของก๊าซร้อนจัดชุดแรกที่พุ่งออกจากห้องเผาไหม้โดยตรง เพื่อส่งกำลังกลับไปหมุนแกนเพลาชั้นนอก (N2) สำหรับขับเคลื่อนคอมเพรสเซอร์แรงดันสูง",
+            "key_metrics": ["Stages: 2", "Max Inlet Temp: 1,450 °C", "Single-Crystal Superalloy"]
+          }
+        },
+        {
+          "id": "lpt_stage",
+          "name_th": "กังหันเทอร์ไบน์แรงดันต่ำ (Low-Pressure Turbine)",
+          "stage_code": "STATION 4.5 - 5",
+          "spool_group": "N1_low_pressure",
+          "cutaway_clippable": true,
+          "thermal_glow_reactive": true,
+          "x_position_m": 1.05,
+          "exploded_offset_x_m": 0.85,
+          "material_ref": "ceramic_turbine_hot",
+          "procedural_geometry": { "type": "MultiStageRotorStator", "stages": 4, "stage_spacing_m": 0.095, "hub_radius_start_m": 0.29, "hub_radius_end_m": 0.26, "tip_radius_start_m": 0.45, "tip_radius_end_m": 0.54, "blades_per_stage": [72, 76, 80, 84] },
+          "education_info": {
+            "summary": "ดึงพลังงานที่เหลือจากก๊าซร้อนที่ขยายตัวผ่านใบพัด 4 ชั้น เพื่อส่งกำลังผ่านเพลาแกนกลาง (N1) ไปหมุนใบพัดหน้าขนาดใหญ่ด้านหน้าสุด",
+            "key_metrics": ["Stages: 4", "Drives N1 Main Fan", "Expanding Gas Annulus"]
+          }
+        },
+        {
+          "id": "concentric_shafts",
+          "name_th": "ระบบเพลาส่งกำลังคู่ซ้อน (Concentric Dual-Spool Shafts)",
+          "stage_code": "N1 / N2 SHAFTS",
+          "spool_group": "dual_concentric",
+          "cutaway_clippable": false,
+          "x_position_m": -0.05,
+          "exploded_offset_x_m": 0.0,
+          "material_ref": "shaft_hardened_alloy",
+          "procedural_geometry": {
+            "n1_inner_shaft": { "length_m": 2.35, "radius_m": 0.065, "x_start_m": -1.15, "x_end_m": 1.2 },
+            "n2_outer_hollow_shaft": { "length_m": 1.15, "inner_radius_m": 0.085, "outer_radius_m": 0.125, "x_start_m": -0.35, "x_end_m": 0.8 }
+          },
+          "education_info": {
+            "summary": "เพลา 2 แกนสวมซ้อนกันอย่างอิสระ แกนใน (N1) ยาวตลอดเครื่องเชื่อม LPT กับ Fan ส่วนแกนนอก (N2) สั้นกว่าและหมุนเร็วกว่าหลายเท่าเพื่อเชื่อม HPT กับ HPC",
+            "key_metrics": ["N1 Max: 3,850 RPM (แกนใน)", "N2 Max: 14,800 RPM (แกนนอก)", "Independent Concentric Bearings"]
+          }
+        },
+        {
+          "id": "exhaust_nozzle",
+          "name_th": "กรวยไอเสียและท่อผสมอากาศ (Core Exhaust Plug & Nozzle)",
+          "stage_code": "STATION 7 - 8",
+          "spool_group": "static_structure",
+          "cutaway_clippable": true,
+          "x_position_m": 1.48,
+          "exploded_offset_x_m": 1.2,
+          "material_ref": "inconel_combustor",
+          "procedural_geometry": { "type": "ExhaustConeAssembly", "center_plug_length_m": 0.72, "center_plug_base_radius_m": 0.25, "core_cowl_exit_radius_m": 0.52 },
+          "education_info": {
+            "summary": "เร่งความเร็วของก๊าซไอเสียร้อนจากแกนเครื่องยนต์ให้พุ่งออกด้านหลังพร้อมผสานเข้ากับกระแสลมเย็นจากช่อง Bypass เพื่อลดเสียงดังและเพิ่มประสิทธิภาพแรงขับ",
+            "key_metrics": ["EGT Sensor Plane", "Acoustic Chevron Mixer"]
+          }
+        }
+      ],
+      "airflow_and_thermodynamics_particles": {
+        "max_total_particles": 4500,
+        "streams": [
+          { "id": "intake_suction", "label_th": "อากาศดูดเข้าด้านหน้า", "particle_count": 900, "spawn_x_range": [-2.6, -1.2], "radial_range_m": [0.15, 0.92], "base_speed_mps": 4.5, "throttle_speed_multiplier": 3.2, "swirl_factor": 0.05, "color_start": "#bae6fd", "color_end": "#38bdf8", "particle_size": 0.045 },
+          { "id": "bypass_cold_stream", "label_th": "อากาศเย็นอ้อมแกน (Bypass Air 85%)", "particle_count": 1600, "spawn_x_range": [-1.1, 1.45], "radial_range_m": [0.58, 0.88], "base_speed_mps": 5.5, "throttle_speed_multiplier": 4.2, "swirl_factor": 0.12, "color_start": "#38bdf8", "color_end": "#0284c7", "particle_size": 0.048 },
+          { "id": "core_compression_stream", "label_th": "อากาศอัดแรงดันสูงในแกนเครื่อง", "particle_count": 800, "spawn_x_range": [-0.95, 0.25], "radial_range_m": [0.30, 0.42], "base_speed_mps": 3.0, "throttle_speed_multiplier": 2.6, "swirl_factor": 0.65, "color_start": "#38bdf8", "color_end": "#facc15", "particle_size": 0.038 },
+          { "id": "combustion_flame_vortex", "label_th": "เปลวไฟและก๊าซเผาไหม้", "particle_count": 600, "spawn_x_range": [0.24, 0.64], "radial_range_m": [0.31, 0.43], "base_speed_mps": 2.5, "throttle_speed_multiplier": 3.8, "swirl_factor": 1.15, "color_start": "#fef08a", "color_end": "#ff5500", "particle_size": 0.068, "visible_above_throttle_percent": 5 },
+          { "id": "core_hot_exhaust", "label_th": "ไอเสียความเร็วสูง", "particle_count": 600, "spawn_x_range": [0.65, 2.5], "radial_range_m": [0.24, 0.50], "base_speed_mps": 6.0, "throttle_speed_multiplier": 5.0, "swirl_factor": 0.35, "color_start": "#ff4500", "color_end": "#a855f7", "particle_size": 0.056, "visible_above_throttle_percent": 5 }
+        ]
+      },
+      "physics_and_telemetry_engine": {
+        "default_throttle_percent": 35,
+        "spool_dynamics": { "n1_inertia_lag_sec": 2.4, "n2_inertia_lag_sec": 1.5, "n1_idle_percent": 21.5, "n2_idle_percent": 58.0 },
+        "telemetry_channels": [
+          { "key": "n1_rpm", "label_th": "รอบใบพัดหน้า (N1)", "unit": "RPM", "idle_value": 825, "max_value": 3850, "curve_exponent": 1.35, "warning_threshold": 3750, "decimals": 0 },
+          { "key": "n2_rpm", "label_th": "รอบแกนเครื่องยนต์ (N2)", "unit": "RPM", "idle_value": 8580, "max_value": 14800, "curve_exponent": 0.85, "warning_threshold": 14500, "decimals": 0 },
+          { "key": "egt_celsius", "label_th": "อุณหภูมิไอเสีย (EGT)", "unit": "°C", "idle_value": 410, "max_value": 925, "curve_exponent": 1.15, "warning_threshold": 900, "decimals": 0 },
+          { "key": "opr", "label_th": "อัตราส่วนการอัด (OPR)", "unit": ": 1", "idle_value": 4.2, "max_value": 38.5, "curve_exponent": 1.45, "warning_threshold": 40.0, "decimals": 1 },
+          { "key": "fuel_flow", "label_th": "เชื้อเพลิง (FF)", "unit": "kg/hr", "idle_value": 340, "max_value": 3420, "curve_exponent": 1.65, "warning_threshold": 3600, "decimals": 0 },
+          { "key": "net_thrust", "label_th": "แรงขับ (Thrust)", "unit": "kN", "idle_value": 6.5, "max_value": 142.0, "curve_exponent": 1.75, "warning_threshold": 145.0, "decimals": 1 }
+        ]
+      },
+      "interactive_modes": {
+        "inspection_views": [
+          { "id": "cutaway_180", "label_th": "ผ่าครึ่ง 180°", "is_default": true, "clip_plane_normal": [0, 0, -1], "clip_plane_constant": 0.0, "highlight_cut_edges": true, "explode_factor": 0.0 },
+          { "id": "full_exterior", "label_th": "เต็มตัว 360°", "is_default": false, "clip_plane_normal": [0, 0, -1], "clip_plane_constant": 5.0, "highlight_cut_edges": false, "explode_factor": 0.0 },
+          { "id": "xray_hologram", "label_th": "เอ็กซเรย์", "is_default": false, "override_material": "xray_hologram_shell", "show_internal_shafts_bright": true, "explode_factor": 0.0 },
+          { "id": "exploded_view", "label_th": "แยกชิ้นส่วน", "is_default": false, "explode_factor": 1.0, "transition_duration_sec": 1.2, "show_floating_labels": true }
+        ],
+        "camera_presets": [
+          { "id": "iso_hero", "label_th": "มุมหลัก 3 มิติ", "position": [-2.6, 1.35, 3.4], "target": [0.05, 0.0, 0.0] },
+          { "id": "front_fan", "label_th": "ใบพัดหน้า N1", "position": [-3.6, 0.25, 0.65], "target": [-1.15, 0.0, 0.0] },
+          { "id": "combustor_core", "label_th": "ห้องเผาไหม้/เพลา", "position": [0.35, 0.45, 1.65], "target": [0.35, 0.0, 0.0] },
+          { "id": "rear_exhaust", "label_th": "ท้ายกังหัน/ไอเสีย", "position": [3.2, 0.85, 2.2], "target": [0.95, 0.0, 0.0] }
+        ]
+      },
+      "anomaly_simulations": [
+        {
+          "id": "normal_operation",
+          "label_th": "ปกติ (Normal)",
+          "description_th": "กระแสลมไหลผ่านทุกขั้นตอนอย่างสมดุล อุณหภูมิและรอบเครื่องอยู่ในเกณฑ์ปลอดภัย"
+        },
+        {
+          "id": "compressor_stall",
+          "label_th": "Compressor Stall",
+          "description_th": "อากาศอัดไหลย้อนกลับด้านหน้า เกิดเปลวไฟแลบออกทางปากท่อรับลม รอบ N2 แกว่งรุนแรง และ EGT พุ่งสูงเกินขีดจำกัด",
+          "effects": {
+            "reverse_airflow_pulse_hz": 3.5,
+            "front_intake_flash": true,
+            "n2_rpm_oscillation_percent": 18,
+            "egt_spike_celsius": 240,
+            "camera_shake_intensity": 0.035,
+            "hud_alert_message": "WARNING: COMPRESSOR STALL / SURGE DETECTED"
+          }
+        },
+        {
+          "id": "egt_overheat",
+          "label_th": "EGT Over-Temp",
+          "description_th": "การจ่ายเชื้อเพลิงมากเกินไปจนใบพัดเทอร์ไบน์แรงดันสูง (HPT) ร้อนจัดจนเรืองแสงสีส้มแดง",
+          "effects": {
+            "egt_spike_celsius": 310,
+            "turbine_emissive_boost": 2.8,
+            "hud_alert_message": "CAUTION: EGT EXCEEDANCE (>950°C) - REDUCE THROTTLE"
+          }
+        }
+      ]
+    };
+
+    // =========================================================================
+    // 2. APPLICATION STATE
+    // =========================================================================
+    const state = {
+      targetThrottle: ENGINE_CONFIG.physics_and_telemetry_engine.default_throttle_percent / 100,
+      n1Fraction: 0.35,          // Smoothed N1 spool fraction (0..1 above idle)
+      n2Fraction: 0.35,          // Smoothed N2 spool fraction (0..1 above idle)
+      n1SpinAngle: 0,
+      n2SpinAngle: 0,
+      currentViewId: 'cutaway_180',
+      currentAnomalyId: 'normal_operation',
+      targetExplode: 0.0,
+      currentExplode: 0.0,
+      particlesEnabled: true,
+      labelsForceEnabled: false,
+      audioEnabled: false,
+      selectedAssemblyId: null,
+      activePhaseId: null,
+      telemetryValues: {},
+      timeElapsed: 0
+    };
+
+    // Three.js Globals
+    let scene, camera, renderer, clock;
+    let clipPlane;
+    let combustorLight, intakeFlashLight, intakeFlashSprite, combustorFlameRing;
+    const materials = {};
+    const assembliesMap = new Map(); // id -> { config, group, baseX, meshes[], clippableMeshes[], cutawayCaps[], originalMaterials: Map }
+    const n1SpinGroups = [];
+    const n2SpinGroups = [];
+    const thermalReactiveMaterials = [];
+    const particleSystems = [];
+    const clickableMeshes = [];
+    const floatingLabelEls = new Map();
+
+    // Camera Orbit Controller State (Smooth Spherical Coordinates + Preset Lerping)
+    const camCtrl = {
+      target: new THREE.Vector3(0.05, 0.0, 0.0),
+      desiredTarget: new THREE.Vector3(0.05, 0.0, 0.0),
+      spherical: new THREE.Spherical(4.5, Math.PI / 2.6, -0.65),
+      desiredSpherical: new THREE.Spherical(4.5, Math.PI / 2.6, -0.65),
+      isDragging: false,
+      dragMoved: false,
+      lastX: 0,
+      lastY: 0,
+      pinchDist: 0,
+      minRadius: 1.5,
+      maxRadius: 9.5
+    };
+
+    // Web Audio Procedural Engine Synth
+    let audioCtx = null;
+    let audioNodes = null;
+
+    // =========================================================================
+    // 3. PROCEDURAL TEXTURES (NO EXTERNAL URLS - 100% SELF-CONTAINED)
+    // =========================================================================
+
+    /** Generates a soft radial glow texture for airflow particles & flame bursts */
+    function createGlowSpriteTexture(coreColor = '#ffffff', midColor = '#ffffff') {
+      const size = 128;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+      grad.addColorStop(0.0, coreColor);
+      grad.addColorStop(0.28, midColor);
+      grad.addColorStop(0.65, 'rgba(255,255,255,0.18)');
+      grad.addColorStop(1.0, 'rgba(0,0,0,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, size, size);
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.needsUpdate = true;
+      return tex;
+    }
+
+    /** Generates white spiral safety stripe texture for the front N1 spinner cone */
+    function createSpinnerSpiralTexture(turns = 1.75) {
+      const w = 512, h = 512;
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(0, 0, w, h);
+
+      // Subtle brushed metallic gradient
+      const grad = ctx.createLinearGradient(0, 0, 0, h);
+      grad.addColorStop(0, '#0f172a');
+      grad.addColorStop(0.5, '#334155');
+      grad.addColorStop(1, '#1e293b');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+
+      // Draw crisp aviation spiral stripe
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 34;
+      ctx.lineCap = 'round';
+      for (let offset = -1; offset <= 2; offset++) {
+        ctx.beginPath();
+        for (let i = 0; i <= 120; i++) {
+          const t = i / 120;
+          const y = h * (0.08 + t * 0.84);
+          const x = ((t * turns + offset) % 1 + 1) % 1 * w;
+          if (i === 0 || Math.abs(x - (( ((i - 1) / 120) * turns + offset) % 1 + 1) % 1 * w) > w * 0.5) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
+        ctx.stroke();
+      }
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.ClampToEdgeWrapping;
+      return tex;
+    }
+
+    /** Generates perforated cooling-hole texture for the Annular Combustor liner */
+    function createCombustorLinerTexture(rows = 4) {
+      const w = 512, h = 256;
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#334155';
+      ctx.fillRect(0, 0, w, h);
+
+      // Metallic heat-tinted bands
+      const grad = ctx.createLinearGradient(0, 0, 0, h);
+      grad.addColorStop(0, '#475569');
+      grad.addColorStop(0.5, '#27303f');
+      grad.addColorStop(1, '#3f2e2b');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+
+      // Dilution & cooling holes glowing faintly from inside
+      const cols = 18;
+      for (let r = 0; r < rows; r++) {
+        const y = ((r + 0.8) / (rows + 0.6)) * h;
+        const radius = r === 1 || r === 2 ? 7 : 4.5;
+        for (let c = 0; c < cols; c++) {
+          const x = ((c + (r % 2) * 0.5) / cols) * w;
+          ctx.beginPath();
+          ctx.arc(x, y, radius + 2, 0, Math.PI * 2);
+          ctx.fillStyle = '#0f172a';
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(x, y, radius, 0, Math.PI * 2);
+          ctx.fillStyle = '#ff6b00';
+          ctx.fill();
+        }
+      }
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.ClampToEdgeWrapping;
+      return tex;
+    }
+
+    /** Generates subtle machined spline stripes for Concentric Shafts so rotation speed difference (N1 vs N2) is unmistakable */
+    function createShaftSplineTexture(baseHex, stripeHex, stripes = 12) {
+      const w = 256, h = 256;
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = baseHex;
+      ctx.fillRect(0, 0, w, h);
+
+      const step = w / stripes;
+      ctx.fillStyle = stripeHex;
+      for (let i = 0; i < stripes; i++) {
+        ctx.fillRect(i * step, 0, step * 0.34, h);
+      }
+
+      // Helical rotation indicator bands
+      ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(w, h);
+      ctx.stroke();
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      return tex;
+    }
+
+    /** Creates a procedural Studio PMREM Environment Map so PBR metals gleam photorealistically */
+    function buildStudioEnvironment(renderer) {
+      const pmrem = new THREE.PMREMGenerator(renderer);
+      pmrem.compileEquirectangularShader();
+
+      const envScene = new THREE.Scene();
+      envScene.background = new THREE.Color('#0c1424');
+
+      // Overhead softbox strip lights
+      const boxGeo = new THREE.PlaneGeometry(14, 3);
+      const topLight = new THREE.Mesh(boxGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }));
+      topLight.position.set(0, 7, 1);
+      topLight.rotation.x = Math.PI / 2;
+      envScene.add(topLight);
+
+      const coolRim = new THREE.Mesh(new THREE.PlaneGeometry(12, 5), new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide }));
+      coolRim.position.set(-7, 2.5, -5);
+      coolRim.lookAt(0, 0, 0);
+      envScene.add(coolRim);
+
+      const warmBounce = new THREE.Mesh(new THREE.PlaneGeometry(10, 4), new THREE.MeshBasicMaterial({ color: 0xfb923c, side: THREE.DoubleSide }));
+      warmBounce.position.set(6, -3, 5);
+      warmBounce.lookAt(0, 0, 0);
+      envScene.add(warmBounce);
+
+      const sideFill = new THREE.Mesh(new THREE.PlaneGeometry(10, 4), new THREE.MeshBasicMaterial({ color: 0xe2e8f0, side: THREE.DoubleSide }));
+      sideFill.position.set(2, 2, 8);
+      sideFill.lookAt(0, 0, 0);
+      envScene.add(sideFill);
+
+      const envRT = pmrem.fromScene(envScene, 0.04);
+      pmrem.dispose();
+      return envRT.texture;
+    }
+
+    // =========================================================================
+    // 4. THREE.JS SCENE, MATERIALS & LIGHTING INITIALIZATION
+    // =========================================================================
+    function initThreeScene() {
+      const container = document.getElementById('canvas-container');
+      const cfg = ENGINE_CONFIG.rendering_and_lighting;
+
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(cfg.environment.background_color);
+      scene.fog = new THREE.FogExp2(cfg.environment.background_color, 0.048);
+
+      camera = new THREE.PerspectiveCamera(42, container.clientWidth / container.clientHeight, 0.05, 60);
+      setCameraPreset('iso_hero', true);
+
+      renderer = new THREE.WebGLRenderer({ antialias: cfg.renderer.antialias, powerPreference: 'high-performance' });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(container.clientWidth, container.clientHeight);
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = cfg.renderer.tone_mapping_exposure;
+      renderer.shadowMap.enabled = cfg.renderer.shadows_enabled;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.localClippingEnabled = cfg.renderer.local_clipping_enabled;
+      container.appendChild(renderer.domElement);
+
+      // Attach procedural studio reflections
+      scene.environment = buildStudioEnvironment(renderer);
+
+      // Global Cutaway Clipping Plane (Z <= 0 kept, Z > 0 sliced open to face viewer)
+      clipPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), 0.0);
+
+      // Lights from JSON
+      const hemi = new THREE.HemisphereLight('#bae6fd', '#0f172a', 0.65);
+      scene.add(hemi);
+
+      cfg.lights.forEach(l => {
+        if (l.type === 'DirectionalLight') {
+          const light = new THREE.DirectionalLight(l.color, l.intensity);
+          light.position.set(...l.position);
+          if (l.cast_shadow) {
+            light.castShadow = true;
+            light.shadow.mapSize.set(1024, 1024);
+            light.shadow.camera.near = 0.5;
+            light.shadow.camera.far = 16;
+            light.shadow.camera.left = -3.5;
+            light.shadow.camera.right = 3.5;
+            light.shadow.camera.top = 3;
+            light.shadow.camera.bottom = -3;
+          }
+          scene.add(light);
+        } else if (l.type === 'PointLight') {
+          const light = new THREE.PointLight(
+            l.color,
+            l.intensity !== undefined ? l.intensity : l.intensity_base,
+            l.distance || 12
+          );
+          light.position.set(...l.position);
+          if (l.id === 'combustor_internal_glow') {
+            combustorLight = light;
+          }
+          scene.add(light);
+        }
+      });
+
+      // Compressor Stall Front Intake Flash Light & Sprite
+      intakeFlashLight = new THREE.PointLight('#ff5500', 0, 5.5);
+      intakeFlashLight.position.set(-1.65, 0, 0);
+      scene.add(intakeFlashLight);
+
+      const flashTex = createGlowSpriteTexture('rgba(255,245,180,1)', 'rgba(255,95,0,0.85)');
+      const flashMat = new THREE.SpriteMaterial({
+        map: flashTex,
+        color: 0xff6b00,
+        transparent: true,
+        opacity: 0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+      intakeFlashSprite = new THREE.Sprite(flashMat);
+      intakeFlashSprite.position.set(-1.55, 0, 0);
+      intakeFlashSprite.scale.set(2.4, 2.4, 1);
+      scene.add(intakeFlashSprite);
+
+      // Test-Cell Floor Grid
+      if (cfg.environment.grid_floor.enabled) {
+        const yFloor = cfg.environment.grid_floor.y_position;
+        const grid = new THREE.GridHelper(18, 36, cfg.environment.grid_floor.color_center, cfg.environment.grid_floor.color_grid);
+        grid.position.y = yFloor;
+        scene.add(grid);
+
+        // Subtle test-cell circular reference ring on floor
+        const ringGeo = new THREE.RingGeometry(1.85, 1.9, 64);
+        const ringMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.16, side: THREE.DoubleSide });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.y = yFloor + 0.005;
+        scene.add(ring);
+
+        // Minimal test-cell support pylon shadow receiver plane
+        const floorPlane = new THREE.Mesh(
+          new THREE.PlaneGeometry(18, 18),
+          new THREE.ShadowMaterial({ opacity: 0.35 })
+        );
+        floorPlane.rotation.x = -Math.PI / 2;
+        floorPlane.position.y = yFloor + 0.002;
+        floorPlane.receiveShadow = true;
+        scene.add(floorPlane);
+      }
+
+      // Build PBR Material Library from JSON
+      initMaterialLibrary();
+
+      // Build all 10 Procedural Mechanical Assemblies
+      buildAllAssemblies();
+
+      // Build Airflow & Thermodynamics Particle Systems
+      buildParticleSystems();
+
+      clock = new THREE.Clock();
+    }
+
+    function initMaterialLibrary() {
+      const lib = ENGINE_CONFIG.pbr_materials_library;
+      for (const [key, def] of Object.entries(lib)) {
+        const params = {
+          color: new THREE.Color(def.color),
+          metalness: def.metalness,
+          roughness: def.roughness,
+          side: THREE.DoubleSide
+        };
+        if (def.emissive) {
+          params.emissive = new THREE.Color(def.emissive);
+          params.emissiveIntensity = def.emissive_intensity !== undefined ? def.emissive_intensity : 0.0;
+        }
+        if (def.transparent) {
+          params.transparent = true;
+          params.opacity = def.opacity;
+          params.depthWrite = def.depthWrite !== undefined ? def.depthWrite : false;
+        }
+        if (def.type === 'MeshPhysicalMaterial') {
+          if (def.clearcoat !== undefined) params.clearcoat = def.clearcoat;
+          if (def.clearcoat_roughness !== undefined) params.clearcoatRoughness = def.clearcoat_roughness;
+          materials[key] = new THREE.MeshPhysicalMaterial(params);
+        } else {
+          materials[key] = new THREE.MeshStandardMaterial(params);
+        }
+      }
+
+      // Bright glowing shafts material for X-Ray mode
+      materials.xray_shaft_n1 = new THREE.MeshStandardMaterial({
+        color: '#38bdf8',
+        emissive: '#0ea5e9',
+        emissiveIntensity: 1.4,
+        metalness: 0.4,
+        roughness: 0.2
+      });
+      materials.xray_shaft_n2 = new THREE.MeshStandardMaterial({
+        color: '#fb923c',
+        emissive: '#f97316',
+        emissiveIntensity: 1.5,
+        metalness: 0.4,
+        roughness: 0.2
+      });
+    }
+
+    // =========================================================================
+    // 5. PROCEDURAL 3D MECHANICAL ASSEMBLY BUILDERS
+    // =========================================================================
+
+    /** Helper: Creates a LatheGeometry rotated along the X-axis (negative X -> positive X) */
+    function createXLathe(points2D, segments = 64) {
+      // points2D: array of [radius, xLocal]
+      const vecs = points2D.map(([r, x]) => new THREE.Vector2(Math.max(0.001, r), x));
+      const geo = new THREE.LatheGeometry(vecs, segments);
+      geo.rotateZ(-Math.PI / 2);
+      return geo;
+    }
+
+    /** Helper: Builds a realistic twisted & swept wide-chord airfoil fan blade */
+    function createTwistedFanBladeGeometry(hubR, tipR, chord, rootTwistDeg, tipTwistDeg, sweepDeg) {
+      const spanSteps = 12;
+      const chordSteps = 6;
+      const positions = [];
+      const uvs = [];
+      const indices = [];
+
+      const rootTwist = THREE.MathUtils.degToRad(rootTwistDeg);
+      const tipTwist = THREE.MathUtils.degToRad(tipTwistDeg);
+      const sweepRad = THREE.MathUtils.degToRad(sweepDeg);
+
+      // Build upper and lower blade surfaces
+      for (let side = 0; side < 2; side++) {
+        const baseVertex = side * (spanSteps + 1) * (chordSteps + 1);
+        for (let i = 0; i <= spanSteps; i++) {
+          const v = i / spanSteps;
+          const r = THREE.MathUtils.lerp(hubR - 0.02, tipR, v);
+          const localChord = chord * (0.78 + 0.32 * Math.sin(v * Math.PI * 0.85));
+          const twist = THREE.MathUtils.lerp(rootTwist, tipTwist, v);
+          // Forward-aft scimitar sweep curve
+          const sweepX = -Math.sin(sweepRad) * Math.sin(v * Math.PI) * 0.085;
+          const thicknessScale = THREE.MathUtils.lerp(0.024, 0.007, v);
+
+          for (let j = 0; j <= chordSteps; j++) {
+            const u = j / chordSteps; // 0 = leading edge, 1 = trailing edge
+            const cPos = (u - 0.45) * localChord;
+            // NACA-style camber & thickness profile
+            const camber = Math.sin(u * Math.PI) * localChord * 0.085;
+            const halfThick = Math.sin(u * Math.PI) * thicknessScale * (1.2 - 0.5 * u);
+            const normalOffset = camber + (side === 0 ? halfThick : -halfThick);
+
+            // Rotate chord profile by twist angle around radial Y axis
+            const x = sweepX + cPos * Math.cos(twist) - normalOffset * Math.sin(twist);
+            const z = cPos * Math.sin(twist) + normalOffset * Math.cos(twist);
+            const y = r;
+
+            positions.push(x, y, z);
+            uvs.push(u, v);
+          }
+        }
+
+        for (let i = 0; i < spanSteps; i++) {
+          for (let j = 0; j < chordSteps; j++) {
+            const a = baseVertex + i * (chordSteps + 1) + j;
+            const b = a + 1;
+            const c = a + (chordSteps + 1);
+            const d = c + 1;
+            if (side === 0) {
+              indices.push(a, b, d, a, d, c);
+            } else {
+              indices.push(a, d, b, a, c, d);
+            }
+          }
+        }
+      }
+
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+      geo.setIndex(indices);
+      geo.computeVertexNormals();
+      return geo;
+    }
+
+    /** Helper: Builds a metallic leading edge strip for a fan blade */
+    function createLeadingEdgeStrip(hubR, tipR, chord, rootTwistDeg, tipTwistDeg, sweepDeg) {
+      const pts = [];
+      const rootTwist = THREE.MathUtils.degToRad(rootTwistDeg);
+      const tipTwist = THREE.MathUtils.degToRad(tipTwistDeg);
+      const sweepRad = THREE.MathUtils.degToRad(sweepDeg);
+      for (let i = 0; i <= 12; i++) {
+        const v = i / 12;
+        const r = THREE.MathUtils.lerp(hubR, tipR, v);
+        const localChord = chord * (0.78 + 0.32 * Math.sin(v * Math.PI * 0.85));
+        const twist = THREE.MathUtils.lerp(rootTwist, tipTwist, v);
+        const sweepX = -Math.sin(sweepRad) * Math.sin(v * Math.PI) * 0.085;
+        const cPos = -0.45 * localChord;
+        const x = sweepX + cPos * Math.cos(twist);
+        const z = cPos * Math.sin(twist);
+        pts.push(new THREE.Vector3(x, r, z));
+      }
+      const curve = new THREE.CatmullRomCurve3(pts);
+      return new THREE.TubeGeometry(curve, 14, 0.0085, 6, false);
+    }
+
+    /** Helper: Registers a mesh with an assembly for raycasting, clipping, and X-Ray material swapping */
+    function registerMesh(entry, mesh, { clippable = false, isCutawayCap = false, xrayRole = 'shell' } = {}) {
+      mesh.userData.assemblyId = entry.config.id;
+      mesh.userData.xrayRole = xrayRole;
+      mesh.castShadow = !isCutawayCap;
+      mesh.receiveShadow = !isCutawayCap;
+
+      if (clippable) {
+        // Clone material instance so local clipping & thermal emissive don't unexpectedly bleed
+        mesh.material = mesh.material.clone();
+        mesh.material.clippingPlanes = [clipPlane];
+        mesh.material.clipShadows = true;
+        entry.clippableMeshes.push(mesh);
+      }
+
+      if (isCutawayCap) {
+        entry.cutawayCaps.push(mesh);
+      } else {
+        clickableMeshes.push(mesh);
+      }
+
+      entry.meshes.push(mesh);
+      entry.originalMaterials.set(mesh, mesh.material);
+      return mesh;
+    }
+
+    /** Builds a red cutaway section profile on Z=0 for a closed 2D wall contour (top +Y and bottom -Y) */
+    function createCutawayWallCap(contourPoints, mat) {
+      const group = new THREE.Group();
+      // Top cross-section (+Y, Z=0)
+      const shapeTop = new THREE.Shape();
+      contourPoints.forEach(([r, x], idx) => {
+        if (idx === 0) shapeTop.moveTo(x, r);
+        else shapeTop.lineTo(x, r);
+      });
+      shapeTop.closePath();
+      const geoTop = new THREE.ShapeGeometry(shapeTop);
+      const meshTop = new THREE.Mesh(geoTop, mat);
+      meshTop.position.z = 0.001;
+      group.add(meshTop);
+
+      // Bottom cross-section (-Y, Z=0)
+      const shapeBot = new THREE.Shape();
+      contourPoints.forEach(([r, x], idx) => {
+        if (idx === 0) shapeBot.moveTo(x, -r);
+        else shapeBot.lineTo(x, -r);
+      });
+      shapeBot.closePath();
+      const geoBot = new THREE.ShapeGeometry(shapeBot);
+      const meshBot = new THREE.Mesh(geoBot, mat);
+      meshBot.position.z = 0.001;
+      group.add(meshBot);
+
+      return group;
+    }
+
+    /** Main builder for all 10 mechanical assemblies from ENGINE_CONFIG */
+    function buildAllAssemblies() {
+      ENGINE_CONFIG.mechanical_assemblies.forEach(cfg => {
+        const group = new THREE.Group();
+        group.position.set(cfg.x_position_m, 0, 0);
+        scene.add(group);
+
+        const entry = {
+          config: cfg,
+          group,
+          baseX: cfg.x_position_m,
+          meshes: [],
+          clippableMeshes: [],
+          cutawayCaps: [],
+          originalMaterials: new Map(),
+          labelAnchor: new THREE.Vector3(0, 0.85, 0)
+        };
+        assembliesMap.set(cfg.id, entry);
+
+        // Route to specific procedural sculptor
+        switch (cfg.id) {
+          case 'intake_nacelle': buildIntakeNacelle(entry); break;
+          case 'spinner_cone': buildSpinnerCone(entry); break;
+          case 'fan_n1': buildFanN1(entry); break;
+          case 'lpc_booster': buildMultiStageAssembly(entry, 'N1', false); break;
+          case 'hpc_core': buildMultiStageAssembly(entry, 'N2', false); break;
+          case 'annular_combustor': buildAnnularCombustor(entry); break;
+          case 'hpt_stage': buildMultiStageAssembly(entry, 'N2', true); break;
+          case 'lpt_stage': buildMultiStageAssembly(entry, 'N1', true); break;
+          case 'concentric_shafts': buildConcentricShafts(entry); break;
+          case 'exhaust_nozzle': buildExhaustNozzle(entry); break;
+        }
+      });
+    }
+
+    // 1. Intake Nacelle & Bypass Cowling + Core Splitter Cowl
+    function buildIntakeNacelle(entry) {
+      const g = entry.config.procedural_geometry;
+      // Local X: -0.35 (world -1.70 front lip) to +2.10 (world +0.75 bypass exit), total length 2.45m
+      const nacelleProfile = [
+        [0.98, -0.35],
+        [1.04, -0.30],
+        [1.11, -0.10],
+        [1.15, 0.40],
+        [1.13, 1.15],
+        [1.04, 1.75],
+        [0.92, 2.10],
+        [0.88, 2.10],
+        [0.92, 1.60],
+        [0.95, 0.90],
+        [0.96, 0.20],
+        [0.96, -0.18],
+        [0.94, -0.32],
+        [0.98, -0.35]
+      ];
+      const nacelleMesh = new THREE.Mesh(createXLathe(nacelleProfile, g.segments), materials[entry.config.material_ref]);
+      registerMesh(entry, nacelleMesh, { clippable: true, xrayRole: 'shell' });
+      entry.group.add(nacelleMesh);
+
+      // Gleaming metallic anti-icing intake leading lip
+      const lipProfile = [
+        [0.945, -0.32],
+        [0.985, -0.365],
+        [1.045, -0.31],
+        [1.02, -0.24],
+        [0.955, -0.24],
+        [0.945, -0.32]
+      ];
+      const lipMesh = new THREE.Mesh(createXLathe(lipProfile, 64), materials.titanium_leading_edge);
+      registerMesh(entry, lipMesh, { clippable: true, xrayRole: 'shell' });
+      entry.group.add(lipMesh);
+
+      // Inner Core Splitter Fairing (separates Bypass Duct from Core Compressor/Combustor)
+      const splitterProfile = [
+        [0.47, 0.42],
+        [0.54, 0.65],
+        [0.55, 1.35],
+        [0.57, 1.95],
+        [0.58, 2.48],
+        [0.53, 2.48],
+        [0.50, 1.85],
+        [0.47, 1.10],
+        [0.45, 0.55],
+        [0.47, 0.42]
+      ];
+      const splitterMat = materials.compressor_steel.clone();
+      splitterMat.color = new THREE.Color('#475569');
+      const splitterMesh = new THREE.Mesh(createXLathe(splitterProfile, 56), splitterMat);
+      registerMesh(entry, splitterMesh, { clippable: true, xrayRole: 'shell' });
+      entry.group.add(splitterMesh);
+
+      // Fan Outlet Guide Vanes (OGVs) in Bypass Duct (static struts connecting core to outer nacelle)
+      const ogvCount = 24;
+      const ogvGeo = new THREE.BoxGeometry(0.14, 0.39, 0.015);
+      for (let i = 0; i < ogvCount; i++) {
+        const angle = (i / ogvCount) * Math.PI * 2;
+        const vane = new THREE.Mesh(ogvGeo, materials.compressor_steel);
+        const rMid = 0.74;
+        vane.position.set(0.62, Math.cos(angle) * rMid, Math.sin(angle) * rMid);
+        vane.rotation.x = angle;
+        vane.rotation.y = 0.18;
+        registerMesh(entry, vane, { clippable: true, xrayRole: 'shell' });
+        entry.group.add(vane);
+      }
+
+      // Red Cutaway Section Caps along Z = 0
+      const capNacelle = createCutawayWallCap(nacelleProfile, materials.cutaway_section_cap);
+      capNacelle.children.forEach(c => registerMesh(entry, c, { isCutawayCap: true }));
+      entry.group.add(capNacelle);
+
+      const capSplitter = createCutawayWallCap(splitterProfile, materials.cutaway_section_cap);
+      capSplitter.children.forEach(c => registerMesh(entry, c, { isCutawayCap: true }));
+      entry.group.add(capSplitter);
+
+      entry.labelAnchor.set(0.25, 1.22, 0);
+    }
+
+    // 2. Aerodynamic Spinner Cone (N1)
+    function buildSpinnerCone(entry) {
+      const g = entry.config.procedural_geometry;
+      const spinGroup = new THREE.Group();
+      entry.group.add(spinGroup);
+      n1SpinGroups.push(spinGroup);
+
+      // Local X: -0.05 (tip) to +0.37 (base connecting into fan hub at world x = -1.15)
+      const pts = [];
+      const steps = 18;
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const x = -0.05 + t * g.length_m;
+        // Smooth ogive curve
+        const r = g.tip_radius_m + (g.base_radius_m - g.tip_radius_m) * Math.pow(t, 0.72);
+        pts.push([r, x]);
+      }
+      pts.push([0.001, -0.05 + g.length_m]);
+
+      const coneMat = new THREE.MeshStandardMaterial({
+        map: createSpinnerSpiralTexture(g.spiral_stripe.turns),
+        metalness: 0.45,
+        roughness: 0.32
+      });
+      const coneMesh = new THREE.Mesh(createXLathe(pts, 48), coneMat);
+      registerMesh(entry, coneMesh, { clippable: false, xrayRole: 'rotor' });
+      spinGroup.add(coneMesh);
+
+      entry.labelAnchor.set(0.05, 0.45, 0);
+    }
+
+    // 3. Front Fan N1 (22 Wide-Chord Twisted Titanium Airfoil Blades)
+    function buildFanN1(entry) {
+      const g = entry.config.procedural_geometry;
+      const spinGroup = new THREE.Group();
+      entry.group.add(spinGroup);
+      n1SpinGroups.push(spinGroup);
+
+      // Central Fan Hub Disk
+      const hubGeo = new THREE.CylinderGeometry(g.hub_radius_m, g.hub_radius_m * 0.96, 0.24, 48);
+      hubGeo.rotateZ(-Math.PI / 2);
+      const hubMesh = new THREE.Mesh(hubGeo, materials.compressor_steel);
+      registerMesh(entry, hubMesh, { clippable: false, xrayRole: 'rotor' });
+      spinGroup.add(hubMesh);
+
+      // Sculpt twisted titanium blade & leading edge once, replicate 22x
+      const bladeGeo = createTwistedFanBladeGeometry(
+        g.hub_radius_m, g.tip_radius_m, g.chord_length_m,
+        g.root_twist_deg, g.tip_twist_deg, g.forward_sweep_deg
+      );
+      const edgeGeo = createLeadingEdgeStrip(
+        g.hub_radius_m, g.tip_radius_m, g.chord_length_m,
+        g.root_twist_deg, g.tip_twist_deg, g.forward_sweep_deg
+      );
+
+      for (let i = 0; i < g.blade_count; i++) {
+        const angle = (i / g.blade_count) * Math.PI * 2;
+        const bladeHolder = new THREE.Group();
+        bladeHolder.rotation.x = angle;
+
+        const blade = new THREE.Mesh(bladeGeo, materials[entry.config.material_ref]);
+        registerMesh(entry, blade, { clippable: false, xrayRole: 'rotor' });
+        bladeHolder.add(blade);
+
+        const edge = new THREE.Mesh(edgeGeo, materials.titanium_leading_edge);
+        registerMesh(entry, edge, { clippable: false, xrayRole: 'rotor' });
+        bladeHolder.add(edge);
+
+        spinGroup.add(bladeHolder);
+      }
+
+      entry.labelAnchor.set(0.0, 1.05, 0);
+    }
+
+    // 4, 5, 7, 8. Multi-Stage Rotor / Stator Compressor & Turbine Assemblies
+    function buildMultiStageAssembly(entry, spoolType, isTurbine) {
+      const g = entry.config.procedural_geometry;
+      const stages = g.stages;
+      const spacing = g.stage_spacing_m;
+      const totalLen = (stages - 1) * spacing;
+      const startX = -totalLen / 2;
+
+      const rotorSpinGroup = new THREE.Group();
+      entry.group.add(rotorSpinGroup);
+      if (spoolType === 'N1') n1SpinGroups.push(rotorSpinGroup);
+      else n2SpinGroups.push(rotorSpinGroup);
+
+      // Shared thermally reactive material clone if turbine
+      const baseMat = materials[entry.config.material_ref].clone();
+      if (entry.config.thermal_glow_reactive) {
+        thermalReactiveMaterials.push({
+          mat: baseMat,
+          isHPT: entry.config.id === 'hpt_stage',
+          maxEmissive: ENGINE_CONFIG.pbr_materials_library[entry.config.material_ref].emissive_intensity_max
+        });
+      }
+
+      for (let s = 0; s < stages; s++) {
+        const frac = stages > 1 ? s / (stages - 1) : 0;
+        const xStage = startX + s * spacing;
+        const hubR = g.hub_radius_start_m !== undefined
+          ? THREE.MathUtils.lerp(g.hub_radius_start_m, g.hub_radius_end_m, frac)
+          : g.hub_radius_m;
+        const tipR = g.tip_radius_start_m !== undefined
+          ? THREE.MathUtils.lerp(g.tip_radius_start_m, g.tip_radius_end_m, frac)
+          : g.tip_radius_m;
+        const bladeCount = g.blades_per_stage[s] || 48;
+        const bladeHeight = tipR - hubR;
+
+        // Rotor Disk Drum
+        const diskGeo = new THREE.CylinderGeometry(hubR, hubR, spacing * 0.62, 36);
+        diskGeo.rotateZ(-Math.PI / 2);
+        const diskMesh = new THREE.Mesh(diskGeo, baseMat);
+        diskMesh.position.x = xStage;
+        registerMesh(entry, diskMesh, { clippable: false, xrayRole: 'rotor' });
+        rotorSpinGroup.add(diskMesh);
+
+        // Instanced Rotor Blades for crisp performance + realistic high blade count
+        const bladeChord = spacing * 0.44;
+        const bladeThick = isTurbine ? 0.0085 : 0.006;
+        const bGeo = new THREE.BoxGeometry(bladeChord, bladeHeight + 0.015, bladeThick);
+        const instMesh = new THREE.InstancedMesh(bGeo, baseMat, bladeCount);
+        const dummy = new THREE.Object3D();
+        const pitchAngle = isTurbine ? -0.58 : 0.52;
+
+        for (let b = 0; b < bladeCount; b++) {
+          const ang = (b / bladeCount) * Math.PI * 2;
+          const rMid = hubR + bladeHeight * 0.5;
+          dummy.position.set(xStage, Math.cos(ang) * rMid, Math.sin(ang) * rMid);
+          dummy.rotation.set(ang, 0, 0);
+          dummy.rotateY(pitchAngle);
+          dummy.updateMatrix();
+          instMesh.setMatrixAt(b, dummy.matrix);
+        }
+        instMesh.instanceMatrix.needsUpdate = true;
+        registerMesh(entry, instMesh, { clippable: false, xrayRole: 'rotor' });
+        rotorSpinGroup.add(instMesh);
+
+        // Inter-stage Static Stator Shroud Ring (Clippable in Cutaway!)
+        const statorR = tipR + 0.018;
+        const shroudGeo = new THREE.CylinderGeometry(statorR, statorR, spacing * 0.85, 42, 1, true);
+        shroudGeo.rotateZ(-Math.PI / 2);
+        const shroudMat = materials.compressor_steel.clone();
+        shroudMat.color = new THREE.Color(isTurbine ? '#3f3f46' : '#64748b');
+        const shroudMesh = new THREE.Mesh(shroudGeo, shroudMat);
+        shroudMesh.position.x = xStage;
+        registerMesh(entry, shroudMesh, { clippable: true, xrayRole: 'shell' });
+        entry.group.add(shroudMesh);
+      }
+
+      const maxTip = Math.max(g.tip_radius_m || 0, g.tip_radius_start_m || 0, g.tip_radius_end_m || 0);
+      entry.labelAnchor.set(0, maxTip + 0.16, 0);
+    }
+
+    // 6. Annular Combustion Chamber (Perforated Liner, 18 Fuel Nozzles, Volumetric Flame)
+    function buildAnnularCombustor(entry) {
+      const g = entry.config.procedural_geometry;
+      const halfL = g.length_m / 2;
+      const linerTex = createCombustorLinerTexture(g.dilution_holes_rows);
+
+      const linerMat = materials[entry.config.material_ref].clone();
+      linerMat.map = linerTex;
+      linerMat.emissive = new THREE.Color('#ff4500');
+      linerMat.emissiveIntensity = 0.45;
+      thermalReactiveMaterials.push({
+        mat: linerMat,
+        isCombustor: true,
+        maxEmissive: ENGINE_CONFIG.pbr_materials_library.inconel_combustor.emissive_intensity_max
+      });
+
+      // Outer Annular Liner Wall (Clippable)
+      const outerGeo = new THREE.CylinderGeometry(g.outer_radius_m, g.outer_radius_m * 0.96, g.length_m, 48, 1, true);
+      outerGeo.rotateZ(-Math.PI / 2);
+      const outerMesh = new THREE.Mesh(outerGeo, linerMat);
+      registerMesh(entry, outerMesh, { clippable: true, xrayRole: 'shell' });
+      entry.group.add(outerMesh);
+
+      // Inner Annular Liner Wall (Clippable)
+      const innerGeo = new THREE.CylinderGeometry(g.inner_radius_m, g.inner_radius_m, g.length_m, 48, 1, true);
+      innerGeo.rotateZ(-Math.PI / 2);
+      const innerMesh = new THREE.Mesh(innerGeo, linerMat);
+      registerMesh(entry, innerMesh, { clippable: true, xrayRole: 'shell' });
+      entry.group.add(innerMesh);
+
+      // Front Dome Bulkhead Plate (Clippable)
+      const domeGeo = new THREE.RingGeometry(g.inner_radius_m, g.outer_radius_m, 48);
+      domeGeo.rotateY(Math.PI / 2);
+      const domeMesh = new THREE.Mesh(domeGeo, linerMat);
+      domeMesh.position.x = -halfL;
+      registerMesh(entry, domeMesh, { clippable: true, xrayRole: 'shell' });
+      entry.group.add(domeMesh);
+
+      // 18 Fuel Injector Nozzles around the annulus
+      const midR = (g.inner_radius_m + g.outer_radius_m) / 2;
+      const nozzleStemGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.14, 10);
+      const tipGeo = new THREE.ConeGeometry(0.018, 0.045, 10);
+      tipGeo.rotateZ(-Math.PI / 2);
+
+      const nozzleTipMat = new THREE.MeshStandardMaterial({
+        color: '#f97316',
+        emissive: '#ff7b00',
+        emissiveIntensity: 1.5,
+        metalness: 0.6,
+        roughness: 0.3
+      });
+
+      for (let i = 0; i < g.fuel_nozzle_count; i++) {
+        const ang = (i / g.fuel_nozzle_count) * Math.PI * 2;
+        const nozzleGroup = new THREE.Group();
+        nozzleGroup.rotation.x = ang;
+
+        const stem = new THREE.Mesh(nozzleStemGeo, materials.shaft_hardened_alloy);
+        stem.position.set(-halfL + 0.03, midR + 0.06, 0);
+        registerMesh(entry, stem, { clippable: true, xrayRole: 'rotor' });
+        nozzleGroup.add(stem);
+
+        const tip = new THREE.Mesh(tipGeo, nozzleTipMat);
+        tip.position.set(-halfL + 0.05, midR, 0);
+        registerMesh(entry, tip, { clippable: true, xrayRole: 'rotor' });
+        nozzleGroup.add(tip);
+
+        entry.group.add(nozzleGroup);
+      }
+
+      // Internal Glowing Volumetric Plasma/Flame Core Ring
+      const flameGeo = new THREE.TorusGeometry(midR, (g.outer_radius_m - g.inner_radius_m) * 0.36, 16, 48);
+      flameGeo.rotateY(Math.PI / 2);
+      const flameMat = new THREE.MeshBasicMaterial({
+        color: '#ff7b00',
+        transparent: true,
+        opacity: 0.55,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+      combustorFlameRing = new THREE.Mesh(flameGeo, flameMat);
+      combustorFlameRing.scale.set(2.3, 1.0, 1.0); // Stretch along X inside chamber
+      entry.group.add(combustorFlameRing);
+
+      // Cutaway Edge Caps for Combustor Liner
+      const wallCapContour = [
+        [g.outer_radius_m, -halfL],
+        [g.outer_radius_m * 0.96, halfL],
+        [g.outer_radius_m * 0.96 - 0.02, halfL],
+        [g.outer_radius_m - 0.02, -halfL]
+      ];
+      const cap = createCutawayWallCap(wallCapContour, materials.cutaway_section_cap);
+      cap.children.forEach(c => registerMesh(entry, c, { isCutawayCap: true }));
+      entry.group.add(cap);
+
+      entry.labelAnchor.set(0, g.outer_radius_m + 0.22, 0);
+    }
+
+    // 9. Concentric Dual-Spool Shafts (N1 Inner Solid Shaft + N2 Outer Hollow Shaft)
+    function buildConcentricShafts(entry) {
+      const g = entry.config.procedural_geometry;
+      const baseX = entry.baseX;
+
+      // N1 Inner Solid Shaft (Connects LPT to Front Fan)
+      const n1Group = new THREE.Group();
+      entry.group.add(n1Group);
+      n1SpinGroups.push(n1Group);
+
+      const n1Mat = materials.shaft_hardened_alloy.clone();
+      n1Mat.map = createShaftSplineTexture('#cbd5e1', '#64748b', 10);
+      n1Mat.color = new THREE.Color('#bae6fd'); // Subtle cool titanium-steel tint for N1 identification
+
+      const n1CenterX = (g.n1_inner_shaft.x_start_m + g.n1_inner_shaft.x_end_m) / 2 - baseX;
+      const n1Geo = new THREE.CylinderGeometry(g.n1_inner_shaft.radius_m, g.n1_inner_shaft.radius_m, g.n1_inner_shaft.length_m, 32);
+      n1Geo.rotateZ(-Math.PI / 2);
+      const n1Mesh = new THREE.Mesh(n1Geo, n1Mat);
+      n1Mesh.position.x = n1CenterX;
+      registerMesh(entry, n1Mesh, { clippable: false, xrayRole: 'shaft_n1' });
+      n1Group.add(n1Mesh);
+
+      // N2 Outer Hollow Shaft (Connects HPT to HPC - Spins MUCH faster!)
+      const n2Group = new THREE.Group();
+      entry.group.add(n2Group);
+      n2SpinGroups.push(n2Group);
+
+      const n2Mat = materials.shaft_hardened_alloy.clone();
+      n2Mat.map = createShaftSplineTexture('#e2e8f0', '#b45309', 14);
+      n2Mat.color = new THREE.Color('#fed7aa'); // Subtle warm alloy tint for N2 identification
+
+      const n2CenterX = (g.n2_outer_hollow_shaft.x_start_m + g.n2_outer_hollow_shaft.x_end_m) / 2 - baseX;
+      const n2OuterGeo = new THREE.CylinderGeometry(
+        g.n2_outer_hollow_shaft.outer_radius_m,
+        g.n2_outer_hollow_shaft.outer_radius_m,
+        g.n2_outer_hollow_shaft.length_m,
+        36, 1, false
+      );
+      n2OuterGeo.rotateZ(-Math.PI / 2);
+      const n2Mesh = new THREE.Mesh(n2OuterGeo, n2Mat);
+      n2Mesh.position.x = n2CenterX;
+      registerMesh(entry, n2Mesh, { clippable: false, xrayRole: 'shaft_n2' });
+      n2Group.add(n2Mesh);
+
+      // Machined Bearing Flanges on N2 Shaft for high-detail engineering realism
+      [-0.45, 0.0, 0.45].forEach(offset => {
+        const flangeGeo = new THREE.TorusGeometry(g.n2_outer_hollow_shaft.outer_radius_m + 0.014, 0.015, 12, 32);
+        flangeGeo.rotateY(Math.PI / 2);
+        const flange = new THREE.Mesh(flangeGeo, materials.titanium_leading_edge);
+        flange.position.x = n2CenterX + offset;
+        registerMesh(entry, flange, { clippable: false, xrayRole: 'shaft_n2' });
+        n2Group.add(flange);
+      });
+
+      entry.labelAnchor.set(0.1, -0.35, 0);
+    }
+
+    // 10. Core Exhaust Nozzle & Acoustic Chevron Plug Cone
+    function buildExhaustNozzle(entry) {
+      const g = entry.config.procedural_geometry;
+
+      // Center Exhaust Plug Cone (x local: -0.22 to +0.50, length 0.72m)
+      const plugPts = [
+        [g.center_plug_base_radius_m, -0.22],
+        [g.center_plug_base_radius_m * 0.84, 0.02],
+        [g.center_plug_base_radius_m * 0.48, 0.28],
+        [0.015, -0.22 + g.center_plug_length_m]
+      ];
+      const plugMat = materials.inconel_combustor.clone();
+      plugMat.color = new THREE.Color('#3f3f46');
+      const plugMesh = new THREE.Mesh(createXLathe(plugPts, 48), plugMat);
+      registerMesh(entry, plugMesh, { clippable: false, xrayRole: 'rotor' });
+      entry.group.add(plugMesh);
+
+      // Core Exhaust Outer Nozzle Cowl (Clippable)
+      const nozzlePts = [
+        [0.57, -0.26],
+        [0.54, 0.02],
+        [g.core_cowl_exit_radius_m - 0.04, 0.22],
+        [g.core_cowl_exit_radius_m - 0.07, 0.22],
+        [0.50, 0.02],
+        [0.53, -0.26],
+        [0.57, -0.26]
+      ];
+      const nozzleMesh = new THREE.Mesh(createXLathe(nozzlePts, 52), plugMat);
+      registerMesh(entry, nozzleMesh, { clippable: true, xrayRole: 'shell' });
+      entry.group.add(nozzleMesh);
+
+      // Acoustic Chevron Mixer Petals around exhaust exit rim
+      const chevCount = 14;
+      const chevGeo = new THREE.ConeGeometry(0.085, 0.16, 3);
+      chevGeo.rotateZ(-Math.PI / 2);
+      for (let i = 0; i < chevCount; i++) {
+        const ang = (i / chevCount) * Math.PI * 2;
+        const chev = new THREE.Mesh(chevGeo, materials.titanium_leading_edge);
+        const rExit = g.core_cowl_exit_radius_m - 0.055;
+        chev.position.set(0.24, Math.cos(ang) * rExit, Math.sin(ang) * rExit);
+        chev.rotation.x = ang;
+        chev.scale.set(1.0, 0.18, 1.0);
+        registerMesh(entry, chev, { clippable: true, xrayRole: 'shell' });
+        entry.group.add(chev);
+      }
+
+      const cap = createCutawayWallCap(nozzlePts, materials.cutaway_section_cap);
+      cap.children.forEach(c => registerMesh(entry, c, { isCutawayCap: true }));
+      entry.group.add(cap);
+
+      entry.labelAnchor.set(0.15, 0.65, 0);
+    }
+
+    // =========================================================================
+    // 6. AIRFLOW & THERMODYNAMICS PARTICLE ENGINE (4,500 PARTICLES)
+    // =========================================================================
+    function buildParticleSystems() {
+      const spriteTex = createGlowSpriteTexture('rgba(255,255,255,1)', 'rgba(255,255,255,0.65)');
+
+      ENGINE_CONFIG.airflow_and_thermodynamics_particles.streams.forEach(streamCfg => {
+        const count = streamCfg.particle_count;
+        const positions = new Float32Array(count * 3);
+        const colors = new Float32Array(count * 3);
+        const meta = []; // per-particle { progress, radiusNorm, angle, speedJitter }
+
+        const cStart = new THREE.Color(streamCfg.color_start);
+        const cEnd = new THREE.Color(streamCfg.color_end);
+        const tmpColor = new THREE.Color();
+
+        const [xMin, xMax] = streamCfg.spawn_x_range;
+        const [rMin, rMax] = streamCfg.radial_range_m;
+
+        for (let i = 0; i < count; i++) {
+          const progress = Math.random();
+          const radiusNorm = Math.random();
+          const angle = Math.random() * Math.PI * 2;
+          const speedJitter = 0.78 + Math.random() * 0.44;
+          meta.push({ progress, radiusNorm, angle, speedJitter });
+
+          const x = THREE.MathUtils.lerp(xMin, xMax, progress);
+          const r = THREE.MathUtils.lerp(rMin, rMax, radiusNorm);
+          positions[i * 3] = x;
+          positions[i * 3 + 1] = Math.cos(angle) * r;
+          positions[i * 3 + 2] = Math.sin(angle) * r;
+
+          tmpColor.copy(cStart).lerp(cEnd, progress);
+          colors[i * 3] = tmpColor.r;
+          colors[i * 3 + 1] = tmpColor.g;
+          colors[i * 3 + 2] = tmpColor.b;
+        }
+
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+        const mat = new THREE.PointsMaterial({
+          size: streamCfg.particle_size,
+          map: spriteTex,
+          vertexColors: true,
+          transparent: true,
+          opacity: 0.78,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+        });
+
+        const points = new THREE.Points(geo, mat);
+        points.frustumCulled = false;
+        scene.add(points);
+
+        particleSystems.push({
+          config: streamCfg,
+          points,
+          geo,
+          mat,
+          meta,
+          cStart,
+          cEnd,
+          cStallFlash: new THREE.Color('#ff5500')
+        });
+      });
+    }
+
+    function updateParticles(dt, throttleFrac, isStall, stallPulse) {
+      const tmpColor = new THREE.Color();
+      const throttlePct = throttleFrac * 100;
+
+      particleSystems.forEach(ps => {
+        const cfg = ps.config;
+        const visibleByThrottle = cfg.visible_above_throttle_percent === undefined || throttlePct >= cfg.visible_above_throttle_percent;
+        ps.points.visible = state.particlesEnabled && visibleByThrottle;
+        if (!ps.points.visible) return;
+
+        // Intensity opacity scaling for combustion & exhaust
+        if (cfg.id === 'combustion_flame_vortex') {
+          ps.mat.opacity = 0.45 + throttleFrac * 0.55;
+        } else if (cfg.id === 'core_hot_exhaust') {
+          ps.mat.opacity = 0.35 + throttleFrac * 0.55;
+        } else {
+          ps.mat.opacity = 0.42 + throttleFrac * 0.42;
+        }
+
+        const [xMin, xMax] = cfg.spawn_x_range;
+        const [rMin, rMax] = cfg.radial_range_m;
+        const spanX = xMax - xMin;
+        const baseVel = (cfg.base_speed_mps * 0.22) * (1 + throttleFrac * cfg.throttle_speed_multiplier * 0.48);
+
+        // During Compressor Stall, core & intake air pulses violently backward!
+        let dirFactor = 1.0;
+        let stallFlare = 0.0;
+        if (isStall && (cfg.id === 'core_compression_stream' || cfg.id === 'intake_suction' || cfg.id === 'combustion_flame_vortex')) {
+          if (stallPulse > 0.25) {
+            dirFactor = -1.65;
+            stallFlare = Math.min(1, (stallPulse - 0.25) * 1.4);
+          }
+        }
+
+        const posArr = ps.geo.attributes.position.array;
+        const colArr = ps.geo.attributes.color.array;
+        const swirlVel = cfg.swirl_factor * (1.2 + throttleFrac * 4.5);
+
+        for (let i = 0; i < ps.meta.length; i++) {
+          const m = ps.meta[i];
+          const step = ((baseVel * m.speedJitter * dt) / spanX) * dirFactor;
+          m.progress += step;
+
+          if (m.progress > 1) m.progress -= 1;
+          else if (m.progress < 0) m.progress += 1;
+
+          m.angle += swirlVel * dt * m.speedJitter;
+
+          const x = xMin + m.progress * spanX;
+          let r = THREE.MathUtils.lerp(rMin, rMax, m.radiusNorm);
+
+          // Aerodynamic stream shaping
+          if (cfg.id === 'intake_suction') {
+            // Slight contraction as air accelerates into inlet lip
+            r *= 1.18 - m.progress * 0.18;
+          } else if (cfg.id === 'core_compression_stream') {
+            // Converges as air gets compressed through HPC
+            r *= 1.04 - m.progress * 0.12;
+          } else if (cfg.id === 'core_hot_exhaust') {
+            // Subtle jet plume expansion after exiting exhaust plug
+            if (m.progress > 0.45) {
+              r *= 1.0 + (m.progress - 0.45) * 0.35;
+            }
+          }
+
+          posArr[i * 3] = x;
+          posArr[i * 3 + 1] = Math.cos(m.angle) * r;
+          posArr[i * 3 + 2] = Math.sin(m.angle) * r;
+
+          tmpColor.copy(ps.cStart).lerp(ps.cEnd, m.progress);
+          if (stallFlare > 0) {
+            tmpColor.lerp(ps.cStallFlash, stallFlare * 0.85);
+          }
+          colArr[i * 3] = tmpColor.r;
+          colArr[i * 3 + 1] = tmpColor.g;
+          colArr[i * 3 + 2] = tmpColor.b;
+        }
+
+        ps.geo.attributes.position.needsUpdate = true;
+        ps.geo.attributes.color.needsUpdate = true;
+      });
+    }
+
+    // =========================================================================
+    // 7. PHYSICS, SPOOL DYNAMICS & TELEMETRY ENGINE
+    // =========================================================================
+    function updatePhysicsAndTelemetry(dt) {
+      const phys = ENGINE_CONFIG.physics_and_telemetry_engine;
+      const dyn = phys.spool_dynamics;
+
+      // Exponential spool inertia lag (N1 slower than N2)
+      const n1Alpha = 1 - Math.exp(-dt / (dyn.n1_inertia_lag_sec * 0.45));
+      const n2Alpha = 1 - Math.exp(-dt / (dyn.n2_inertia_lag_sec * 0.45));
+      state.n1Fraction += (state.targetThrottle - state.n1Fraction) * n1Alpha;
+      state.n2Fraction += (state.targetThrottle - state.n2Fraction) * n2Alpha;
+
+      // Anomaly modifiers
+      const isStall = state.currentAnomalyId === 'compressor_stall';
+      const isOverheat = state.currentAnomalyId === 'egt_overheat';
+      const anomalyCfg = ENGINE_CONFIG.anomaly_simulations.find(a => a.id === state.currentAnomalyId);
+
+      let stallPulse = 0;
+      let n2Oscillation = 0;
+      let egtExtra = 0;
+
+      if (isStall && anomalyCfg.effects) {
+        const hz = anomalyCfg.effects.reverse_airflow_pulse_hz;
+        stallPulse = Math.sin(state.timeElapsed * hz * Math.PI * 2);
+        // Violent N2 RPM oscillation (+/- 18% drop/surge)
+        n2Oscillation = stallPulse * (anomalyCfg.effects.n2_rpm_oscillation_percent / 100);
+        egtExtra = anomalyCfg.effects.egt_spike_celsius * (0.75 + 0.25 * Math.abs(stallPulse));
+      } else if (isOverheat && anomalyCfg.effects) {
+        egtExtra = anomalyCfg.effects.egt_spike_celsius;
+      }
+
+      // Compute all 6 telemetry channels using exact JSON curve exponents
+      phys.telemetry_channels.forEach(ch => {
+        let baseFrac = ch.key === 'n2_rpm' ? state.n2Fraction : state.n1Fraction;
+        if (ch.key === 'egt_celsius' || ch.key === 'fuel_flow' || ch.key === 'opr') {
+          baseFrac = (state.n1Fraction * 0.45 + state.n2Fraction * 0.55);
+        }
+
+        let val = ch.idle_value + (ch.max_value - ch.idle_value) * Math.pow(Math.max(0, baseFrac), ch.curve_exponent);
+
+        if (ch.key === 'n2_rpm' && isStall) {
+          val *= (1 + n2Oscillation);
+        }
+        if (ch.key === 'egt_celsius') {
+          val += egtExtra;
+        }
+        if (ch.key === 'net_thrust' && isStall) {
+          val *= (0.62 + 0.22 * stallPulse);
+        }
+
+        state.telemetryValues[ch.key] = val;
+      });
+
+      // Spin 3D Rotors proportional to real N1 & N2 RPM (scaled visually so blades look crisp & distinct)
+      const n1RadPerSec = (state.telemetryValues.n1_rpm / 3850) * 18.0;
+      const n2RadPerSec = (state.telemetryValues.n2_rpm / 14800) * 44.0;
+      state.n1SpinAngle += n1RadPerSec * dt;
+      state.n2SpinAngle += n2RadPerSec * dt;
+
+      n1SpinGroups.forEach(g => { g.rotation.x = state.n1SpinAngle; });
+      n2SpinGroups.forEach(g => { g.rotation.x = state.n2SpinAngle; });
+
+      // Update Combustor Glow Light & Thermal Turbine Emissives
+      const heatFactor = Math.pow(state.n2Fraction, 1.1);
+      const overheatBoost = isOverheat ? anomalyCfg.effects.turbine_emissive_boost : 1.0;
+
+      if (combustorLight) {
+        const flicker = 0.92 + Math.sin(state.timeElapsed * 42) * 0.08;
+        const stallBoost = isStall ? Math.max(0, stallPulse) * 4.5 : 0;
+        combustorLight.intensity = (0.6 + heatFactor * 8.5 * overheatBoost + stallBoost) * flicker;
+      }
+
+      if (combustorFlameRing) {
+        const visibleFlame = state.targetThrottle > 0.02 || isStall || isOverheat;
+        combustorFlameRing.visible = visibleFlame;
+        const pulseScale = 1.0 + Math.sin(state.timeElapsed * 35) * 0.05;
+        combustorFlameRing.scale.set(2.2 + heatFactor * 0.4, pulseScale, pulseScale);
+        combustorFlameRing.material.opacity = Math.min(0.95, 0.22 + heatFactor * 0.58 * overheatBoost);
+      }
+
+      thermalReactiveMaterials.forEach(item => {
+        if (item.isCombustor) {
+          item.mat.emissiveIntensity = Math.min(2.8, (0.2 + heatFactor * item.maxEmissive) * (isOverheat ? 1.55 : 1.0));
+        } else {
+          // HPT glows hotter than LPT
+          const stageScale = item.isHPT ? 1.0 : 0.45;
+          const egtNorm = Math.max(0, (state.telemetryValues.egt_celsius - 450) / 550);
+          item.mat.emissiveIntensity = Math.min(3.4, egtNorm * item.maxEmissive * stageScale * overheatBoost);
+        }
+      });
+
+      // Compressor Stall Front Intake Flash
+      if (isStall && stallPulse > 0.35) {
+        const flashAmt = (stallPulse - 0.35) / 0.65;
+        intakeFlashLight.intensity = flashAmt * 11.0;
+        intakeFlashSprite.material.opacity = flashAmt * 0.85;
+        const s = 1.8 + flashAmt * 1.4;
+        intakeFlashSprite.scale.set(s, s, 1);
+      } else {
+        intakeFlashLight.intensity = 0;
+        intakeFlashSprite.material.opacity = 0;
+      }
+
+      // Update Particles
+      updateParticles(dt, state.n1Fraction, isStall, stallPulse);
+
+      // Update Audio Synth if enabled
+      updateProceduralAudio(state.telemetryValues.n1_rpm, state.telemetryValues.n2_rpm, isStall, stallPulse);
+
+      // Update Telemetry HUD Readouts
+      renderTelemetryHUD();
+
+      return { isStall, stallPulse, anomalyCfg };
+    }
+
+    // =========================================================================
+    // 8. INSPECTION VIEWS, EXPLODED ANIMATION & X-RAY MATERIALS
+    // =========================================================================
+    function applyInspectionView(viewId) {
+      const viewCfg = ENGINE_CONFIG.interactive_modes.inspection_views.find(v => v.id === viewId);
+      if (!viewCfg) return;
+      state.currentViewId = viewId;
+
+      // Explode Target
+      state.targetExplode = viewCfg.explode_factor || 0.0;
+
+      // Clipping Plane
+      if (viewCfg.clip_plane_normal) {
+        clipPlane.normal.set(...viewCfg.clip_plane_normal);
+        clipPlane.constant = viewCfg.clip_plane_constant;
+      } else if (viewId === 'xray_hologram' || viewId === 'exploded_view') {
+        clipPlane.normal.set(0, 0, -1);
+        clipPlane.constant = viewId === 'exploded_view' ? 0.0 : 5.0;
+      }
+
+      const isXray = viewId === 'xray_hologram';
+      const showCaps = Boolean(viewCfg.highlight_cut_edges) || viewId === 'exploded_view';
+
+      assembliesMap.forEach(entry => {
+        // Toggle cutaway red edge caps
+        entry.cutawayCaps.forEach(cap => {
+          cap.visible = showCaps && !isXray;
+        });
+
+        // Swap or restore materials for X-Ray mode
+        entry.meshes.forEach(mesh => {
+          if (entry.cutawayCaps.includes(mesh)) return;
+          if (isXray) {
+            if (mesh.userData.xrayRole === 'shaft_n1') {
+              mesh.material = materials.xray_shaft_n1;
+            } else if (mesh.userData.xrayRole === 'shaft_n2') {
+              mesh.material = materials.xray_shaft_n2;
+            } else if (mesh.userData.xrayRole === 'shell') {
+              mesh.material = materials.xray_hologram_shell;
+            } else {
+              // Semi-translucent hologram rotors
+              const holoRotor = materials.xray_hologram_shell.clone();
+              holoRotor.opacity = 0.28;
+              holoRotor.color = new THREE.Color('#7dd3fc');
+              mesh.material = holoRotor;
+            }
+          } else {
+            mesh.material = entry.originalMaterials.get(mesh);
+          }
+        });
+      });
+
+      // Highlight active button
+      document.querySelectorAll('.btn-view-mode').forEach(btn => {
+        const active = btn.dataset.view === viewId;
+        btn.className = active
+          ? 'btn-view-mode px-2 py-1.5 rounded-xl text-[11px] font-semibold bg-sky-500/30 text-sky-200 border border-sky-400 shadow-[0_0_12px_rgba(56,189,248,0.3)] transition'
+          : 'btn-view-mode px-2 py-1.5 rounded-xl text-[11px] font-medium bg-slate-800/75 text-slate-300 border border-slate-700 hover:bg-slate-700/80 transition';
+      });
+    }
+
+    function updateExplodedAnimation(dt) {
+      const diff = state.targetExplode - state.currentExplode;
+      if (Math.abs(diff) > 0.0005) {
+        state.currentExplode += diff * Math.min(1, dt * 3.8);
+      } else {
+        state.currentExplode = state.targetExplode;
+      }
+
+      assembliesMap.forEach(entry => {
+        const targetX = entry.baseX + entry.config.exploded_offset_x_m * state.currentExplode;
+        entry.group.position.x = targetX;
+      });
+    }
+
+    // =========================================================================
+    // 9. ANOMALY SIMULATIONS
+    // =========================================================================
+    function applyAnomalyMode(anomalyId) {
+      state.currentAnomalyId = anomalyId;
+      const cfg = ENGINE_CONFIG.anomaly_simulations.find(a => a.id === anomalyId);
+      const banner = document.getElementById('hud-alert-banner');
+      const alertText = document.getElementById('hud-alert-text');
+      const alertDesc = document.getElementById('hud-alert-desc');
+      const statusDot = document.getElementById('status-dot');
+
+      if (anomalyId === 'normal_operation') {
+        banner.classList.add('hidden');
+        statusDot.className = 'w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]';
+      } else {
+        banner.classList.remove('hidden');
+        alertText.textContent = cfg.effects.hud_alert_message;
+        alertDesc.textContent = cfg.description_th;
+        statusDot.className = 'w-2 h-2 rounded-full bg-red-500 shadow-[0_0_10px_#ef4444] animate-ping';
+        // Ensure throttle is at least 55% during overheat/stall so visual effects are unmistakable
+        if (state.targetThrottle < 0.55) {
+          setThrottlePercent(75);
+        }
+      }
+
+      document.querySelectorAll('.btn-anomaly').forEach(btn => {
+        const active = btn.dataset.anomaly === anomalyId;
+        const isDanger = btn.dataset.anomaly !== 'normal_operation';
+        if (active && isDanger) {
+          btn.className = 'btn-anomaly px-2 py-1 rounded-xl text-[11px] font-semibold bg-red-500/30 text-red-200 border border-red-400 shadow-[0_0_12px_rgba(239,68,68,0.35)] transition text-center truncate';
+        } else if (active) {
+          btn.className = 'btn-anomaly px-2 py-1 rounded-xl text-[11px] font-semibold bg-emerald-500/25 text-emerald-200 border border-emerald-400/70 transition text-center truncate';
+        } else {
+          btn.className = 'btn-anomaly px-2 py-1 rounded-xl text-[11px] font-medium bg-slate-800/75 text-slate-300 border border-slate-700 hover:bg-slate-700/80 transition text-center truncate';
+        }
+      });
+    }
+
+    // =========================================================================
+    // 10. CAMERA ORBIT CONTROLLER, PRESETS & RAYCAST INSPECTOR
+    // =========================================================================
+    function setCameraPreset(presetId, immediate = false) {
+      const preset = ENGINE_CONFIG.interactive_modes.camera_presets.find(p => p.id === presetId);
+      if (!preset) return;
+
+      const t = new THREE.Vector3(...preset.target);
+      const pos = new THREE.Vector3(...preset.position);
+      const offset = pos.clone().sub(t);
+      const sph = new THREE.Spherical().setFromVector3(offset);
+
+      camCtrl.desiredTarget.copy(t);
+      camCtrl.desiredSpherical.copy(sph);
+
+      if (immediate) {
+        camCtrl.target.copy(t);
+        camCtrl.spherical.copy(sph);
+        syncCameraFromSpherical(0);
+      }
+
+      document.querySelectorAll('.btn-cam-preset').forEach(btn => {
+        const active = btn.dataset.preset === presetId;
+        btn.className = active
+          ? 'btn-cam-preset px-2 py-1.5 rounded-xl text-[11px] font-semibold bg-sky-500/25 text-sky-200 border border-sky-400/70 transition truncate'
+          : 'btn-cam-preset px-2 py-1.5 rounded-xl text-[11px] font-medium bg-slate-800/70 text-slate-300 border border-slate-700 hover:bg-slate-700/80 transition truncate';
+      });
+    }
+
+    function syncCameraFromSpherical(shakeIntensity = 0) {
+      const offset = new THREE.Vector3().setFromSpherical(camCtrl.spherical);
+      camera.position.copy(camCtrl.target).add(offset);
+      if (shakeIntensity > 0) {
+        camera.position.x += (Math.random() - 0.5) * shakeIntensity;
+        camera.position.y += (Math.random() - 0.5) * shakeIntensity;
+        camera.position.z += (Math.random() - 0.5) * shakeIntensity;
+      }
+      camera.lookAt(camCtrl.target);
+    }
+
+    function updateCamera(dt, isStall, anomalyCfg) {
+      const lerpAlpha = 1 - Math.exp(-dt * 6.5);
+      camCtrl.target.lerp(camCtrl.desiredTarget, lerpAlpha);
+      camCtrl.spherical.radius += (camCtrl.desiredSpherical.radius - camCtrl.spherical.radius) * lerpAlpha;
+      camCtrl.spherical.phi += (camCtrl.desiredSpherical.phi - camCtrl.spherical.phi) * lerpAlpha;
+
+      // Shortest angular interpolation for theta
+      let dTheta = camCtrl.desiredSpherical.theta - camCtrl.spherical.theta;
+      while (dTheta > Math.PI) dTheta -= Math.PI * 2;
+      while (dTheta < -Math.PI) dTheta += Math.PI * 2;
+      camCtrl.spherical.theta += dTheta * lerpAlpha;
+
+      const shake = isStall && anomalyCfg.effects ? anomalyCfg.effects.camera_shake_intensity : 0;
+      syncCameraFromSpherical(shake);
+    }
+
+    function initPointerInteractions() {
+      const el = renderer.domElement;
+      const raycaster = new THREE.Raycaster();
+      const pointer = new THREE.Vector2();
+
+      // Mouse Drag Orbit
+      el.addEventListener('mousedown', e => {
+        camCtrl.isDragging = true;
+        camCtrl.dragMoved = false;
+        camCtrl.lastX = e.clientX;
+        camCtrl.lastY = e.clientY;
+      });
+
+      window.addEventListener('mousemove', e => {
+        if (!camCtrl.isDragging) return;
+        const dx = e.clientX - camCtrl.lastX;
+        const dy = e.clientY - camCtrl.lastY;
+        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) camCtrl.dragMoved = true;
+
+        camCtrl.desiredSpherical.theta -= dx * 0.007;
+        camCtrl.desiredSpherical.phi = THREE.MathUtils.clamp(
+          camCtrl.desiredSpherical.phi - dy * 0.007,
+          0.18,
+          Math.PI - 0.18
+        );
+        camCtrl.lastX = e.clientX;
+        camCtrl.lastY = e.clientY;
+      });
+
+      window.addEventListener('mouseup', () => {
+        camCtrl.isDragging = false;
+      });
+
+      // Mouse Wheel Zoom
+      el.addEventListener('wheel', e => {
+        e.preventDefault();
+        camCtrl.desiredSpherical.radius = THREE.MathUtils.clamp(
+          camCtrl.desiredSpherical.radius + e.deltaY * 0.0032,
+          camCtrl.minRadius,
+          camCtrl.maxRadius
+        );
+      }, { passive: false });
+
+      // Touch Orbit & Pinch Zoom
+      el.addEventListener('touchstart', e => {
+        if (e.touches.length === 1) {
+          camCtrl.isDragging = true;
+          camCtrl.dragMoved = false;
+          camCtrl.lastX = e.touches[0].clientX;
+          camCtrl.lastY = e.touches[0].clientY;
+        } else if (e.touches.length === 2) {
+          camCtrl.isDragging = false;
+          const dx = e.touches[0].clientX - e.touches[1].clientX;
+          const dy = e.touches[0].clientY - e.touches[1].clientY;
+          camCtrl.pinchDist = Math.hypot(dx, dy);
+        }
+      }, { passive: true });
+
+      el.addEventListener('touchmove', e => {
+        if (e.touches.length === 1 && camCtrl.isDragging) {
+          const dx = e.touches[0].clientX - camCtrl.lastX;
+          const dy = e.touches[0].clientY - camCtrl.lastY;
+          if (Math.abs(dx) > 4 || Math.abs(dy) > 4) camCtrl.dragMoved = true;
+          camCtrl.desiredSpherical.theta -= dx * 0.008;
+          camCtrl.desiredSpherical.phi = THREE.MathUtils.clamp(
+            camCtrl.desiredSpherical.phi - dy * 0.008,
+            0.18,
+            Math.PI - 0.18
+          );
+          camCtrl.lastX = e.touches[0].clientX;
+          camCtrl.lastY = e.touches[0].clientY;
+        } else if (e.touches.length === 2) {
+          const dx = e.touches[0].clientX - e.touches[1].clientX;
+          const dy = e.touches[0].clientY - e.touches[1].clientY;
+          const dist = Math.hypot(dx, dy);
+          const delta = camCtrl.pinchDist - dist;
+          camCtrl.desiredSpherical.radius = THREE.MathUtils.clamp(
+            camCtrl.desiredSpherical.radius + delta * 0.012,
+            camCtrl.minRadius,
+            camCtrl.maxRadius
+          );
+          camCtrl.pinchDist = dist;
+        }
+      }, { passive: true });
+
+      el.addEventListener('touchend', () => {
+        camCtrl.isDragging = false;
+      });
+
+      // Click / Tap Raycasting to Open Component Inspector Drawer
+      el.addEventListener('click', e => {
+        if (camCtrl.dragMoved) return;
+        const rect = el.getBoundingClientRect();
+        pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        raycaster.setFromCamera(pointer, camera);
+
+        const hits = raycaster.intersectObjects(clickableMeshes, false);
+        // Filter out hits clipped away by the active cutaway plane
+        const validHit = hits.find(h => {
+          const mat = h.object.material;
+          if (mat && mat.clippingPlanes && mat.clippingPlanes.length > 0) {
+            return clipPlane.distanceToPoint(h.point) >= -0.01;
+          }
+          return true;
+        });
+
+        if (validHit && validHit.object.userData.assemblyId) {
+          openComponentInspector(validHit.object.userData.assemblyId);
+        }
+      });
+    }
+
+    // =========================================================================
+    // 11. COMPONENT INSPECTOR DRAWER & 3D FLOATING LABELS
+    // =========================================================================
+    function openComponentInspector(assemblyId) {
+      const entry = assembliesMap.get(assemblyId);
+      if (!entry) return;
+      state.selectedAssemblyId = assemblyId;
+      const cfg = entry.config;
+
+      document.getElementById('insp-stage-code').textContent = cfg.stage_code;
+      const spoolMap = {
+        N1_low_pressure: 'N1 LOW-PRESSURE SPOOL',
+        N2_high_pressure: 'N2 HIGH-PRESSURE SPOOL',
+        dual_concentric: 'DUAL CONCENTRIC N1/N2',
+        static_structure: 'STATIC STRUCTURE'
+      };
+      document.getElementById('insp-spool-badge').textContent = spoolMap[cfg.spool_group] || cfg.spool_group;
+      document.getElementById('insp-title').textContent = cfg.name_th;
+      document.getElementById('insp-summary').textContent = cfg.education_info.summary;
+      document.getElementById('insp-xpos').textContent = `${cfg.x_position_m.toFixed(2)} m`;
+
+      const metricsEl = document.getElementById('insp-metrics');
+      metricsEl.innerHTML = '';
+      cfg.education_info.key_metrics.forEach(m => {
+        const li = document.createElement('li');
+        li.className = 'flex items-center gap-2 text-xs text-sky-200 bg-slate-800/75 px-2.5 py-1.5 rounded-lg border border-slate-700/70 font-mono-tech';
+        li.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-sky-400 shrink-0"></span><span>${m}</span>`;
+        metricsEl.appendChild(li);
+      });
+
+      document.getElementById('inspector-drawer').classList.remove('translate-x-[120%]');
+    }
+
+    function closeComponentInspector() {
+      state.selectedAssemblyId = null;
+      document.getElementById('inspector-drawer').classList.add('translate-x-[120%]');
+    }
+
+    function initFloatingLabels() {
+      const layer = document.getElementById('labels-layer');
+      layer.innerHTML = '';
+
+      ENGINE_CONFIG.mechanical_assemblies.forEach(cfg => {
+        const el = document.createElement('button');
+        el.className = 'floating-label hidden px-2.5 py-1 rounded-lg bg-slate-900/90 border border-sky-400/60 shadow-lg text-left backdrop-blur-md';
+        el.innerHTML = `
+          <div class="font-mono-tech text-[9px] text-sky-400 leading-none">${cfg.stage_code}</div>
+          <div class="text-[11px] font-semibold text-white whitespace-nowrap mt-0.5">${cfg.name_th.split('(')[0].trim()}</div>
+        `;
+        el.addEventListener('click', e => {
+          e.stopPropagation();
+          openComponentInspector(cfg.id);
+        });
+        layer.appendChild(el);
+        floatingLabelEls.set(cfg.id, el);
+      });
+    }
+
+    function updateFloatingLabels() {
+      const showLabels = state.labelsForceEnabled || state.currentViewId === 'exploded_view' || state.activePhaseId !== null;
+      const activePhase = ENGINE_CONFIG.project_meta.learning_cycle_phases.find(p => p.id === state.activePhaseId);
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const worldPos = new THREE.Vector3();
+
+      assembliesMap.forEach((entry, id) => {
+        const el = floatingLabelEls.get(id);
+        if (!el) return;
+
+        const isPhaseHighlighted = activePhase && activePhase.stage_refs.includes(id);
+        const shouldShow = state.labelsForceEnabled || state.currentViewId === 'exploded_view' || isPhaseHighlighted;
+
+        if (!shouldShow) {
+          el.classList.add('hidden');
+          return;
+        }
+
+        worldPos.copy(entry.labelAnchor).add(entry.group.position);
+        worldPos.project(camera);
+
+        if (worldPos.z > 1) {
+          el.classList.add('hidden');
+          return;
+        }
+
+        const x = (worldPos.x * 0.5 + 0.5) * w;
+        const y = (-worldPos.y * 0.5 + 0.5) * h;
+
+        el.classList.remove('hidden');
+        el.style.left = `${x}px`;
+        el.style.top = `${y}px`;
+        el.style.borderColor = (state.selectedAssemblyId === id || isPhaseHighlighted)
+          ? '#38bdf8'
+          : 'rgba(56, 189, 248, 0.45)';
+        el.style.boxShadow = (state.selectedAssemblyId === id || isPhaseHighlighted)
+          ? '0 0 16px rgba(56, 189, 248, 0.55)'
+          : '';
+      });
+    }
+
+    // =========================================================================
+    // 12. PROCEDURAL WEB AUDIO ENGINE SYNTHESIZER (NO EXTERNAL AUDIO FILES)
+    // =========================================================================
+    function toggleProceduralAudio() {
+      state.audioEnabled = !state.audioEnabled;
+      document.getElementById('icon-audio-off').classList.toggle('hidden', state.audioEnabled);
+      document.getElementById('icon-audio-on').classList.toggle('hidden', !state.audioEnabled);
+
+      const btn = document.getElementById('btn-toggle-audio');
+      if (state.audioEnabled) {
+        btn.classList.add('bg-emerald-500/20', 'border-emerald-400/50', 'text-emerald-300');
+        btn.classList.remove('bg-slate-800/80', 'border-slate-600/50', 'text-slate-300');
+        if (!audioCtx) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          audioCtx = new AudioContextClass();
+
+          const masterGain = audioCtx.createGain();
+          masterGain.gain.value = 0.0;
+          masterGain.connect(audioCtx.destination);
+
+          // N1 Fan Low Rumble Oscillator
+          const n1Osc = audioCtx.createOscillator();
+          n1Osc.type = 'sawtooth';
+          const n1Filter = audioCtx.createBiquadFilter();
+          n1Filter.type = 'lowpass';
+          n1Filter.frequency.value = 180;
+          const n1Gain = audioCtx.createGain();
+          n1Gain.gain.value = 0.16;
+          n1Osc.connect(n1Filter).connect(n1Gain).connect(masterGain);
+          n1Osc.start();
+
+          // N2 High-Pitch Turbine Whine Oscillator
+          const n2Osc = audioCtx.createOscillator();
+          n2Osc.type = 'sine';
+          const n2Gain = audioCtx.createGain();
+          n2Gain.gain.value = 0.045;
+          n2Osc.connect(n2Gain).connect(masterGain);
+          n2Osc.start();
+
+          // Airflow Jet Noise Buffer
+          const bufLen = audioCtx.sampleRate * 2;
+          const noiseBuf = audioCtx.createBuffer(1, bufLen, audioCtx.sampleRate);
+          const data = noiseBuf.getChannelData(0);
+          for (let i = 0; i < bufLen; i++) data[i] = Math.random() * 2 - 1;
+          const noiseSrc = audioCtx.createBufferSource();
+          noiseSrc.buffer = noiseBuf;
+          noiseSrc.loop = true;
+          const noiseFilter = audioCtx.createBiquadFilter();
+          noiseFilter.type = 'bandpass';
+          noiseFilter.frequency.value = 420;
+          noiseFilter.Q.value = 0.7;
+          const noiseGain = audioCtx.createGain();
+          noiseGain.gain.value = 0.14;
+          noiseSrc.connect(noiseFilter).connect(noiseGain).connect(masterGain);
+          noiseSrc.start();
+
+          audioNodes = { masterGain, n1Osc, n2Osc, noiseFilter, noiseGain };
+        }
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        audioNodes.masterGain.gain.setTargetAtTime(0.45, audioCtx.currentTime, 0.15);
+      } else {
+        btn.classList.remove('bg-emerald-500/20', 'border-emerald-400/50', 'text-emerald-300');
+        btn.classList.add('bg-slate-800/80', 'border-slate-600/50', 'text-slate-300');
+        if (audioNodes) {
+          audioNodes.masterGain.gain.setTargetAtTime(0.0, audioCtx.currentTime, 0.1);
+        }
+      }
+    }
+
+    function updateProceduralAudio(n1Rpm, n2Rpm, isStall, stallPulse) {
+      if (!state.audioEnabled || !audioNodes || !audioCtx) return;
+      const now = audioCtx.currentTime;
+      const n1Freq = 45 + (n1Rpm / 3850) * 115;
+      const n2Freq = 520 + (n2Rpm / 14800) * 980;
+      audioNodes.n1Osc.frequency.setTargetAtTime(n1Freq, now, 0.05);
+      audioNodes.n2Osc.frequency.setTargetAtTime(n2Freq, now, 0.05);
+
+      const jetFreq = 300 + state.n1Fraction * 1100;
+      audioNodes.noiseFilter.frequency.setTargetAtTime(jetFreq, now, 0.06);
+
+      const stallThump = isStall && stallPulse > 0.3 ? 0.42 : 0.12 + state.n1Fraction * 0.28;
+      audioNodes.noiseGain.gain.setTargetAtTime(stallThump, now, 0.04);
+    }
+
+    // =========================================================================
+    // 13. UI HUD INITIALIZATION & BINDINGS
+    // =========================================================================
+    function setThrottlePercent(pct) {
+      const clamped = Math.max(0, Math.min(100, pct));
+      state.targetThrottle = clamped / 100;
+      document.getElementById('throttle-slider').value = clamped;
+      document.getElementById('throttle-display').textContent = `${Math.round(clamped)}%`;
+    }
+
+    function initHUD() {
+      // 1. Telemetry Grid
+      const grid = document.getElementById('telemetry-grid');
+      ENGINE_CONFIG.physics_and_telemetry_engine.telemetry_channels.forEach(ch => {
+        const card = document.createElement('div');
+        card.className = 'bg-slate-900/75 border border-slate-700/70 rounded-xl px-2.5 py-1.5';
+        card.innerHTML = `
+          <div class="text-[9px] sm:text-[10px] text-slate-400 truncate">${ch.label_th}</div>
+          <div class="flex items-baseline justify-between gap-1 mt-0.5">
+            <span id="val-${ch.key}" class="font-mono-tech text-xs sm:text-sm font-bold text-slate-100">0</span>
+            <span class="font-mono-tech text-[9px] text-slate-500">${ch.unit}</span>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+
+      // 2. Camera Presets
+      const camBox = document.getElementById('camera-presets-container');
+      ENGINE_CONFIG.interactive_modes.camera_presets.forEach(p => {
+        const btn = document.createElement('button');
+        btn.dataset.preset = p.id;
+        btn.textContent = p.label_th;
+        btn.className = 'btn-cam-preset px-2 py-1.5 rounded-xl text-[11px] font-medium bg-slate-800/70 text-slate-300 border border-slate-700 hover:bg-slate-700/80 transition truncate';
+        btn.addEventListener('click', () => setCameraPreset(p.id, false));
+        camBox.appendChild(btn);
+      });
+
+      // 3. Learning Cycle Phases
+      const phaseBox = document.getElementById('learning-phases-container');
+      ENGINE_CONFIG.project_meta.learning_cycle_phases.forEach(ph => {
+        const btn = document.createElement('button');
+        btn.dataset.phase = ph.id;
+        btn.textContent = ph.label_th;
+        btn.className = 'btn-phase px-2 py-1.5 rounded-xl text-[10px] font-medium bg-slate-800/70 text-slate-300 border border-slate-700 hover:bg-slate-700/80 transition truncate text-left';
+        btn.addEventListener('click', () => {
+          state.activePhaseId = state.activePhaseId === ph.id ? null : ph.id;
+          document.querySelectorAll('.btn-phase').forEach(b => {
+            const on = b.dataset.phase === state.activePhaseId;
+            b.className = on
+              ? 'btn-phase px-2 py-1.5 rounded-xl text-[10px] font-semibold bg-amber-500/25 text-amber-200 border border-amber-400/70 transition truncate text-left'
+              : 'btn-phase px-2 py-1.5 rounded-xl text-[10px] font-medium bg-slate-800/70 text-slate-300 border border-slate-700 hover:bg-slate-700/80 transition truncate text-left';
+          });
+          if (state.activePhaseId) {
+            const firstRef = ph.stage_refs[ph.stage_refs.length - 1];
+            openComponentInspector(firstRef);
+            if (ph.id === 'suck') setCameraPreset('front_fan');
+            else if (ph.id === 'squeeze') setCameraPreset('iso_hero');
+            else if (ph.id === 'bang') setCameraPreset('combustor_core');
+            else if (ph.id === 'blow') setCameraPreset('rear_exhaust');
+          }
+        });
+        phaseBox.appendChild(btn);
+      });
+
+      // 4. Inspection Views
+      const viewBox = document.getElementById('inspection-views-container');
+      ENGINE_CONFIG.interactive_modes.inspection_views.forEach(v => {
+        const btn = document.createElement('button');
+        btn.dataset.view = v.id;
+        btn.textContent = v.label_th;
+        btn.className = 'btn-view-mode px-2 py-1.5 rounded-xl text-[11px] font-medium bg-slate-800/75 text-slate-300 border border-slate-700 transition';
+        btn.addEventListener('click', () => applyInspectionView(v.id));
+        viewBox.appendChild(btn);
+      });
+
+      // 5. Anomaly Selector
+      const anomBox = document.getElementById('anomaly-selector-container');
+      ENGINE_CONFIG.anomaly_simulations.forEach(a => {
+        const btn = document.createElement('button');
+        btn.dataset.anomaly = a.id;
+        btn.textContent = a.label_th;
+        btn.className = 'btn-anomaly px-2 py-1 rounded-xl text-[11px] font-medium bg-slate-800/75 text-slate-300 border border-slate-700 transition truncate';
+        btn.addEventListener('click', () => applyAnomalyMode(a.id));
+        anomBox.appendChild(btn);
+      });
+
+      // 6. Throttle Slider & Quick Detents
+      const slider = document.getElementById('throttle-slider');
+      slider.addEventListener('input', e => setThrottlePercent(parseFloat(e.target.value)));
+      document.querySelectorAll('.throttle-preset').forEach(btn => {
+        btn.addEventListener('click', () => setThrottlePercent(parseFloat(btn.dataset.throttle)));
+      });
+
+      // 7. Quick Toggles & Inspector Buttons
+      document.getElementById('btn-toggle-particles').addEventListener('click', () => {
+        state.particlesEnabled = !state.particlesEnabled;
+        const btn = document.getElementById('btn-toggle-particles');
+        btn.className = state.particlesEnabled
+          ? 'px-2.5 py-1.5 rounded-xl text-[11px] font-medium flex items-center gap-1.5 bg-sky-500/20 text-sky-300 border border-sky-400/40 hover:bg-sky-500/30 transition'
+          : 'px-2.5 py-1.5 rounded-xl text-[11px] font-medium flex items-center gap-1.5 bg-slate-800/80 text-slate-400 border border-slate-600/50 hover:bg-slate-700/80 transition';
+      });
+
+      document.getElementById('btn-toggle-audio').addEventListener('click', toggleProceduralAudio);
+
+      document.getElementById('btn-toggle-labels').addEventListener('click', () => {
+        state.labelsForceEnabled = !state.labelsForceEnabled;
+        const btn = document.getElementById('btn-toggle-labels');
+        btn.className = state.labelsForceEnabled
+          ? 'px-2.5 py-1.5 rounded-xl text-[11px] font-medium flex items-center gap-1.5 bg-sky-500/20 text-sky-300 border border-sky-400/40 hover:bg-sky-500/30 transition'
+          : 'px-2.5 py-1.5 rounded-xl text-[11px] font-medium flex items-center gap-1.5 bg-slate-800/80 text-slate-300 border border-slate-600/50 hover:bg-slate-700/80 transition';
+      });
+
+      document.getElementById('btn-close-inspector').addEventListener('click', closeComponentInspector);
+
+      document.getElementById('btn-focus-selected').addEventListener('click', () => {
+        if (!state.selectedAssemblyId) return;
+        const entry = assembliesMap.get(state.selectedAssemblyId);
+        if (!entry) return;
+        camCtrl.desiredTarget.set(entry.group.position.x, 0, 0);
+        camCtrl.desiredSpherical.radius = 2.3;
+      });
+
+      // Collapse Telemetry Panel on Mobile/Desktop
+      let telemetryExpanded = true;
+      document.getElementById('btn-toggle-telemetry').addEventListener('click', () => {
+        telemetryExpanded = !telemetryExpanded;
+        document.getElementById('telemetry-body').classList.toggle('hidden', !telemetryExpanded);
+        document.getElementById('icon-telemetry-chevron').style.transform = telemetryExpanded ? 'rotate(0deg)' : 'rotate(-90deg)';
+      });
+
+      // Auto-collapse telemetry initially on very small portrait phones for clear 3D view
+      if (window.innerWidth < 520) {
+        telemetryExpanded = false;
+        document.getElementById('telemetry-body').classList.add('hidden');
+        document.getElementById('icon-telemetry-chevron').style.transform = 'rotate(-90deg)';
+      }
+
+      initFloatingLabels();
+      setThrottlePercent(ENGINE_CONFIG.physics_and_telemetry_engine.default_throttle_percent);
+      applyInspectionView('cutaway_180');
+      applyAnomalyMode('normal_operation');
+      setCameraPreset('iso_hero', true);
+    }
+
+    function renderTelemetryHUD() {
+      ENGINE_CONFIG.physics_and_telemetry_engine.telemetry_channels.forEach(ch => {
+        const val = state.telemetryValues[ch.key] || 0;
+        const el = document.getElementById(`val-${ch.key}`);
+        if (!el) return;
+        el.textContent = ch.decimals > 0 ? val.toFixed(ch.decimals) : Math.round(val).toLocaleString();
+        const isWarn = val >= ch.warning_threshold;
+        el.classList.toggle('telemetry-warning', isWarn);
+      });
+
+      // N1 & N2 Spool % Bars
+      const n1Pct = Math.min(115, (state.telemetryValues.n1_rpm / 3850) * 100);
+      const n2Pct = Math.min(115, (state.telemetryValues.n2_rpm / 14800) * 100);
+      document.getElementById('bar-n1-pct').textContent = `${n1Pct.toFixed(1)}%`;
+      document.getElementById('bar-n1-fill').style.width = `${Math.min(100, n1Pct)}%`;
+      document.getElementById('bar-n2-pct').textContent = `${n2Pct.toFixed(1)}%`;
+      document.getElementById('bar-n2-fill').style.width = `${Math.min(100, n2Pct)}%`;
+    }
+
+    // =========================================================================
+    // 14. MAIN ANIMATION LOOP & WINDOW RESIZE
+    // =========================================================================
+    function handleResize() {
+      const container = document.getElementById('canvas-container');
+      if (!container || !camera || !renderer) return;
+      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(container.clientWidth, container.clientHeight);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = Math.min(clock.getDelta(), 0.05);
+      state.timeElapsed += dt;
+
+      const { isStall, anomalyCfg } = updatePhysicsAndTelemetry(dt);
+      updateExplodedAnimation(dt);
+      updateCamera(dt, isStall, anomalyCfg);
+      updateFloatingLabels();
+
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', handleResize);
+
+    // Start simulation cleanly on window load
+    window.onload = function () {
+      try {
+        initThreeScene();
+        initPointerInteractions();
+        initHUD();
+        animate();
+      } catch (err) {
+        console.error('Failed to initialize 3D Turbofan Simulator:', err);
+      }
+    };
+  </script>
+</body>
+</html>
