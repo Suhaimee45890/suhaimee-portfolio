@@ -130,66 +130,55 @@ ${dynamicCatalogText}
           })),
         { role: "user", parts: [{ text: message }] },
       ];
-// 1. กำหนดรายชื่อโมเดลที่จะใช้เรียงตามลำดับความสำรอง
-const models = Array.from(
-  new Set(
-    [
-      (process.env.GEMINI_MODEL || "").trim(),
-      "gemini-2.5-flash-lite",
-      "gemini-2.5-flash",
-      "gemini-3.1-flash-lite-preview",
-      "gemini-3-flash-preview",
-      "gemini-flash-latest",
-    ].filter(Boolean)
-  )
-);
 
-// 2. เริ่มลูปเรียกใช้งาน API ทีละโมเดล
-for (const model of models) {
-  try {
-    const geminiRes = await fetchWithTimeout(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: systemInstruction }] },
-          contents,
-          generationConfig: { temperature: 0.65, maxOutputTokens: 500 },
-        }),
-      },
-      5500
-    );
+      // กำหนดรายชื่อโมเดลที่จะใช้เรียงตามลำดับความสำรอง
+      const models = Array.from(
+        new Set(
+          [
+            (process.env.GEMINI_MODEL || "").trim(),
+            "gemini-2.5-flash-lite",
+            "gemini-2.5-flash",
+            "gemini-3.1-flash-lite-preview",
+            "gemini-3-flash-preview",
+            "gemini-flash-latest",
+          ].filter(Boolean)
+        )
+      );
 
-    const geminiData = await geminiRes.json();
-    
-    if (geminiRes.ok) {
-      // จัดการเมื่อสำเร็จ (เช่น return ผลลัพธ์กลับไป)
-      return geminiData;
-    } else {
-      lastGeminiError = `GEMINI ${geminiRes.status}`;
-      console.error("Gemini Error:", model, geminiRes.status, geminiData.error?.message);
-      if (geminiRes.status === 503 || geminiRes.status === 429) {
-        await new Promise((r) => setTimeout(r, 400));
-      }
-    }
-  } catch (err) {
-    console.error(`Error with model ${model}:`, err.message);
-  }
-}
+      let lastGeminiError = "Gemini API error";
 
-let lastGeminiError = "Gemini API error";
+      // เริ่มลูปเรียกใช้งาน API ทีละโมเดล
+      for (const model of models) {
+        try {
+          const geminiRes = await fetchWithTimeout(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                system_instruction: { parts: [{ text: systemInstruction }] },
+                contents,
+                generationConfig: { temperature: 0.65, maxOutputTokens: 500 },
+              }),
+            },
+            5500
+          );
 
           const geminiData = await geminiRes.json();
+          
           if (geminiRes.ok) {
             rawReply = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
             if (rawReply) break;
           } else {
             lastGeminiError = `GEMINI ${geminiRes.status}`;
             console.error("Gemini Error:", model, geminiRes.status, geminiData.error?.message);
+            if (geminiRes.status === 503 || geminiRes.status === 429) {
+              await new Promise((r) => setTimeout(r, 400));
+            }
           }
         } catch (err) {
           lastGeminiError = err.name === "AbortError" ? "GEMINI TIMEOUT" : "GEMINI NET ERR";
+          console.error(`Error with model ${model}:`, err.message);
         }
       }
 
