@@ -16,9 +16,10 @@ function sanitizeForSpeech(text) {
     .trim();
 }
 
-function buildSsml(cleanText, voiceName) {
-  const rate = voiceName.includes("Niwat") ? "-10%" : "-2%";
-  const pitch = voiceName.includes("Niwat") ? "+2%" : "+0%";
+function buildSsml(cleanText, voiceName, styleName = "curious") {
+  const isMaiVoice = voiceName.includes("MAI-Voice");
+  const rate = isMaiVoice ? "-4%" : "-12%";
+  const pitch = isMaiVoice ? "+0%" : "+2%";
 
   const escaped = cleanText
     .replace(/&/g, "&amp;")
@@ -30,7 +31,11 @@ function buildSsml(cleanText, voiceName) {
     .replace(/([.!?])\s+/g, '$1 <break time="200ms"/> ')
     .replace(/,\s+/g, ', <break time="140ms"/> ');
 
-  return `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='th-TH'><voice name='${voiceName}'><prosody rate='${rate}' pitch='${pitch}'>${escaped}</prosody></voice></speak>`;
+  const innerContent = isMaiVoice
+    ? `<mstts:express-as style='${styleName}'><prosody rate='${rate}' pitch='${pitch}'>${escaped}</prosody></mstts:express-as>`
+    : `<prosody rate='${rate}' pitch='${pitch}'>${escaped}</prosody>`;
+
+  return `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xmlns:mstts='http://www.w3.org/2001/mstts' xml:lang='th-TH'><voice name='${voiceName}'>${innerContent}</voice></speak>`;
 }
 
 exports.handler = async (event) => {
@@ -68,6 +73,7 @@ exports.handler = async (event) => {
       .toLowerCase()
       .replace(/\s+/g, "");
     const customVoice = (process.env.AZURE_SPEECH_VOICE || "").trim();
+    const customStyle = (process.env.AZURE_SPEECH_STYLE || "curious").trim();
 
     let rawReply = speakOnlyText;
 
@@ -80,7 +86,6 @@ exports.handler = async (event) => {
         throw new Error("MISSING GEMINI KEY");
       }
 
-      // รายการผลงานอัตโนมัติ: ใช้ข้อมูลจากหน้าเว็บ (รองรับโปรเจกต์ 07, 08... ทันที) หรือค่าเริ่มต้น 01-06
       const defaultCatalogText = [
         "- ระบบที่ 01 High-Bypass Turbofan Engine: เครื่องยนต์เทอร์โบแฟนอัตราส่วนบายพาสสูง 10.5:1 อากาศส่วนใหญ่ไหลผ่านช่องบายพาสสร้างแรงขับหลัก ประหยัดเชื้อเพลิงและเสียงเงียบ",
         "- ระบบที่ 02 M16A4 Direct Impingement System: กลไกส่งแก๊สโดยตรง แรงดันสูงสุด 55,000 PSI ทำงานครบวงจร 8 ขั้นตอน ลูกเลื่อน 7 เขี้ยวขัดกลอน",
@@ -127,7 +132,7 @@ ${dynamicCatalogText}
       ];
 
       const models = ["gemini-2.5-flash", "gemini-2.0-flash"];
-      let lastGeminiError = "GEMINI ERROR";
+      let lastGeminiError = "Gemini API error";
 
       for (const model of models) {
         try {
@@ -175,7 +180,7 @@ ${dynamicCatalogText}
         new Set(
           [
             customVoice,
-            "th-TH-NattapongMultilingualNeural",
+            "th-TH-Nattapong:MAI-Voice-2.1",
             "th-TH-NiwatNeural",
           ].filter(Boolean)
         )
@@ -183,7 +188,7 @@ ${dynamicCatalogText}
 
       for (const voiceName of voiceCandidates) {
         try {
-          const ssml = buildSsml(cleanText, voiceName);
+          const ssml = buildSsml(cleanText, voiceName, customStyle);
           const ttsRes = await fetchWithTimeout(
             `https://${azureSpeechRegion}.tts.speech.microsoft.com/cognitiveservices/v1`,
             {
@@ -196,7 +201,7 @@ ${dynamicCatalogText}
               },
               body: ssml,
             },
-            4500
+            5500
           );
 
           if (ttsRes.ok) {
@@ -207,7 +212,7 @@ ${dynamicCatalogText}
             break;
           } else {
             const errText = await ttsRes.text();
-            ttsError = `AZURE ${ttsRes.status}`;
+            ttsError = `AZURE ${ttsRes.status} (${voiceName})`;
             console.error(`Azure TTS Error [${voiceName}]:`, ttsRes.status, errText);
           }
         } catch (err) {
