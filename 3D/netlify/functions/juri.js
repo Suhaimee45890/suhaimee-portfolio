@@ -19,7 +19,10 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { message, history = [] } = JSON.parse(event.body || "{}");
+    const body = JSON.parse(event.body || "{}");
+    const message = body.message || body.prompt || body.text || "";
+    const history = Array.isArray(body.history) ? body.history : [];
+
     if (!message) {
       return {
         statusCode: 400,
@@ -28,16 +31,19 @@ exports.handler = async (event) => {
       };
     }
 
-    const geminiApiKey = process.env.GEMINI_API_KEY;
-    const azureSpeechKey = process.env.AZURE_SPEECH_KEY;
-    const azureSpeechRegion = process.env.AZURE_SPEECH_REGION;
+    const geminiApiKey = process.env.GEMINI_API_KEY?.trim();
+    const azureSpeechKey = process.env.AZURE_SPEECH_KEY?.trim();
+    const azureSpeechRegion = process.env.AZURE_SPEECH_REGION
+      ?.trim()
+      .toLowerCase()
+      .replace(/\s+/g, "");
 
     if (!geminiApiKey) {
-      throw new Error("Missing GEMINI_API_KEY in environment variables");
+      throw new Error("Missing GEMINI_API_KEY");
     }
 
-    // 1. สร้างคำตอบข้อความจาก Gemini
-    const systemInstruction = `You are JURI AI, the intelligent 3D portfolio assistant for Suhaimee Jehhae (ซูฮัยมี เจะแฮ / เบิ้ม), an MES Engineer & Cybersecurity specialist. Answer concisely, clearly, and politely in the same language as the user (Thai or English). Avoid markdown symbols like *, #, or bullet points so the text reads smoothly when spoken aloud.`;
+    // 1. สร้างคำตอบจาก Gemini
+    const systemInstruction = `You are JURI AI, the smart and approachable 3D portfolio assistant for Suhaimee Jehhae (ซูฮัยมี เจะแฮ / เบิ้ม), an MES Engineer & Cybersecurity specialist. Speak like a sharp, calm, friendly young tech professional. Answer concisely in the user's language (Thai or English). Do NOT use markdown symbols like *, #, -, or bullet lists so your response sounds smooth and natural when spoken aloud.`;
 
     const contents = [
       ...history.map((item) => ({
@@ -72,39 +78,41 @@ exports.handler = async (event) => {
       geminiData.candidates?.[0]?.content?.parts?.[0]?.text ||
       "ขออภัยครับ ระบบไม่สามารถประมวลผลคำตอบได้ในขณะนี้";
 
-    // ล้างสัญลักษณ์ Markdown ออกเพื่อให้เสียงอ่านเป็นธรรมชาติ
-    const cleanTextForSpeech = rawReply
-      .replace(/[*#_`~>-]/g, " ")
+    const cleanText = rawReply
+      .replace(/[*#_`~>•-]/g, " ")
       .replace(/\s+/g, " ")
       .trim();
 
-    // 2. สังเคราะห์เสียงพูดด้วย Microsoft Azure Speech
+    // 2. สร้างเสียงผู้ชาย นุ่ม วัยรุ่น ฉลาด ด้วย Microsoft Azure Speech
     let audioBase64 = null;
+    let ttsStatus = "skipped";
 
-    if (azureSpeechKey && azureSpeechRegion && cleanTextForSpeech) {
-      const hasThai = /[\u0E00-\u0E7F]/.test(cleanTextForSpeech);
+    if (azureSpeechKey && azureSpeechRegion && cleanText) {
+      const hasThai = /[\u0E00-\u0E7F]/.test(cleanText);
       const lang = hasThai ? "th-TH" : "en-US";
       const voiceName = hasThai
         ? "th-TH-NiwatNeural"
         : "en-US-AndrewMultilingualNeural";
+      const pitch = hasThai ? "+6%" : "+2%";
+      const rate = hasThai ? "+5%" : "+4%";
 
-      const escapedText = cleanTextForSpeech
+      const escapedText = cleanText
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&apos;");
 
-      const ssml = `<speak version='1.0' xml:lang='${lang}'><voice name='${voiceName}'>${escapedText}</voice></speak>`;
+      const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='${lang}'><voice name='${voiceName}'><prosody rate='${rate}' pitch='${pitch}'>${escapedText}</prosody></voice></speak>`;
 
       const ttsRes = await fetch(
-        `https://${azureSpeechRegion.trim()}.tts.speech.microsoft.com/cognitiveservices/v1`,
+        `https://${azureSpeechRegion}.tts.speech.microsoft.com/cognitiveservices/v1`,
         {
           method: "POST",
           headers: {
-            "Ocp-Apim-Subscription-Key": azureSpeechKey.trim(),
+            "Ocp-Apim-Subscription-Key": azureSpeechKey,
             "Content-Type": "application/ssml+xml",
-            "X-Microsoft-OutputFormat": "audio-24khz-48kbitrate-mono-mp3",
+            "X-Microsoft-OutputFormat": "audio-24khz-96kbitrate-mono-mp3",
             "User-Agent": "JuriAIPortfolio",
           },
           body: ssml,
@@ -114,8 +122,10 @@ exports.handler = async (event) => {
       if (ttsRes.ok) {
         const audioBuffer = await ttsRes.arrayBuffer();
         audioBase64 = Buffer.from(audioBuffer).toString("base64");
+        ttsStatus = "ok";
       } else {
         const errText = await ttsRes.text();
+        ttsStatus = `azure_error_${ttsRes.status}`;
         console.error("Azure TTS Error:", ttsRes.status, errText);
       }
     }
@@ -125,8 +135,11 @@ exports.handler = async (event) => {
       headers,
       body: JSON.stringify({
         reply: rawReply,
+        text: rawReply,
         audioBase64,
-        mimeType: "audio/mp3",
+        audio: audioBase64,
+        mimeType: "audio/mpeg",
+        ttsStatus,
       }),
     };
   } catch (error) {
