@@ -20,16 +20,9 @@ exports.handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body || "{}");
-    const message = body.message || body.prompt || body.text || "";
-    const history = Array.isArray(body.history) ? body.history : [];
-
-    if (!message) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ error: "Message is required" }),
-      };
-    }
+    const speakOnlyText = (body.speakOnlyText || "").trim();
+    const message = (body.message || body.prompt || body.text || "").trim();
+    const history = Array.isArray(body.history) ? body.history.slice(-6) : [];
 
     const geminiApiKey = process.env.GEMINI_API_KEY?.trim();
     const azureSpeechKey = process.env.AZURE_SPEECH_KEY?.trim();
@@ -38,54 +31,66 @@ exports.handler = async (event) => {
       .toLowerCase()
       .replace(/\s+/g, "");
 
-    if (!geminiApiKey) {
-      throw new Error("Missing GEMINI_API_KEY");
-    }
+    let rawReply = speakOnlyText;
 
-    // 1. สร้างคำตอบจาก Gemini
-    const systemInstruction = `You are JURI AI, the smart and approachable 3D portfolio assistant for Suhaimee Jehhae (ซูฮัยมี เจะแฮ / เบิ้ม), an MES Engineer & Cybersecurity specialist. Speak like a sharp, calm, friendly young tech professional. Answer concisely in the user's language (Thai or English). Do NOT use markdown symbols like *, #, -, or bullet lists so your response sounds smooth and natural when spoken aloud.`;
-
-    const contents = [
-      ...history.map((item) => ({
-        role: item.role === "user" ? "user" : "model",
-        parts: [{ text: item.text }],
-      })),
-      { role: "user", parts: [{ text: message }] },
-    ];
-
-    const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: systemInstruction }] },
-          contents,
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 350,
-          },
-        }),
+    // 1. หากไม่ใช่โหมดอ่านการ์ดโดยตรง ให้ส่งไปถาม Gemini
+    if (!rawReply) {
+      if (!message) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ error: "Message is required" }),
+        };
       }
-    );
+      if (!geminiApiKey) {
+        throw new Error("Missing GEMINI_API_KEY");
+      }
 
-    const geminiData = await geminiRes.json();
-    if (!geminiRes.ok) {
-      throw new Error(geminiData.error?.message || "Gemini API error");
+      const systemInstruction = `You are JURI AI, the voice assistant for Suhaimee Jehhae's 3D Engineering & Cybersecurity portfolio (ซูฮัยมี เจะแฮ / เบิ้ม, MES Engineer & Cybersecurity specialist). Speak like a smart, warm, calm young tech guy. Reply strictly in 1 to 3 concise natural spoken sentences in the same language as the user (Thai or English). Never use markdown, symbols, or bullet points.`;
+
+      const contents = [
+        ...history.map((item) => ({
+          role: item.role === "user" ? "user" : "model",
+          parts: [{ text: item.text }],
+        })),
+        { role: "user", parts: [{ text: message }] },
+      ];
+
+      const geminiRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            system_instruction: { parts: [{ text: systemInstruction }] },
+            contents,
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 280,
+            },
+          }),
+        }
+      );
+
+      const geminiData = await geminiRes.json();
+      if (!geminiRes.ok) {
+        throw new Error(geminiData.error?.message || "Gemini API error");
+      }
+
+      rawReply =
+        geminiData.candidates?.[0]?.content?.parts?.[0]?.text ||
+        "ขออภัยครับ ตอนนี้ระบบประมวลผลไม่ทัน ลองถามใหม่อีกครั้งนะครับ";
     }
 
-    const rawReply =
-      geminiData.candidates?.[0]?.content?.parts?.[0]?.text ||
-      "ขออภัยครับ ระบบไม่สามารถประมวลผลคำตอบได้ในขณะนี้";
-
+    // ล้างสัญลักษณ์พิเศษออกเพื่อให้อ่านเสียงลื่นไหล
     const cleanText = rawReply
       .replace(/[*#_`~>•-]/g, " ")
       .replace(/\s+/g, " ")
       .trim();
 
-    // 2. สร้างเสียงผู้ชาย นุ่ม วัยรุ่น ฉลาด ด้วย Microsoft Azure Speech
+    // 2. สังเคราะห์เสียงผู้ชาย นุ่ม วัยรุ่น ฉลาด ด้วย Microsoft Azure Speech
     let audioBase64 = null;
-    let ttsStatus = "skipped";
+    let ttsStatus = "missing_azure_config";
 
     if (azureSpeechKey && azureSpeechRegion && cleanText) {
       const hasThai = /[\u0E00-\u0E7F]/.test(cleanText);
@@ -93,7 +98,9 @@ exports.handler = async (event) => {
       const voiceName = hasThai
         ? "th-TH-NiwatNeural"
         : "en-US-AndrewMultilingualNeural";
-      const pitch = hasThai ? "+6%" : "+2%";
+
+      // ปรับโทนให้เด็กลง นุ่มขึ้น และจังหวะพูดกระชับดูฉลาด
+      const pitch = hasThai ? "+6%" : "+3%";
       const rate = hasThai ? "+5%" : "+4%";
 
       const escapedText = cleanText
@@ -135,9 +142,7 @@ exports.handler = async (event) => {
       headers,
       body: JSON.stringify({
         reply: rawReply,
-        text: rawReply,
         audioBase64,
-        audio: audioBase64,
         mimeType: "audio/mpeg",
         ttsStatus,
       }),
