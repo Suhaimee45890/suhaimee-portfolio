@@ -142,7 +142,7 @@ exports.handler = async (event) => {
     }
 
     const apiKey = process.env.OPENROUTER_API_KEY || process.env.QWEN_API_KEY;
-    const model = process.env.QWEN_MODEL || 'qwen/qwen-turbo';
+    const model = process.env.QWEN_MODEL || 'qwen/qwen-plus';
 
     if (!apiKey) {
       return { statusCode: 500, headers, body: JSON.stringify({ error: 'Missing OPENROUTER_API_KEY' }) };
