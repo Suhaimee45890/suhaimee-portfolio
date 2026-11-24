@@ -63,12 +63,12 @@ async function getAzureAccessToken(speechKey, speechRegion) {
 
 // 4. สร้างไฟล์เสียง MP3 จาก Azure TTS
 async function synthesizeSpeech(text) {
-  const speechKey = process.env.AZURE_SPEECH_KEY || process.env.AZURE_TTS_KEY;
-  const speechRegion = process.env.AZURE_SPEECH_REGION || process.env.AZURE_TTS_REGION || 'southeastasia';
+ const speechKey = process.env.AZURE_SPEECH_KEY;
+  const speechRegion = process.env.AZURE_SPEECH_REGION;
   const voiceName = process.env.AZURE_VOICE_NAME || 'th-TH-NiwatNeural';
 
-  if (!speechKey) {
-    return { audioBase64: null, ttsError: 'MISSING AZURE KEY' };
+  if (!speechKey || !speechRegion) {
+    return { audioBase64: null, ttsError: 'MISSING AZURE CONFIG' };
   }
 
   const cleanText = sanitizeThaiEnglish(text);
