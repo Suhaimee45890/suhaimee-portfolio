@@ -194,16 +194,16 @@ ${dynamicCatalogText}`;
       const attempts = [];
 
       if (openrouterKey) {
-        const orModels = Array.from(
-          new Set(
-            [
-              customQwenModel,
-              "qwen/qwen-turbo",
-              "qwen/qwen-plus",
-              "openrouter/free",
-            ].filter(Boolean)
-          )
-        );
+    const orModels = Array.from(
+      new Set(
+        [
+          process.env.QWEN_MODEL,
+          "openrouter/free",
+          "qwen/qwen3-next-80b-a3b-instruct:free",
+          "qwen/qwen-2.5-72b-instruct:free",
+        ].filter(Boolean)
+      )
+    );
         for (const m of orModels) {
           attempts.push({
             url: "https://openrouter.ai/api/v1/chat/completions",
