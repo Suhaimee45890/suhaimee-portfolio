@@ -140,15 +140,17 @@ ${dynamicCatalogText}
       const attempts = [];
 
       if (openrouterKey) {
-        const orModels = Array.from(
-          new Set(
-            [
-              customQwenModel,
-              "qwen/qwen-plus",
-              "qwen/qwen-turbo",
-              "qwen/qwen3-235b-a22b:free",
-            ].filter(Boolean)
-          )
+       const orModels = Array.from(
+       new Set(
+         [
+           customQwenModel,
+           "qwen/qwen3-32b:free",
+           "qwen/qwen-2.5-72b-instruct:free",
+           "openrouter/free",
+           "qwen/qwen-plus",
+           "qwen/qwen-turbo",
+         ].filter(Boolean)
+       )
         );
         for (const m of orModels) {
           attempts.push({
