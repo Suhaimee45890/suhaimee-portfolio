@@ -1,4 +1,4 @@
-async function fetchWithTimeout(url, options, timeoutMs = 6000) {
+async function fetchWithTimeout(url, options, timeoutMs = 7000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -10,6 +10,7 @@ async function fetchWithTimeout(url, options, timeoutMs = 6000) {
 
 function sanitizeForSpeech(text) {
   return String(text || "")
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
     .replace(/[*#_`~>•]/g, " ")
     .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, "")
     .replace(/\s+/g, " ")
@@ -66,7 +67,13 @@ exports.handler = async (event) => {
     const history = Array.isArray(body.history) ? body.history.slice(-6) : [];
     const catalogFromClient = Array.isArray(body.catalog) ? body.catalog.slice(0, 20) : [];
 
-    const geminiApiKey = (process.env.GEMINI_API_KEY || "").trim();
+    // คีย์สำหรับ Qwen (รองรับทั้ง OpenRouter และ Alibaba Cloud Model Studio)
+    const openrouterKey = (process.env.OPENROUTER_API_KEY || "").trim();
+    const dashscopeKey = (process.env.DASHSCOPE_API_KEY || process.env.QWEN_API_KEY || "").trim();
+    const customBaseUrl = (process.env.QWEN_BASE_URL || "").trim().replace(/\/+$/, "");
+    const customQwenModel = (process.env.QWEN_MODEL || "").trim();
+
+    // คีย์สำหรับ Azure Speech
     const azureSpeechKey = (process.env.AZURE_SPEECH_KEY || "").trim();
     const azureSpeechRegion = (process.env.AZURE_SPEECH_REGION || "")
       .trim()
@@ -77,13 +84,10 @@ exports.handler = async (event) => {
 
     let rawReply = speakOnlyText;
 
-    // โหมดถาม-ตอบอัจฉริยะผ่าน Gemini (ข้ามขั้นตอนนี้หากเป็นสคริปต์ปุ่มกดสำเร็จรูป)
+    // โหมดถาม-ตอบอัจฉริยะผ่าน Qwen
     if (!rawReply) {
       if (!message) {
         return { statusCode: 400, headers, body: JSON.stringify({ error: "Message is required" }) };
-      }
-      if (!geminiApiKey) {
-        throw new Error("MISSING GEMINI KEY");
       }
 
       const defaultCatalogText = [
@@ -121,69 +125,108 @@ ${dynamicCatalogText}
 - ห้ามแค่อ่านข้อความหน้าเว็บทื่อๆ ให้สอดแทรกหลักฟิสิกส์ (เช่น โมเมนตัมเชิงมุม เทอร์โมไดนามิกส์ พลศาสตร์ของไหล จลนศาสตร์) ประวัติศาสตร์วิศวกรรม และเทรนด์อนาคต (เช่น Industry 4.0, OT Security, พลังงานสะอาด, หุ่นยนต์อัจฉริยะ) เพื่อยกระดับความรู้ให้ผู้เยี่ยมชม
 - ห้ามแต่งเรื่องหรือสเปกส่วนตัวที่ไม่มีในข้อมูลนี้ หากถูกถามเรื่องนอกเหนือขอบเขต ให้ตอบสุภาพแบบจาร์วิสว่า "รับทราบครับ ตอนนี้ผมคุมข้อมูลของระบบทั้งหมดในคลังและชุดไจโรสโคปหลักอยู่ครับ — ลองระบุหมายเลขระบบ หรือสั่งแยกชิ้นส่วน 3D เพื่อให้ผมโฟกัสและวิเคราะห์ให้ดูได้เลยครับ"`;
 
-      const contents = [
+      const messages = [
+        { role: "system", content: systemInstruction },
         ...history
           .filter((item) => item && typeof item.text === "string" && item.text.trim())
           .map((item) => ({
-            role: item.role === "user" ? "user" : "model",
-            parts: [{ text: item.text.trim() }],
+            role: item.role === "user" ? "user" : "assistant",
+            content: item.text.trim(),
           })),
-        { role: "user", parts: [{ text: message }] },
+        { role: "user", content: message },
       ];
 
-      // กำหนดรายชื่อโมเดลที่จะใช้เรียงตามลำดับความสำรอง
-      const models = Array.from(
-        new Set(
-          [
-            (process.env.GEMINI_MODEL || "").trim(),
-            "gemini-2.5-flash-lite",
-            "gemini-2.5-flash",
-            "gemini-3.1-flash-lite-preview",
-            "gemini-3-flash-preview",
-            "gemini-flash-latest",
-          ].filter(Boolean)
-        )
-      );
+      // จัดเตรียมรายการ Endpoint + โมเดล Qwen ตาม Key ที่ตั้งไว้ใน Netlify
+      const attempts = [];
 
-      let lastGeminiError = "Gemini API error";
+      if (openrouterKey) {
+        const orModels = Array.from(
+          new Set(
+            [
+              customQwenModel,
+              "qwen/qwen-plus",
+              "qwen/qwen-turbo",
+              "qwen/qwen3-235b-a22b:free",
+            ].filter(Boolean)
+          )
+        );
+        for (const m of orModels) {
+          attempts.push({
+            url: "https://openrouter.ai/api/v1/chat/completions",
+            key: openrouterKey,
+            model: m,
+            extraHeaders: {
+              "HTTP-Referer": "https://suhaimejehhae.studio",
+              "X-Title": "Juri 3D Portfolio",
+            },
+          });
+        }
+      }
 
-      // เริ่มลูปเรียกใช้งาน API ทีละโมเดล
-      for (const model of models) {
+      if (dashscopeKey) {
+        const baseUrl = customBaseUrl || "https://dashscope-intl.aliyuncs.com/compatible-mode/v1";
+        const aliModels = Array.from(
+          new Set(
+            [
+              customQwenModel,
+              "qwen-plus",
+              "qwen-turbo",
+              "qwen3.8-flash",
+            ].filter(Boolean)
+          )
+        );
+        for (const m of aliModels) {
+          attempts.push({
+            url: `${baseUrl}/chat/completions`,
+            key: dashscopeKey,
+            model: m,
+            extraHeaders: {},
+          });
+        }
+      }
+
+      if (attempts.length === 0) {
+        throw new Error("MISSING QWEN KEY");
+      }
+
+      let lastQwenError = "QWEN ERROR";
+
+      for (const item of attempts) {
         try {
-          const geminiRes = await fetchWithTimeout(
-            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`,
+          const qwenRes = await fetchWithTimeout(
+            item.url,
             {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: {
+                Authorization: `Bearer ${item.key}`,
+                "Content-Type": "application/json",
+                ...item.extraHeaders,
+              },
               body: JSON.stringify({
-                system_instruction: { parts: [{ text: systemInstruction }] },
-                contents,
-                generationConfig: { temperature: 0.65, maxOutputTokens: 500 },
+                model: item.model,
+                messages,
+                temperature: 0.65,
+                max_tokens: 450,
               }),
             },
-            5500
+            6500
           );
 
-          const geminiData = await geminiRes.json();
-          
-          if (geminiRes.ok) {
-            rawReply = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          const qwenData = await qwenRes.json().catch(() => ({}));
+          if (qwenRes.ok) {
+            rawReply = qwenData.choices?.[0]?.message?.content || "";
             if (rawReply) break;
           } else {
-            lastGeminiError = `GEMINI ${geminiRes.status}`;
-            console.error("Gemini Error:", model, geminiRes.status, geminiData.error?.message);
-            if (geminiRes.status === 503 || geminiRes.status === 429) {
-              await new Promise((r) => setTimeout(r, 400));
-            }
+            lastQwenError = `QWEN ${qwenRes.status}`;
+            console.error("Qwen Error:", item.model, qwenRes.status, qwenData.error?.message || qwenData.message);
           }
         } catch (err) {
-          lastGeminiError = err.name === "AbortError" ? "GEMINI TIMEOUT" : "GEMINI NET ERR";
-          console.error(`Error with model ${model}:`, err.message);
+          lastQwenError = err.name === "AbortError" ? "QWEN TIMEOUT" : "QWEN NET ERR";
         }
       }
 
       if (!rawReply) {
-        throw new Error(lastGeminiError);
+        throw new Error(lastQwenError);
       }
     }
 
