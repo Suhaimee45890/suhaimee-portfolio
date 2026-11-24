@@ -3146,9 +3146,18 @@
     }
 
     juriAudio.onended = () => {
-      if (isUnlockingAudio) return;
-      setOrbState('idle', '');
-    };
+  if (isUnlockingAudio) return;
+  setOrbState('idle', '');
+  // เปิดไมค์รอรับคำตอบต่ออัตโนมัติหลัง Juri ถามกลับจบ 0.4 วินาที
+  if (typeof recognition !== 'undefined' && recognition) {
+    setTimeout(() => {
+      try {
+        recognition.start();
+        setOrbState('listening', 'LISTENING...');
+      } catch (e) {}
+    }, 400);
+  }
+};
 
     juriAudio.onerror = () => {
       if (isUnlockingAudio) return;
