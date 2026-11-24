@@ -3000,12 +3000,11 @@
     });
   </script>
 
-  <!-- =========================================================================
-       9. JURI AI VOICE ENGINE (DESKTOP + MOBILE READY + AUTO-SCALES FOR NEW WORKS)
+ <!-- =========================================================================
+9. JURI AI VOICE ENGINE (DESKTOP + MOBILE READY + AUTO-SCALES FOR NEW WORKS)
        ========================================================================= -->
   <script>
   (function () {
-    // อ่านรายการผลงานทั้งหมดจาก JSON ด้านบนอัตโนมัติ (เพิ่ม 07, 08... ใน JSON แล้ว JURI รู้จักทันที)
     let portfolioWorks = [];
     try {
       const rawJson = document.getElementById('suhaime-portfolio-data')?.textContent || '{}';
@@ -3046,6 +3045,7 @@
     let activeRequestId = 0;
     let pendingAudioBase64 = null;
     let recognition = null;
+    let autoListenLoop = false;
 
     function setOrbState(nextState, label = '', autoHideMs = 0) {
       currentState = nextState;
@@ -3072,7 +3072,6 @@
       }
     }
 
-    // ปลดล็อก Audio Engine สำหรับ iOS Safari และ Android Chrome ในจังหวะแตะปุ่ม
     function unlockMobileAudio() {
       if (juriAudio.dataset.unlocked === '1') return;
       isUnlockingAudio = true;
@@ -3099,13 +3098,12 @@
       }
     }
 
-function stopAllAudioAndMic() {
-  autoListenLoop = false;
-  if (currentAbortController) {
-    currentAbortController.abort();
-    currentAbortController = null;
-  }
-
+    // หยุดเสียงและไมค์ชั่วคราวโดยยังคงสถานะ autoListenLoop ไว้สำหรับรอบสนทนาต่อเนื่อง
+    function stopAllAudioAndMic() {
+      if (currentAbortController) {
+        currentAbortController.abort();
+        currentAbortController = null;
+      }
       if (recognition) {
         try { recognition.abort(); } catch (_) {}
         recognition = null;
@@ -3128,6 +3126,7 @@ function stopAllAudioAndMic() {
 
     function playAzureAudio(audioBase64, ttsError) {
       if (!audioBase64) {
+        autoListenLoop = false;
         setOrbState('idle', ttsError || 'AUDIO UNAVAILABLE', 3500);
         return;
       }
@@ -3147,8 +3146,7 @@ function stopAllAudioAndMic() {
       }
     }
 
-   
-  juriAudio.onended = () => {
+    juriAudio.onended = () => {
       if (isUnlockingAudio) return;
       setOrbState('idle', '');
       if (autoListenLoop) {
@@ -3158,6 +3156,7 @@ function stopAllAudioAndMic() {
 
     juriAudio.onerror = () => {
       if (isUnlockingAudio) return;
+      autoListenLoop = false;
       setOrbState('idle', 'AUDIO ERROR', 2200);
     };
 
@@ -3187,7 +3186,6 @@ function stopAllAudioAndMic() {
       }
     }
 
-    // โหมดอ่านสคริปต์สำเร็จรูป (ตอบไว + แคชใน RAM)
     async function speakScriptBrief(cacheKey, briefText) {
       if (!briefText) return;
       stopAllAudioAndMic();
@@ -3208,6 +3206,7 @@ function stopAllAudioAndMic() {
         playAzureAudio(data.audioBase64, data.ttsError);
       } catch (err) {
         if (err.name === 'AbortError') return;
+        autoListenLoop = false;
         console.error('JURI Brief Error:', err);
         setOrbState('idle', err.message || 'VOICE ERROR', 2800);
       }
@@ -3216,13 +3215,13 @@ function stopAllAudioAndMic() {
     function briefProjectById(workId) {
       const work = portfolioWorks.find((w) => w.id === workId);
       if (!work) return;
+      autoListenLoop = false;
       const text =
         (work.juriBrief && work.juriBrief.trim()) ||
         `ระบบที่ ${work.index || ''} ${work.title} ครับ — ${work.summary || ''}`;
       speakScriptBrief('proj_' + work.id, text);
     }
 
-    // ตรวจจับคำสั่งควบคุม 3D โดยตรงจากเสียงหรือข้อความ (เช่น "แยกชิ้นส่วน 3D")
     function tryLocalCommand(text) {
       const clean = text.trim().toLowerCase();
       if (/(แยกชิ้นส่วน|explode|ระเบิดโมเดล)/.test(clean)) {
@@ -3238,10 +3237,10 @@ function stopAllAudioAndMic() {
       return false;
     }
 
-    // โหมดถาม-ตอบเชิงลึกแบบจาร์วิส (แนบแคตตาล็อกผลงานทั้งหมดไปให้ Gemini ทุกครั้ง)
     async function askJuri(userMessage) {
       const cleanPrompt = (userMessage || '').trim();
       if (!cleanPrompt) {
+        autoListenLoop = false;
         setOrbState('idle', '');
         return;
       }
@@ -3262,7 +3261,7 @@ function stopAllAudioAndMic() {
       try {
         const data = await callJuriApi({
           message: cleanPrompt,
-          history: conversationHistory.slice(-6),
+          history: conversationHistory.slice(-4),
           catalog,
         });
         if (!data) return;
@@ -3277,16 +3276,18 @@ function stopAllAudioAndMic() {
         playAzureAudio(data.audioBase64, data.ttsError);
       } catch (err) {
         if (err.name === 'AbortError') return;
+        autoListenLoop = false;
         console.error('JURI Voice Error:', err);
         setOrbState('idle', err.message || 'CONNECTION ERROR', 2800);
       }
     }
 
-    // เปิด/ปิดช่องพิมพ์คำถาม (สำหรับเครื่องที่ไม่มีไมค์หรือไม่อยากพูด)
     function toggleInputDock(forceOpen = null) {
       const shouldOpen = forceOpen !== null ? forceOpen : inputDock.classList.contains('is-hidden');
       inputDock.classList.toggle('is-hidden', !shouldOpen);
       if (shouldOpen) {
+        autoListenLoop = false;
+        stopAllAudioAndMic();
         setTimeout(() => textInput.focus(), 50);
       }
     }
@@ -3302,92 +3303,99 @@ function stopAllAudioAndMic() {
       if (!val) return;
       textInput.value = '';
       toggleInputDock(false);
+      autoListenLoop = false;
       askJuri(val);
     });
 
-    // ระบบไมโครโฟนบนปุ่มวงกลม
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-let autoListenLoop = false;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-function startVoiceListening() {
-  if (!SpeechRecognition) {
-    toggleInputDock(true);
-    setOrbState('idle', 'TYPE TO JURI', 2200);
-    return;
-  }
+    function startVoiceListening() {
+      if (!SpeechRecognition) {
+        autoListenLoop = false;
+        toggleInputDock(true);
+        setOrbState('idle', 'TYPE TO JURI', 2200);
+        return;
+      }
 
-  try {
-    if (recognition) recognition.abort();
-  } catch (e) {}
+      try {
+        if (recognition) recognition.abort();
+      } catch (_) {}
 
-  recognition = new SpeechRecognition();
-  recognition.lang = 'th-TH';
-  recognition.interimResults = false;
-  recognition.continuous = false;
+      const rec = new SpeechRecognition();
+      recognition = rec;
+      rec.lang = 'th-TH';
+      rec.interimResults = false;
+      rec.continuous = false;
 
-  recognition.onstart = () => {
-    setOrbState('listening', '● LISTENING...');
-  };
+      rec.onstart = () => {
+        if (recognition !== rec) return;
+        setOrbState('listening', '● LISTENING...');
+      };
 
-  recognition.onresult = (event) => {
-    const transcript = event.results?.[0]?.[0]?.transcript || '';
-    if (transcript.trim()) {
-      askJuri(transcript);
-    } else {
-      autoListenLoop = false;
-      setOrbState('idle', '');
+      rec.onresult = (event) => {
+        if (recognition !== rec) return;
+        const transcript = event.results?.[0]?.[0]?.transcript || '';
+        if (transcript.trim()) {
+          askJuri(transcript);
+        } else {
+          autoListenLoop = false;
+          setOrbState('idle', '');
+        }
+      };
+
+      rec.onerror = (event) => {
+        if (recognition !== rec || event.error === 'aborted') return;
+        console.warn('Mic error:', event.error);
+        autoListenLoop = false;
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          toggleInputDock(true);
+          setOrbState('idle', 'MIC BLOCKED — TYPE', 2800);
+        } else if (event.error === 'no-speech') {
+          setOrbState('idle', 'NO SPEECH', 1800);
+        } else {
+          setOrbState('idle', '');
+        }
+      };
+
+      rec.onend = () => {
+        if (recognition !== rec) return;
+        if (currentState === 'listening') {
+          autoListenLoop = false;
+          setOrbState('idle', '');
+        }
+      };
+
+      try {
+        rec.start();
+      } catch (_) {
+        autoListenLoop = false;
+        setOrbState('idle', '');
+      }
     }
-  };
 
-  recognition.onerror = (event) => {
-    console.warn('Mic error:', event.error);
-    if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-      autoListenLoop = false;
+    function handleOrbClick() {
+      if (currentState !== 'idle') {
+        autoListenLoop = false;
+        stopAllAudioAndMic();
+        return;
+      }
+      if (pendingAudioBase64) {
+        playAzureAudio(pendingAudioBase64);
+        return;
+      }
+
+      unlockMobileAudio();
+      autoListenLoop = true;
+      startVoiceListening();
     }
-    setOrbState('idle', '');
-  };
-
-  recognition.onend = () => {
-    // หากผู้ใช้เงียบไม่พูดอะไรเลยจนหมดเวลา ให้พักไมค์อัตโนมัติ
-    if (currentState === 'listening') {
-      autoListenLoop = false;
-      setOrbState('idle', '');
-    }
-  };
-
-  try {
-    recognition.start();
-  } catch (err) {
-    setOrbState('idle', '');
-  }
-}
-
-function handleOrbClick() {
-  if (currentState !== 'idle') {
-    autoListenLoop = false;
-    stopAllAudioAndMic();
-    return;
-  }
-  if (pendingAudioBase64) {
-    playAzureAudio(pendingAudioBase64);
-    return;
-  }
-
-  unlockMobileAudio();
-  autoListenLoop = true;
-  startVoiceListening();
-}
-
-    
 
     fab?.addEventListener('click', handleOrbClick);
 
-    // ปุ่ม Welcome ตรงป้าย "00 — PORTFOLIO ✦ JURI"
     document.getElementById('btn-juri-welcome')?.addEventListener('click', () => {
+      autoListenLoop = false;
       speakScriptBrief('script_welcome', JURI_SCRIPTS.welcome);
     });
 
-    // Event Delegation: รองรับปุ่ม ✦ JURI บนทุกการ์ดทั้งในโหมด GRID, INDEX และการ์ดใหม่ในอนาคต
     document.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-juri-work-id]');
       if (!btn) return;
@@ -3397,7 +3405,10 @@ function handleOrbClick() {
     });
 
     window.JURI = {
-      welcome: () => speakScriptBrief('script_welcome', JURI_SCRIPTS.welcome),
+      welcome: () => {
+        autoListenLoop = false;
+        speakScriptBrief('script_welcome', JURI_SCRIPTS.welcome);
+      },
       explode: (isExploded) =>
         speakScriptBrief(
           isExploded ? 'script_explode' : 'script_assemble',
@@ -3406,7 +3417,10 @@ function handleOrbClick() {
       briefById: briefProjectById,
       ask: askJuri,
       toggleMic: handleOrbClick,
-      stop: stopAllAudioAndMic,
+      stop: () => {
+        autoListenLoop = false;
+        stopAllAudioAndMic();
+      },
     };
   })();
   </script>
