@@ -3099,11 +3099,13 @@
       }
     }
 
-    function stopAllAudioAndMic() {
-      if (currentAbortController) {
-        currentAbortController.abort();
-        currentAbortController = null;
-      }
+function stopAllAudioAndMic() {
+  autoListenLoop = false;
+  if (currentAbortController) {
+    currentAbortController.abort();
+    currentAbortController = null;
+  }
+
       if (recognition) {
         try { recognition.abort(); } catch (_) {}
         recognition = null;
@@ -3145,19 +3147,14 @@
       }
     }
 
-    juriAudio.onended = () => {
-  if (isUnlockingAudio) return;
-  setOrbState('idle', '');
-  // เปิดไมค์รอรับคำตอบต่ออัตโนมัติหลัง Juri ถามกลับจบ 0.4 วินาที
-  if (typeof recognition !== 'undefined' && recognition) {
-    setTimeout(() => {
-      try {
-        recognition.start();
-        setOrbState('listening', 'LISTENING...');
-      } catch (e) {}
-    }, 400);
-  }
-};
+   
+  juriAudio.onended = () => {
+      if (isUnlockingAudio) return;
+      setOrbState('idle', '');
+      if (autoListenLoop) {
+        setTimeout(() => startVoiceListening(), 350);
+      }
+    };
 
     juriAudio.onerror = () => {
       if (isUnlockingAudio) return;
@@ -3309,67 +3306,79 @@
     });
 
     // ระบบไมโครโฟนบนปุ่มวงกลม
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let autoListenLoop = false;
 
-    function handleOrbClick() {
-      if (currentState !== 'idle') {
-        stopAllAudioAndMic();
-        return;
-      }
-      if (pendingAudioBase64) {
-        playAzureAudio(pendingAudioBase64);
-        return;
-      }
+function startVoiceListening() {
+  if (!SpeechRecognition) {
+    toggleInputDock(true);
+    setOrbState('idle', 'TYPE TO JURI', 2200);
+    return;
+  }
 
-      unlockMobileAudio();
+  try {
+    if (recognition) recognition.abort();
+  } catch (e) {}
 
-      if (!SpeechRecognition) {
-        toggleInputDock(true);
-        setOrbState('idle', 'TYPE TO JURI', 2200);
-        return;
-      }
+  recognition = new SpeechRecognition();
+  recognition.lang = 'th-TH';
+  recognition.interimResults = false;
+  recognition.continuous = false;
 
-      recognition = new SpeechRecognition();
-      recognition.lang = 'th-TH';
-      recognition.interimResults = false;
-      recognition.continuous = false;
+  recognition.onstart = () => {
+    setOrbState('listening', '● LISTENING...');
+  };
 
-      recognition.onstart = () => {
-        setOrbState('listening', '● LISTENING...');
-      };
-
-      recognition.onresult = (event) => {
-        const transcript = event.results?.[0]?.[0]?.transcript || '';
-        if (transcript.trim()) {
-          askJuri(transcript);
-        } else {
-          setOrbState('idle', '');
-        }
-      };
-
-      recognition.onerror = (event) => {
-        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-          toggleInputDock(true);
-          setOrbState('idle', 'MIC BLOCKED — TYPE', 2800);
-        } else if (event.error === 'no-speech') {
-          setOrbState('idle', 'NO SPEECH', 1800);
-        } else if (event.error !== 'aborted') {
-          setOrbState('idle', '');
-        }
-      };
-
-      recognition.onend = () => {
-        if (currentState === 'listening') {
-          setOrbState('idle', '');
-        }
-      };
-
-      try {
-        recognition.start();
-      } catch (_) {
-        toggleInputDock(true);
-      }
+  recognition.onresult = (event) => {
+    const transcript = event.results?.[0]?.[0]?.transcript || '';
+    if (transcript.trim()) {
+      askJuri(transcript);
+    } else {
+      autoListenLoop = false;
+      setOrbState('idle', '');
     }
+  };
+
+  recognition.onerror = (event) => {
+    console.warn('Mic error:', event.error);
+    if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+      autoListenLoop = false;
+    }
+    setOrbState('idle', '');
+  };
+
+  recognition.onend = () => {
+    // หากผู้ใช้เงียบไม่พูดอะไรเลยจนหมดเวลา ให้พักไมค์อัตโนมัติ
+    if (currentState === 'listening') {
+      autoListenLoop = false;
+      setOrbState('idle', '');
+    }
+  };
+
+  try {
+    recognition.start();
+  } catch (err) {
+    setOrbState('idle', '');
+  }
+}
+
+function handleOrbClick() {
+  if (currentState !== 'idle') {
+    autoListenLoop = false;
+    stopAllAudioAndMic();
+    return;
+  }
+  if (pendingAudioBase64) {
+    playAzureAudio(pendingAudioBase64);
+    return;
+  }
+
+  unlockMobileAudio();
+  autoListenLoop = true;
+  startVoiceListening();
+}
+
+    
 
     fab?.addEventListener('click', handleOrbClick);
 
